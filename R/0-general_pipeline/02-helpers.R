@@ -7,8 +7,9 @@
 # ------------------------------
 # Function. Normalize strings
 # ------------------------------
-normalize_string <- function(x) {
-  x |>
+normalize_string <- function(string) {
+  string |>
+    as.character() |>
     stringr::str_to_lower() |>
     stringi::stri_trans_general("Latin-ASCII") |>
     stringr::str_replace_all("[^a-z0-9 ]", " ") |>
@@ -16,15 +17,38 @@ normalize_string <- function(x) {
 }
 
 # ------------------------------
-# Function. Normalize strings for filenames
+# Function. Normalize filenames
 # ------------------------------
-normalize_filename <- function(x) {
-  x |>
-    stringr::str_to_lower() |>
-    stringi::stri_trans_general("Latin-ASCII") |>
-    stringr::str_replace_all("[^a-z0-9_]", "_") |>
-    stringr::str_squish() |>
-    stringr::str_replace_all("_+", "_")
+normalize_filename <- function(filename) {
+  filename |>
+    normalize_string() |>
+    stringr::str_replace_all(" ", "_")
+}
+
+# ------------------------------
+# Function. Extract yearbook from name parts
+# ------------------------------
+extract_yearbook <- function(parts) {
+  dplyr::if_else(
+    length(parts) >= 4,
+    paste(parts[2:4], collapse = "_"),
+    NA_character_
+  )
+}
+
+# ------------------------------
+# Function. Extract product from name parts
+# ------------------------------
+extract_product <- function(parts) {
+  dplyr::if_else(
+    length(parts) > 6,
+    {
+      prod_parts <- parts[7:length(parts)]
+      prod_parts[length(prod_parts)] <- fs::path_ext_remove(prod_parts[length(prod_parts)])
+      paste(prod_parts, collapse = "_")
+    },
+    NA_character_
+  )
 }
 
 # ------------------------------
@@ -47,25 +71,34 @@ validate_export_import <- function(df, base_name) {
 }
 
 # ------------------------------
-# Function. Generate full Excel export path
+# Function. Generate full export paths
 # ------------------------------
-generate_excel_path <- function(config, base_name) {
+generate_export_path <- function(
+  config,
+  base_name,
+  type = c("processed", "lists")
+) {
+  # Validate arguments
+  type <- match.arg(type)
   stopifnot(!is.null(config$export_config))
-  fs::path(
-    config$paths$data$exports$processed,
-    paste0(normalize_filename(base_name), config$export_config$excel_suffix)
-  )
-}
+  checkmate::assert_string(base_name)
 
-# ------------------------------
-# Function. Generate unique columns list path
-# ------------------------------
-generate_list_path <- function(config, base_name) {
-  stopifnot(!is.null(config$export_config))
-  fs::path(
-    config$paths$data$exports$lists,
-    paste0(normalize_filename(base_name), config$export_config$list_suffix)
+  # Determine folder and suffix based on type
+  folder <- switch(
+    type,
+    processed = config$paths$data$exports$processed,
+    lists = config$paths$data$exports$lists
   )
+
+  suffix <- switch(
+    type,
+    processed = config$export_config$excel_suffix,
+    lists = config$export_config$list_suffix
+  )
+
+  fs::dir_create(folder)
+
+  fs::path(folder, paste0(normalize_filename(base_name), suffix))
 }
 
 # ------------------------------
@@ -73,22 +106,6 @@ generate_list_path <- function(config, base_name) {
 # ------------------------------
 as_data_table_safe <- function(df) {
   if (!data.table::is.data.table(df)) data.table::as.data.table(df) else df
-}
-
-# ------------------------------
-# Function. Dynamic export path generator
-# ------------------------------
-export_path <- function(config, base_name, type = c("full", "list")) {
-  type <- match.arg(type)
-  suffix <- if (type == "full") {
-    config$export_config$excel_suffix
-  } else {
-    config$export_config$list_suffix
-  }
-  fs::path(
-    config$paths$data$exports[[ifelse(type == "full", "processed", "lists")]],
-    paste0(normalize_filename(base_name), suffix)
-  )
 }
 
 # ------------------------------

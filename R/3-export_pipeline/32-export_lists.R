@@ -21,10 +21,8 @@ export_single_column_list <- function(df, col_name, config, overwrite = TRUE) {
   validate_export_import(df, col_name)
 
   values <- get_unique_column(df, col_name)
-  path <- fs::path(
-    config$paths$data$exports$lists,
-    paste0(normalize_filename(col_name), config$export_config$list_suffix)
-  )
+  
+  path <- generate_export_path(config, col_name, type = "lists")
 
   wb <- openxlsx::createWorkbook()
   openxlsx::addWorksheet(wb, "data")

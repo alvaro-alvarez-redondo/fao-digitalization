@@ -15,30 +15,29 @@ options(
 # ------------------------------
 # Function. Pipeline configuration
 # ------------------------------
-load_pipeline_config <- function() {
-  project_root <- here::here()
+load_pipeline_config <- function(base_path = here::here()) {
+  project_path <- function(...) fs::path(base_path, ...)
 
-  project_path <- function(...) fs::path(project_root, ...)
-
+  # ------------------------------
+  # 1. Project structure
+  # ------------------------------
   paths <- list(
     data = list(
       imports = list(
-        raw = fs::path(project_root, "data", "imports", "raw imports"),
-        cleaning = fs::path(project_root, "data", "imports", "cleaning imports"),
-        harmonization = fs::path(
-          project_root,
-          "data",
-          "imports",
-          "harmonization imports"
-        )
+        raw = project_path("data", "imports", "raw imports"),
+        cleaning = project_path("data", "imports", "cleaning imports"),
+        harmonization = project_path("data", "imports", "harmonization imports")
       ),
       exports = list(
-        lists = fs::path(project_root, "data", "exports", "lists"),
-        processed = fs::path(project_root, "data", "exports", "processed data")
+        lists = project_path("data", "exports", "lists"),
+        processed = project_path("data", "exports", "processed data")
       )
     )
   )
 
+  # ------------------------------
+  # 2. Key filenames
+  # ------------------------------
   files <- list(
     fao_final = "fao_data_final.xlsx",
     fao_wide = "fao_data_wide.xlsx",
@@ -46,45 +45,54 @@ load_pipeline_config <- function() {
   )
 
   # ------------------------------
-  # Exports configuration for subpipeline
+  # 3. Export configuration
   # ------------------------------
   export_config <- list(
-    excel_suffix = "_export.xlsx", # Suffix for full data export
-    list_suffix = "_unique.xlsx", # Suffix for unique-column lists
-
-    lists_to_export = c(
-      "continent",
-      "country",
-      "unit",
-      "product",
-      "variable"
-      # Add or remove columns as needed
-    )
+    excel_suffix = "_export.xlsx",
+    list_suffix = "_unique.xlsx",
+    lists_to_export = c("continent", "country", "unit", "product", "variable")
   )
 
-  fs::dir_create(unlist(paths, recursive = TRUE, use.names = FALSE))
+  # ------------------------------
+  # 4. Column configuration (bloques semánticos)
+  # ------------------------------
+  columns <- list(
+    # Metadata coming from source
+    base = c("continent", "country", "unit", "footnotes"),
 
+    # Identifiers for reshaping
+    id = c("product", "variable", "unit", "continent", "country", "footnotes"),
+
+    # Value columns
+    value = c("year", "value"),
+
+    # System-generated metadata
+    system = c("notes", "yearbook", "document")
+  )
+
+  # Column order construido dinámicamente
+  column_order <- c(columns$id, columns$value, columns$system)
+
+  # ------------------------------
+  # 5. Defaults
+  # ------------------------------
+  defaults <- list(
+    notes_value = NA_character_
+  )
+
+  # ------------------------------
+  # 6. Return full configuration
+  # ------------------------------
   list(
-    project_root = project_root,
+    project_root = base_path,
     paths = paths,
     files = files,
     export_config = export_config,
-    defaults = list(
-      notes_value = NA_character_
-    ),
-    column_order = c(
-      "product",
-      "variable",
-      "unit",
-      "continent",
-      "country",
-      "year",
-      "value",
-      "footnotes",
-      "notes",
-      "yearbook",
-      "document"
-    )
+    defaults = defaults,
+    columns = columns,
+    column_order = column_order,
+    column_required = columns$base,
+    column_id = columns$id
   )
 }
 

@@ -17,7 +17,7 @@ export_processed_data <- function(
   validate_export_import(final_dt, base_name)
 
   # Generate export path
-  path <- generate_excel_path(config, base_name)
+  path <- generate_export_path(config, base_name, type = "processed")
 
   # Create workbook and write data
   wb <- openxlsx::createWorkbook()

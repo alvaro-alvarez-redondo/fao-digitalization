@@ -8,40 +8,43 @@
 # Function. Read a single sheet
 # ------------------------------
 read_excel_sheet <- function(file_path, sheet_name) {
-  df <- suppressMessages(
-    readxl::read_excel(
-      path = file_path,
-      sheet = sheet_name,
-      col_names = TRUE,
-      col_types = "text" # force all columns to character
-    )
-  )
-
-  base_cols <- c("continent", "country", "unit")
-  missing_base <- setdiff(base_cols, colnames(df))
+  base_cols <- config$column_required
   errors <- character(0)
 
-  if (length(missing_base) > 0) {
-    errors <- c(
-      errors,
-      paste0(
-        "Sheet '",
-        sheet_name,
-        "' missing base columns: ",
-        paste(missing_base, collapse = ", "),
-        " in file '",
-        fs::path_file(file_path),
-        "'"
-      )
+  suppressMessages(
+    readxl::read_excel(
+      file_path,
+      sheet = sheet_name,
+      col_names = TRUE,
+      col_types = "text"
     )
-    df[missing_base] <- NA_character_
-  }
-
-  df_filtered <- df |>
-    dplyr::filter(dplyr::if_any(all_of(base_cols), ~ !is.na(.x) & .x != "")) |>
-    dplyr::mutate(variable = sheet_name)
-
-  list(data = data.table::as.data.table(df_filtered), errors = errors)
+  ) |>
+    (\(df) {
+      missing_base <- setdiff(base_cols, colnames(df))
+      if (length(missing_base) > 0) {
+        errors <<- c(
+          errors,
+          paste0(
+            "Sheet '",
+            sheet_name,
+            "' missing base columns: ",
+            paste(missing_base, collapse = ", "),
+            " in file '",
+            fs::path_file(file_path),
+            "'"
+          )
+        )
+        df[missing_base] <- NA_character_
+      }
+      df |>
+        dplyr::filter(dplyr::if_any(
+          all_of(base_cols),
+          ~ !is.na(.x) & .x != ""
+        )) |>
+        dplyr::mutate(variable = sheet_name) |>
+        data.table::as.data.table()
+    })() |>
+    (\(dt) list(data = dt, errors = errors))()
 }
 
 # ------------------------------

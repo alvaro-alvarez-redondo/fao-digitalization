@@ -41,7 +41,7 @@ collected_reading_errors <- purrr::map(read_data_list, ~ .x$errors) |> unlist()
 transformed <- transform_files_list(
   file_list_dt = file_list_dt,
   read_data_list = read_data_list,
-  notes_value = transform_config$notes_value,
+  config = config,
   enable_progress = TRUE
 )
 
@@ -52,18 +52,16 @@ dt_long_all <- transformed$long
 # 4. Validate long-format data
 # ------------------------------
 validation_results <- split(dt_long_all, dt_long_all$document) |>
-  purrr::map(validate_long_dt)
+  purrr::map(~ validate_long_dt(.x, config))
 
 validated_dt_list <- purrr::map(validation_results, "data")
-collected_errors <- purrr::map(validation_results, "errors") |> unlist()
+collected_errors <- purrr::map(validation_results, "errors") |>
+  unlist()
 
 # ------------------------------
 # 5. Consolidate all validated tables
 # ------------------------------
-consolidated_result <- consolidate_validated_dt(
-  validated_dt_list,
-  column_order = config$column_order
-)
+consolidated_result <- consolidate_validated_dt(validated_dt_list, config)
 final_dt <- consolidated_result$data
 collected_warnings <- consolidated_result$warnings
 

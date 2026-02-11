@@ -7,10 +7,11 @@
 # ------------------------------
 # Function. Consolidate multiple validated data.tables
 # ------------------------------
-consolidate_validated_dt <- function(dt_list, column_order) {
+consolidate_validated_dt <- function(dt_list, config) {
   dt_list <- dt_list |>
     purrr::compact() |>
     purrr::map(data.table::as.data.table)
+
   if (length(dt_list) == 0) {
     return(list(
       data = data.table::data.table(),
@@ -21,13 +22,13 @@ consolidate_validated_dt <- function(dt_list, column_order) {
   dt_combined <- data.table::rbindlist(dt_list, use.names = TRUE, fill = TRUE)
 
   # Ensure all required columns exist
-  missing_cols <- setdiff(column_order, colnames(dt_combined))
+  missing_cols <- setdiff(config$column_order, colnames(dt_combined))
   if (length(missing_cols) > 0) {
     dt_combined[, (missing_cols) := NA_character_]
   }
 
   # Reorder columns
-  data.table::setcolorder(dt_combined, column_order)
+  data.table::setcolorder(dt_combined, config$column_order)
 
   list(data = dt_combined, warnings = character(0))
 }

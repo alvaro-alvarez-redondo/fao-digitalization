@@ -5,42 +5,12 @@
 # ============================================================
 
 # ------------------------------
-# Function. Validate mandatory fields
+# Function. Validate mandatory fields (vectorized)
 # ------------------------------
-validate_mandatory_fields <- function(dt) {
-  mandatory_cols <- c("continent", "country", "unit", "footnotes")
+validate_mandatory_fields_dt <- function(dt, config) {
+  mandatory_cols <- config$column_required
 
-  errors <- dt |>
-    dplyr::rowwise() |>
-    dplyr::mutate(
-      missing_cols = list(mandatory_cols[
-        is.na(c_across(all_of(mandatory_cols))) |
-          c_across(all_of(mandatory_cols)) == ""
-      ])
-    ) |>
-    dplyr::filter(length(missing_cols) > 0) |>
-    dplyr::mutate(
-      error_message = paste0(
-        "Missing mandatory columns (",
-        paste(missing_cols, collapse = ", "),
-        ") in document '",
-        document,
-        "'"
-      )
-    ) |>
-    dplyr::pull(error_message)
-
-  list(data = dt, errors = errors)
-}
-
-# ------------------------------
-# Function. Full validation pipeline
-# ------------------------------
-validate_mandatory_fields_dt <- function(
-  dt,
-  mandatory_cols = c("continent", "country", "unit", "footnotes")
-) {
-  # Vectorized check for missing values
+  # Vectorized check: TRUE si NA o ""
   missing_mask <- dt[,
     lapply(.SD, function(x) is.na(x) | x == ""),
     .SDcols = mandatory_cols
@@ -60,6 +30,9 @@ validate_mandatory_fields_dt <- function(
   list(errors = errors, data = dt)
 }
 
+# ------------------------------
+# Function. Detect duplicates
+# ------------------------------
 detect_duplicates_dt <- function(dt) {
   dup_counts <- dt[, .N, by = .(product, variable, year, value, document)]
   dup_rows <- dup_counts[N > 1]
@@ -84,14 +57,15 @@ detect_duplicates_dt <- function(dt) {
   list(errors = errors, data = dt)
 }
 
-validate_long_dt <- function(long_dt) {
-  # Ensure data.table
+# ------------------------------
+# Function. Full validation pipeline
+# ------------------------------
+validate_long_dt <- function(long_dt, config) {
   dt <- data.table::as.data.table(long_dt)
-
   errors <- character(0)
 
   # 1. Validate mandatory fields
-  mandatory_result <- validate_mandatory_fields_dt(dt)
+  mandatory_result <- validate_mandatory_fields_dt(dt, config)
   errors <- c(errors, mandatory_result$errors)
 
   # 2. Detect duplicates

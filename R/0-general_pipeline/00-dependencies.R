@@ -39,7 +39,8 @@ load_dependencies <- function(packages) {
     packages,
     ~ suppressPackageStartupMessages(
       library(.x, character.only = TRUE)
-    )
+    ),
+    error = \(e) message("Error loading package '", .x)
   )
 }
 
