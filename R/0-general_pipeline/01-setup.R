@@ -45,16 +45,7 @@ load_pipeline_config <- function(base_path = here::here()) {
   )
 
   # ------------------------------
-  # 3. Export configuration
-  # ------------------------------
-  export_config <- list(
-    excel_suffix = "_export.xlsx",
-    list_suffix = "_unique.xlsx",
-    lists_to_export = c("continent", "country", "unit", "product", "variable")
-  )
-
-  # ------------------------------
-  # 4. Column configuration (bloques semánticos)
+  # 3. Column configuration (bloques semánticos)
   # ------------------------------
   columns <- list(
     # Metadata coming from source
@@ -70,8 +61,13 @@ load_pipeline_config <- function(base_path = here::here()) {
     system = c("notes", "yearbook", "document")
   )
 
-  # Column order construido dinámicamente
   column_order <- c(columns$id, columns$value, columns$system)
+
+export_config <- list(
+  data_suffix = ".xlsx",
+  list_suffix = "_unique.xlsx",
+  lists_to_export = c(columns$id, "year", columns$system)
+)
 
   # ------------------------------
   # 5. Defaults

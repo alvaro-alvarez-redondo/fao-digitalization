@@ -19,21 +19,21 @@ purrr::walk(
 )
 
 # ------------------------------
-# 1. Check that final_dt exists
+# 1. Check that fao_data_raw exists
 # ------------------------------
-if (!exists("final_dt")) {
+if (!exists("fao_data_raw")) {
   stop(
-    "final_dt not found in the environment. Make sure the import pipeline has run."
+    "fao_data_raw not found in the environment. Make sure the import pipeline has run."
   )
 }
 
 # ------------------------------
 # 2. Run export pipeline with full-length progress bar
 # ------------------------------
-run_export_pipeline <- function(final_dt, config, overwrite = TRUE) {
-  final_dt <- ensure_data_table(final_dt)
+run_export_pipeline <- function(fao_data_raw, config, overwrite = TRUE) {
+  fao_data_raw <- ensure_data_table(fao_data_raw)
   cols_to_export <- config$export_config$lists_to_export
-  total_steps <- 1 + length(cols_to_export) # 1 for final dataset + n for unique columns
+  total_steps <- 1 + length(cols_to_export)
 
   # Progress bar identical to reading pipeline, full length
   progressr::handlers(progressr::handler_txtprogressbar(
@@ -46,16 +46,16 @@ run_export_pipeline <- function(final_dt, config, overwrite = TRUE) {
 
     # 1. Export final dataset
     export_processed_data(
-      final_dt,
+      fao_data_raw,
       config,
-      base_name = "final",
+      base_name = "fao_data_raw",
       overwrite = overwrite
     )
     p() # increment progress
 
     # 2. Export unique-column lists
     purrr::walk(cols_to_export, function(col_name) {
-      export_single_column_list(final_dt, col_name, config, overwrite)
+      export_single_column_list(fao_data_raw, col_name, config, overwrite)
       p() # increment progress
     })
   })
@@ -66,7 +66,7 @@ run_export_pipeline <- function(final_dt, config, overwrite = TRUE) {
 # ------------------------------
 # 3. Execute automatically
 # ------------------------------
-run_export_pipeline(final_dt, config, overwrite = TRUE)
+run_export_pipeline(fao_data_raw, config, overwrite = TRUE)
 
 # ------------------------------
 # End of script

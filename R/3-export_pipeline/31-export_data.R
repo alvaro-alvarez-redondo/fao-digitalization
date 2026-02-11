@@ -8,13 +8,13 @@
 # Function. Export final data.table to Excel
 # ------------------------------
 export_processed_data <- function(
-  final_dt,
+  fao_data_raw,
   config,
-  base_name = "final",
+  base_name = "data_export",
   overwrite = TRUE
 ) {
   # Validate imports
-  validate_export_import(final_dt, base_name)
+  validate_export_import(fao_data_raw, base_name)
 
   # Generate export path
   path <- generate_export_path(config, base_name, type = "processed")
@@ -22,7 +22,7 @@ export_processed_data <- function(
   # Create workbook and write data
   wb <- openxlsx::createWorkbook()
   openxlsx::addWorksheet(wb, "data")
-  openxlsx::writeData(wb, "data", final_dt)
+  openxlsx::writeData(wb, "data", fao_data_raw)
 
   # Save workbook
   openxlsx::saveWorkbook(wb, path, overwrite = overwrite)

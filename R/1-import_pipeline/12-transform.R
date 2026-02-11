@@ -72,10 +72,10 @@ reshape_to_long <- function(df, config) {
 # ------------------------------
 # Function. Add metadata columns
 # ------------------------------
-add_metadata <- function(dt_long, file_name, yearbook, config) {
+add_metadata <- function(fao_data_long, file_name, yearbook, config) {
   notes_value <- config$defaults$notes_value
 
-  dt_long |>
+  fao_data_long |>
     dplyr::mutate(
       document = file_name,
       notes = notes_value,
@@ -92,11 +92,11 @@ transform_file_dt <- function(df, file_name, yearbook, product_name, config) {
     normalize_key_fields(product_name, config) |>
     convert_year_columns(config)
 
-  dt_long <- df_norm |>
+  fao_data_long <- df_norm |>
     reshape_to_long(config) |>
     add_metadata(file_name, yearbook, config)
 
-  list(wide = df_norm, long = dt_long)
+  list(wide = df_norm, long = fao_data_long)
 }
 
 # ------------------------------
@@ -163,9 +163,9 @@ transform_files_list <- function(
   }
 
   list(
-    wide = purrr::map(results, "wide") |>
+    wide = purrr::map(results, "wide") |> 
       data.table::rbindlist(fill = TRUE),
-    long = purrr::map(results, "long") |>
+    long = purrr::map(results, "long") |> 
       data.table::rbindlist(fill = TRUE)
   )
 }

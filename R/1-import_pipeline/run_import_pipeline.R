@@ -45,13 +45,13 @@ transformed <- transform_files_list(
   enable_progress = TRUE
 )
 
-dt_wide_all <- transformed$wide
-dt_long_all <- transformed$long
+fao_data_wide <- transformed$wide
+fao_data_long <- transformed$long
 
 # ------------------------------
 # 4. Validate long-format data
 # ------------------------------
-validation_results <- split(dt_long_all, dt_long_all$document) |>
+validation_results <- split(fao_data_long, fao_data_long$document) |>
   purrr::map(~ validate_long_dt(.x, config))
 
 validated_dt_list <- purrr::map(validation_results, "data")
@@ -62,7 +62,7 @@ collected_errors <- purrr::map(validation_results, "errors") |>
 # 5. Consolidate all validated tables
 # ------------------------------
 consolidated_result <- consolidate_validated_dt(validated_dt_list, config)
-final_dt <- consolidated_result$data
+fao_data_raw <- consolidated_result$data
 collected_warnings <- consolidated_result$warnings
 
 # ------------------------------

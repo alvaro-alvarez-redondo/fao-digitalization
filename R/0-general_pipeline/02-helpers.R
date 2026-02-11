@@ -92,7 +92,7 @@ generate_export_path <- function(
 
   suffix <- switch(
     type,
-    processed = config$export_config$excel_suffix,
+    processed = config$export_config$data_suffix,
     lists = config$export_config$list_suffix
   )
 
