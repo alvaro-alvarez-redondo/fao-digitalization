@@ -19,51 +19,45 @@ purrr::walk(
 )
 
 # ------------------------------
-# 1. Check that fao_data_raw exists
-# ------------------------------
-if (!exists("fao_data_raw")) {
-  stop(
-    "fao_data_raw not found in the environment. Make sure the import pipeline has run."
-  )
-}
-
-# ------------------------------
-# 2. Run export pipeline with full-length progress bar
+# Function. Run export pipeline
 # ------------------------------
 run_export_pipeline <- function(fao_data_raw, config, overwrite = TRUE) {
   fao_data_raw <- ensure_data_table(fao_data_raw)
   total_steps <- 2
 
-  # Progress bar identical to reading pipeline, full length
   progressr::handlers(progressr::handler_txtprogressbar(
     style = 3,
     clear = FALSE
   ))
 
   progressr::with_progress({
-    p <- progressr::progressor(along = seq_len(total_steps))
+    progress <- progressr::progressor(along = seq_len(total_steps))
 
-    # 1. Export final dataset
-    export_processed_data(
+    processed_path <- export_processed_data(
       fao_data_raw,
       config,
       base_name = "fao_data_raw",
       overwrite = overwrite
     )
-    p() # increment progress
+    progress()
 
-    # 2. Export unique-column lists
-    export_selected_unique_lists(fao_data_raw, config, overwrite)
-    p() # increment progress
+    lists_path <- export_selected_unique_lists(fao_data_raw, config, overwrite)
+    progress()
+
+    list(processed_path = processed_path, lists_path = lists_path)
   })
-
-  invisible(TRUE)
 }
 
 # ------------------------------
-# 3. Execute automatically
+# Execute automatically
 # ------------------------------
-run_export_pipeline(fao_data_raw, config, overwrite = TRUE)
+if (!exists("fao_data_raw")) {
+  stop(
+    "fao_data_raw not found in the environment. make sure the import pipeline has run."
+  )
+}
+
+export_paths <- run_export_pipeline(fao_data_raw, config, overwrite = TRUE)
 
 # ------------------------------
 # End of script
