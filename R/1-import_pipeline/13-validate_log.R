@@ -10,22 +10,27 @@
 validate_mandatory_fields_dt <- function(dt, config) {
   mandatory_cols <- config$column_required
 
-  # Vectorized check: TRUE when value is NA or an empty string
-  missing_mask <- dt[,
-    lapply(.SD, function(x) is.na(x) | x == ""),
-    .SDcols = mandatory_cols
-  ]
-  rows_with_missing <- which(Reduce(`|`, missing_mask))
-
-  errors <- character(0)
-  if (length(rows_with_missing) > 0) {
-    missing_info <- dt[rows_with_missing, .(document)]
-    errors <- paste0(
-      "Missing mandatory columns in document '",
-      missing_info$document,
-      "'"
+  missing_long <- dt[, row_id := .I][] |>
+    tidyr::pivot_longer(
+      cols = tidyselect::all_of(mandatory_cols),
+      names_to = "column_name",
+      values_to = "column_value"
+    ) |>
+    dplyr::filter(is.na(column_value) | column_value == "") |>
+    dplyr::mutate(
+      error_message = paste0(
+        "missing mandatory value in document '",
+        document,
+        "', row_id '",
+        row_id,
+        "', column '",
+        column_name,
+        "'"
+      )
     )
-  }
+
+  errors <- missing_long$error_message |> unique()
+  dt[, row_id := NULL]
 
   list(errors = errors, data = dt)
 }
@@ -34,8 +39,8 @@ validate_mandatory_fields_dt <- function(dt, config) {
 # Function. Detect duplicates
 # ------------------------------
 detect_duplicates_dt <- function(dt) {
-  dup_counts <- dt[, .N, by = .(product, variable, year, value, document)]
-  dup_rows <- dup_counts[N > 1]
+  dup_counts <- dt[, .(duplicate_count = .N), by = .(product, variable, year, value, document)]
+  dup_rows <- dup_counts[duplicate_count > 1]
 
   errors <- character(0)
   if (nrow(dup_rows) > 0) {
@@ -48,6 +53,8 @@ detect_duplicates_dt <- function(dt) {
       dup_rows$year,
       "', value '",
       dup_rows$value,
+      "', duplicate_count '",
+      dup_rows$duplicate_count,
       "' in document '",
       dup_rows$document,
       "'"

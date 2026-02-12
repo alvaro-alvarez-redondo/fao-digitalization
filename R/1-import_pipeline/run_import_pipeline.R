@@ -20,53 +20,55 @@ purrr::walk(
 )
 
 # ------------------------------
-# 1. Discover import Excel files
+# Function. Run full import pipeline
 # ------------------------------
-file_list_dt <- discover_files(config$paths$data$imports$raw)
+run_import_pipeline <- function(config) {
+  file_list_dt <- discover_files(config$paths$data$imports$raw)
 
-if (nrow(file_list_dt) == 0) {
-  stop("No Excel files found. Pipeline terminated.")
+  if (nrow(file_list_dt) == 0) {
+    stop("no excel files found. pipeline terminated.")
+  }
+
+  read_pipeline_result <- read_pipeline_files(file_list_dt, config)
+  read_data_list <- read_pipeline_result$read_data_list
+
+  transformed <- transform_files_list(
+    file_list_dt = file_list_dt,
+    read_data_list = read_data_list,
+    config = config
+  )
+
+  validation_groups <- transformed$long_raw[, .(data = list(.SD)), by = document]
+  validation_results <- purrr::map(validation_groups$data, ~ validate_long_dt(.x, config))
+
+  validated_dt_list <- purrr::map(validation_results, "data")
+  validation_errors <- purrr::map(validation_results, "errors") |>
+    unlist(use.names = FALSE)
+
+  consolidated_result <- consolidate_validated_dt(validated_dt_list, config)
+
+  list(
+    data = consolidated_result$data,
+    wide_raw = transformed$wide_raw,
+    diagnostics = list(
+      reading_errors = read_pipeline_result$errors,
+      validation_errors = validation_errors,
+      warnings = consolidated_result$warnings
+    )
+  )
 }
 
 # ------------------------------
-# 2. Read all sheets
+# Execute automatically
 # ------------------------------
-read_pipeline_result <- read_pipeline_files(file_list_dt, config)
-read_data_list <- read_pipeline_result$read_data_list
-collected_reading_errors <- read_pipeline_result$errors
-rm(read_pipeline_result)
+import_pipeline_result <- run_import_pipeline(config)
+fao_data_raw <- import_pipeline_result$data
+fao_data_wide_raw <- import_pipeline_result$wide_raw
+collected_reading_errors <- import_pipeline_result$diagnostics$reading_errors
+collected_errors <- import_pipeline_result$diagnostics$validation_errors
+collected_warnings <- import_pipeline_result$diagnostics$warnings
 
-# ------------------------------
-# 3. Transform all files (wide + long)
-# ------------------------------
-transformed <- transform_files_list(
-  file_list_dt = file_list_dt,
-  read_data_list = read_data_list,
-  config = config
-)
-
-fao_data_wide_raw <- transformed$wide_raw
-fao_data_long_raw <- transformed$long_raw
-
-# ------------------------------
-# 4. Validate long-format data
-# ------------------------------
-validation_groups <- fao_data_long_raw[, .(data = list(.SD)), by = document]
-validation_results <- purrr::map(validation_groups$data, ~ validate_long_dt(.x, config))
-
-validated_dt_list <- purrr::map(validation_results, "data")
-collected_errors <- purrr::map(validation_results, "errors") |>
-  unlist(use.names = FALSE)
-rm(validation_groups, validation_results, read_data_list, transformed, fao_data_wide_raw)
-gc()
-
-# ------------------------------
-# 5. Consolidate all validated tables
-# ------------------------------
-consolidated_result <- consolidate_validated_dt(validated_dt_list, config)
-fao_data_raw <- consolidated_result$data
-collected_warnings <- consolidated_result$warnings
-rm(validated_dt_list, consolidated_result)
+rm(import_pipeline_result)
 gc()
 
 # ------------------------------

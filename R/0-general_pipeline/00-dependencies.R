@@ -36,18 +36,8 @@ check_dependencies <- function(packages) {
 
 load_dependencies <- function(packages) {
   purrr::walk(packages, function(package_name) {
-    tryCatch(
-      suppressPackageStartupMessages(
-        library(package_name, character.only = TRUE)
-      ),
-      error = function(e) {
-        message(
-          "Error loading package '",
-          package_name,
-          "': ",
-          conditionMessage(e)
-        )
-      }
+    suppressPackageStartupMessages(
+      library(package_name, character.only = TRUE)
     )
   })
 }
