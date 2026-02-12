@@ -44,7 +44,9 @@ extract_product <- function(parts) {
     length(parts) > 6,
     {
       prod_parts <- parts[7:length(parts)]
-      prod_parts[length(prod_parts)] <- fs::path_ext_remove(prod_parts[length(prod_parts)])
+      prod_parts[length(prod_parts)] <- fs::path_ext_remove(prod_parts[length(
+        prod_parts
+      )])
       paste(prod_parts, collapse = "_")
     },
     NA_character_
@@ -100,7 +102,6 @@ generate_export_path <- function(
 
   fs::path(folder, paste0(normalize_filename(base_name), suffix))
 }
-
 
 # ------------------------------
 # End of script
