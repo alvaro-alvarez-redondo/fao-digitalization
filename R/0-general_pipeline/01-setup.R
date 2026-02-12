@@ -63,11 +63,11 @@ load_pipeline_config <- function(base_path = here::here()) {
 
   column_order <- c(columns$id, columns$value, columns$system)
 
-export_config <- list(
-  data_suffix = ".xlsx",
-  list_suffix = "_unique.xlsx",
-  lists_to_export = c(columns$id, "year", columns$system)
-)
+  export_config <- list(
+    data_suffix = ".xlsx",
+    list_suffix = "_unique.xlsx",
+    lists_to_export = c(columns$id, "year", columns$system)
+  )
 
   # ------------------------------
   # 5. Defaults

@@ -11,6 +11,7 @@ get_unique_column <- function(df, col_name) {
   checkmate::assert_data_frame(df)
   checkmate::assert_string(col_name)
   df <- ensure_data_table(df)
+  checkmate::assert_true(col_name %in% colnames(df), .var.name = "col_name")
   sort(unique(df[[col_name]]))
 }
 

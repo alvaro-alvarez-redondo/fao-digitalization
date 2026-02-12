@@ -101,12 +101,6 @@ generate_export_path <- function(
   fs::path(folder, paste0(normalize_filename(base_name), suffix))
 }
 
-# ------------------------------
-# Function. Safe data.table coercion
-# ------------------------------
-as_data_table_safe <- function(df) {
-  if (!data.table::is.data.table(df)) data.table::as.data.table(df) else df
-}
 
 # ------------------------------
 # End of script

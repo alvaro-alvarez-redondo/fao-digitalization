@@ -10,7 +10,7 @@
 validate_mandatory_fields_dt <- function(dt, config) {
   mandatory_cols <- config$column_required
 
-  # Vectorized check: TRUE si NA o ""
+  # Vectorized check: TRUE when value is NA or an empty string
   missing_mask <- dt[,
     lapply(.SD, function(x) is.na(x) | x == ""),
     .SDcols = mandatory_cols

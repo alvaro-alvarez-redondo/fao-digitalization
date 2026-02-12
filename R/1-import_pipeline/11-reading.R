@@ -7,7 +7,7 @@
 # ------------------------------
 # Function. Read a single sheet
 # ------------------------------
-read_excel_sheet <- function(file_path, sheet_name) {
+read_excel_sheet <- function(file_path, sheet_name, config) {
   base_cols <- config$column_required
   errors <- character(0)
 
@@ -50,7 +50,7 @@ read_excel_sheet <- function(file_path, sheet_name) {
 # ------------------------------
 # Function. Read all sheets from a single file
 # ------------------------------
-read_file_sheets <- function(file_path) {
+read_file_sheets <- function(file_path, config) {
   sheets <- readxl::excel_sheets(file_path)
   if (length(sheets) == 0) {
     return(list(data = data.table::data.table(), errors = character(0)))
@@ -68,7 +68,7 @@ read_file_sheets <- function(file_path) {
     character(0)
   }
 
-  sheets_list <- purrr::map(sheets, ~ read_excel_sheet(file_path, .x))
+  sheets_list <- purrr::map(sheets, ~ read_excel_sheet(file_path, .x, config))
 
   combined_data <- sheets_list |>
     purrr::map("data") |>
@@ -82,13 +82,13 @@ read_file_sheets <- function(file_path) {
 # ------------------------------
 # Function. Read multiple files
 # ------------------------------
-read_pipeline_files <- function(file_list_dt) {
+read_pipeline_files <- function(file_list_dt, config) {
   if (nrow(file_list_dt) == 0) {
     return(list(data = data.table::data.table(), errors = character(0)))
   }
 
   results <- purrr::map(seq_len(nrow(file_list_dt)), function(i) {
-    read_file_sheets(file_list_dt$file_path[i])
+    read_file_sheets(file_list_dt$file_path[i], config)
   })
 
   combined_data <- results |>
