@@ -31,9 +31,10 @@ if (nrow(file_list_dt) == 0) {
 # ------------------------------
 # 2. Read all sheets
 # ------------------------------
-read_data_list <- purrr::map(file_list_dt$file_path, read_file_sheets) |>
-  purrr::map("data")
-collected_reading_errors <- purrr::map(read_data_list, ~ .x$errors) |> unlist()
+read_results <- purrr::map(file_list_dt$file_path, ~ read_file_sheets(.x, config))
+read_data_list <- purrr::map(read_results, "data")
+collected_reading_errors <- purrr::map(read_results, "errors") |>
+  unlist()
 
 # ------------------------------
 # 3. Transform all files (wide + long)
