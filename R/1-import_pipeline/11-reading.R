@@ -84,22 +84,16 @@ read_file_sheets <- function(file_path, config) {
 # ------------------------------
 read_pipeline_files <- function(file_list_dt, config) {
   if (nrow(file_list_dt) == 0) {
-    return(list(data = data.table::data.table(), errors = character(0)))
+    return(list(read_data_list = list(), errors = character(0)))
   }
 
-  results <- purrr::map(seq_len(nrow(file_list_dt)), function(i) {
-    read_file_sheets(file_list_dt$file_path[i], config)
-  })
+  read_results <- purrr::map(file_list_dt$file_path, ~ read_file_sheets(.x, config))
+  parsed_results <- purrr::transpose(read_results)
 
-  combined_data <- results |>
-    purrr::map("data") |>
-    data.table::rbindlist(use.names = TRUE, fill = TRUE)
-
-  combined_errors <- results |>
-    purrr::map("errors") |>
-    unlist()
-
-  list(data = combined_data, errors = combined_errors)
+  list(
+    read_data_list = parsed_results$data,
+    errors = parsed_results$errors |> unlist(use.names = FALSE)
+  )
 }
 
 # ------------------------------

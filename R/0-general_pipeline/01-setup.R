@@ -15,80 +15,74 @@ options(
 # ------------------------------
 # Function. Pipeline configuration
 # ------------------------------
-load_pipeline_config <- function(base_path = here::here()) {
-  project_path <- function(...) fs::path(base_path, ...)
+load_pipeline_config <- function() {
+  project_root <- here::here()
+  build_path <- function(...) fs::path(project_root, ...)
 
-  # ------------------------------
-  # 1. Project structure
-  # ------------------------------
+  # fixed project folders for this pipeline scope
   paths <- list(
     data = list(
       imports = list(
-        raw = project_path("data", "imports", "raw imports"),
-        cleaning = project_path("data", "imports", "cleaning imports"),
-        harmonization = project_path("data", "imports", "harmonization imports")
+        raw = build_path("data", "imports", "raw imports"),
+        cleaning = build_path("data", "imports", "cleaning imports"),
+        harmonization = build_path("data", "imports", "harmonization imports")
       ),
       exports = list(
-        lists = project_path("data", "exports", "lists"),
-        processed = project_path("data", "exports", "processed data")
+        lists = build_path("data", "exports", "lists"),
+        processed = build_path("data", "exports", "processed data")
       )
     )
   )
 
-  # ------------------------------
-  # 2. Key filenames
-  # ------------------------------
+  # fixed output names for a single-product pipeline
   files <- list(
-    fao_final = "fao_data_final.xlsx",
-    fao_wide = "fao_data_wide.xlsx",
-    fao_long = "fao_data_long.xlsx"
+    raw_data = "fao_data_raw.xlsx",
+    wide_raw_data = "fao_data_wide_raw.xlsx",
+    long_raw_data = "fao_data_long_raw.xlsx"
   )
 
-  # ------------------------------
-  # 3. Column configuration (bloques semánticos)
-  # ------------------------------
+  # semantic column groups for all transformations
   columns <- list(
-    # Metadata coming from source
     base = c("continent", "country", "unit", "footnotes"),
-
-    # Identifiers for reshaping
     id = c("product", "variable", "unit", "continent", "country", "footnotes"),
-
-    # Value columns
     value = c("year", "value"),
-
-    # System-generated metadata
     system = c("notes", "yearbook", "document")
   )
 
-  column_order <- c(columns$id, columns$value, columns$system)
+  column_order <- columns |>
+    unlist(use.names = FALSE)
+
+  # fixed export behavior for predictable output generation
+  fixed_export_columns <- c(
+    "product",
+    "variable",
+    "unit",
+    "continent",
+    "country",
+    "footnotes",
+    "year",
+    "notes",
+    "yearbook",
+    "document"
+  )
 
   export_config <- list(
     data_suffix = ".xlsx",
     list_suffix = "_unique.xlsx",
-    lists_to_export = c(columns$id, "year", columns$system)
+    lists_to_export = fixed_export_columns,
+    lists_workbook_name = "fao_unique_lists_raw"
   )
 
-  # ------------------------------
-  # 5. Defaults
-  # ------------------------------
-  defaults <- list(
-    notes_value = NA_character_
-  )
-
-  # ------------------------------
-  # 6. Return full configuration
-  # ------------------------------
   list(
-    project_root = base_path,
+    project_root = project_root,
     paths = paths,
     files = files,
-    export_config = export_config,
-    defaults = defaults,
     columns = columns,
-    column_order = column_order,
     column_required = columns$base,
-    column_id = columns$id
+    column_id = columns$id,
+    column_order = column_order,
+    export_config = export_config,
+    defaults = list(notes_value = NA_character_)
   )
 }
 

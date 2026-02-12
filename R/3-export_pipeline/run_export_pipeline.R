@@ -32,8 +32,7 @@ if (!exists("fao_data_raw")) {
 # ------------------------------
 run_export_pipeline <- function(fao_data_raw, config, overwrite = TRUE) {
   fao_data_raw <- ensure_data_table(fao_data_raw)
-  cols_to_export <- config$export_config$lists_to_export
-  total_steps <- 1 + length(cols_to_export)
+  total_steps <- 2
 
   # Progress bar identical to reading pipeline, full length
   progressr::handlers(progressr::handler_txtprogressbar(
@@ -54,10 +53,8 @@ run_export_pipeline <- function(fao_data_raw, config, overwrite = TRUE) {
     p() # increment progress
 
     # 2. Export unique-column lists
-    purrr::walk(cols_to_export, function(col_name) {
-      export_single_column_list(fao_data_raw, col_name, config, overwrite)
-      p() # increment progress
-    })
+    export_selected_unique_lists(fao_data_raw, config, overwrite)
+    p() # increment progress
   })
 
   invisible(TRUE)

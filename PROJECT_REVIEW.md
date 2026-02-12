@@ -1,44 +1,112 @@
-## 2. Structural / Architectural Improvements
+## 1. Executive summary
 
-- **Move from script-sourcing orchestration to function-based orchestration.** Current top-level execution relies on `source()` side effects and global objects (`config`, `fao_data_raw`) instead of explicit return values. This limits composability, observability, and testability. Introduce `run_general_pipeline()`, `run_import_pipeline(config)`, and `run_export_pipeline(data, config)` as pure entry points and reserve scripts for thin CLI wrappers.
-- **Introduce explicit pipeline contracts between stages.** `run_import_pipeline.R` currently creates multiple globals (`fao_data_wide`, `fao_data_long`, `collected_errors`, etc.). Replace this with structured return objects (`list(data = ..., diagnostics = ...)`) to enforce data contracts and reduce accidental coupling.
-- **Unify data backend strategy.** The code mixes tidyverse and `data.table` heavily (often converting back-and-forth). Standardize either on tidyverse tibbles with dplyr verbs or on data.table end-to-end per stage; if mixed, define clear boundaries to avoid copy overhead and style drift.
-- **Add a configuration layer external to code.** Paths and export behavior are embedded in `01-setup.R`. Promote YAML/JSON-driven config and environment-specific overrides for production portability.
-- **Package-ize the project structure.** Move reusable functions into `R/` package-style functions with roxygen docs and exported internals. This will improve namespace discipline and unlock proper `testthat` discovery.
+the repository has a strong foundational structure with clear stage separation (`0-general`, `1-import`, `3-export`) and meaningful functional decomposition inside each stage. however, production readiness is currently limited by script-level side effects, heavy reliance on global objects (`config`, `fao_data_raw`), and mixed backend patterns (`tidyverse` + `data.table`) that increase cognitive load and maintenance cost.
 
-## 3. Code-Level Improvements
+the pipeline is close to a maintainable baseline, but it still behaves like an exploratory workflow rather than a contract-driven production system. key risks are orchestration coupling through `source()`, weak stage interfaces, partial validation ergonomics, and missing observability patterns for long-running jobs.
 
-- **Fix error handling in dependency loading.** `purrr::walk(..., error = ...)` is invalid for `walk()`. Use `purrr::walk(packages, purrr::possibly(...))` or `tryCatch` around `library()` calls.
-- **Eliminate implicit global dependencies.** `read_excel_sheet()` reads `config` from the parent environment instead of accepting it as an argument. This creates hidden coupling and non-deterministic behavior in tests.
-- **Fix import error collection bug.** `read_data_list` maps only the `$data` element, then `collected_reading_errors` incorrectly attempts to extract `$errors` from data tables; this silently drops sheet/file reading errors.
-- **Avoid viewer side effects in pipelines.** `View(fao_data_raw)` in `run_pipeline.R` breaks non-interactive execution and CI; guard it behind interactive checks or remove.
-- **Replace remaining base pipe assignments and formatting drift.** Native pipe usage is mostly consistent, but indentation in `01-setup.R` (`export_config`) is inconsistent and weakens readability.
-- **Normalize language in comments/messages.** One comment remains Spanish (`TRUE si NA o ""`). Standardize all comments and diagnostics to professional English.
-- **Harden column-level assertions.** `get_unique_column()` does not assert the requested column exists before indexing. Add explicit checks to fail fast with clear messages.
-- **Reduce duplication in helper utilities.** `ensure_data_table()` and `as_data_table_safe()` duplicate behavior; keep one canonical helper.
+---
 
-## 4. Performance Observations
+## 2. structural / architectural improvements
 
-- **Repeated conversions likely create avoidable copies.** Multiple functions convert to/from data.table/tibble repeatedly. For large FAO-like datasets this will increase memory churn.
-- **Row-wise split + map for validation is expensive.** `split(fao_data_long, document)` materializes many subsets; consider grouped validation using data.table by-groups to reduce allocations.
-- **Use keyed/ indexed duplicate detection for scale.** Duplicate checks can benefit from keyed data.table columns (`setkeyv`) before `by=` aggregations for very large inputs.
-- **Excel export can become bottleneck.** Exporting one workbook per column list is I/O-heavy. Consider batching lists into one workbook with multiple tabs in high-volume runs.
+- **replace side-effect orchestration with explicit stage contracts.**
+  current execution chains rely on sourcing scripts that mutate the global environment. migrate to explicit APIs:
+  - `run_general_pipeline() -> config`
+  - `run_import_pipeline(config) -> list(data, diagnostics)`
+  - `run_export_pipeline(data, config) -> list(paths, diagnostics)`
+  this will eliminate hidden dependencies and make integration testing straightforward.
 
-## 5. Quick Wins (Low-effort, high-impact fixes)
+- **move from script-first to package-style organization.**
+  keep entry scripts thin, and move reusable logic into package-like function files with roxygen docs and controlled namespace usage. this removes duplicate sourcing logic and supports scalable testing.
 
-1. Remove or guard `View()` with `if (interactive())`.
-2. Pass `config` explicitly into `read_excel_sheet()` and dependent calls.
-3. Correct error collection in import stage to retain both `data` and `errors` from `read_file_sheets()`.
-4. Replace invalid `walk(..., error=)` pattern with safe loader logic.
-5. Merge `ensure_data_table()` and `as_data_table_safe()` into one helper.
-6. Translate Spanish comments to English and run a consistent formatter (e.g., styler).
-7. Add basic tests for `identify_year_columns()`, `discover_files()`, and `validate_long_dt()`.
+- **introduce a diagnostics object across the full pipeline.**
+  instead of creating multiple globals (`collected_reading_errors`, `collected_errors`, `collected_warnings`), use one structured object:
+  - `diagnostics$errors$reading`
+  - `diagnostics$errors$validation`
+  - `diagnostics$warnings$consolidation`
+  this improves observability and downstream reporting.
 
-## 6. Long-Term Recommendations
+- **externalize runtime configuration.**
+  move path and export settings to yaml/json + environment overrides. this is required for reproducible multi-environment deployments.
 
-- **Adopt a formal workflow framework** (`targets` or `drake`) for dependency-aware, reproducible, incremental runs.
-- **Add observability and resilience:** structured logging (e.g., `logger`), explicit warning/error registries, and optional fail-fast vs fail-soft modes.
-- **Strengthen dependency management:** pin versions with `renv.lock`, run CI checks for lockfile drift, and remove unused packages (`progress` appears redundant when `progressr` is used).
-- **Build production test layers:** unit tests for helpers, integration tests with representative Excel fixtures, and regression tests for schema changes.
-- **Define data contracts explicitly:** schema validation (e.g., `pointblank`/`validate`) for each stage boundary.
-- **Document operating model:** README runbook including expected folder layout, config parameters, failure modes, and recovery steps.
+- **define and enforce stage schemas.**
+  formalize required columns and expected types at boundaries. validate on entry/exit of every stage to catch drift early.
+
+---
+
+## 3. code-level improvements
+
+- **standardize backend strategy.**
+  the project frequently converts objects between tibble and `data.table`. either:
+  - use tidyverse end-to-end, or
+  - isolate `data.table` to specific performance-critical steps with explicit boundaries.
+  current mixed style increases copy risk and review complexity.
+
+- **remove hidden state assumptions.**
+  several scripts assume `config` and `fao_data_raw` already exist. pass these as function arguments and return values only.
+
+- **harden validation messages.**
+  mandatory-field checks currently generate repeated per-document messages without row-level context. include row ids, column names, and severity for actionable debugging.
+
+- **improve duplicate detection ergonomics.**
+  duplicate checks are correct but return concatenated strings only. return a structured table of duplicate keys and counts, then format human-readable logs as a separate concern.
+
+- **finish english standardization in comments/documentation.**
+  there is still spanish text (`bloques semánticos`) in setup comments. replace with professional english consistently across all scripts.
+
+- **reduce duplication in assertion and conversion helpers.**
+  keep one canonical coercion helper and one validation helper per concern to preserve single responsibility.
+
+- **maintain strict lowercase and snake_case conventions consistently.**
+  current naming is mostly compliant; preserve this rule in all new functions, parameters, and generated fields.
+
+---
+
+## 4. performance observations
+
+- **avoid repeated materialization from `split()` + `map()` during validation.**
+  splitting by document allocates many intermediate objects. perform grouped validation by keyed `data.table` operations to reduce memory churn.
+
+- **limit conversion churn between data structures.**
+  repeated coercions (`as.data.table`, tibble pipelines, melts, rebinds) can significantly increase allocation overhead on large excel batches.
+
+- **optimize duplicate detection for scale.**
+  set keys or indexes on duplicate-check columns before grouped counts in high-volume datasets.
+
+- **review export strategy under high output cardinality.**
+  creating one workbook per unique-list column is manageable now, but may become i/o bound at scale. consider batched workbooks with one sheet per list.
+
+---
+
+## 5. quick wins
+
+1. convert script-level execution to function returns in `run_import_pipeline` and `run_export_pipeline` while keeping current behavior via thin wrappers.
+2. introduce a single `pipeline_result` object that contains `data` plus all diagnostics.
+3. translate remaining non-english comments to professional english.
+4. add unit tests for:
+   - `identify_year_columns()`
+   - `discover_files()`
+   - `validate_long_dt()`
+   - `consolidate_validated_dt()`
+5. replace ad-hoc message strings with structured log records (stage, level, code, message, context).
+6. run `styler` and `lintr` in ci to enforce style consistency.
+
+---
+
+## 6. long-term recommendations
+
+- **adopt `targets` for orchestration and reproducibility.**
+  this gives deterministic dependency graphs, caching, parallelism, and robust reruns.
+
+- **add full dependency pinning with `renv.lock` governance.**
+  require lockfile updates in pull requests and enforce reproducibility checks in ci.
+
+- **implement layered testing strategy.**
+  - unit tests for helpers and validators
+  - integration tests with realistic excel fixtures
+  - regression tests for schema drift and duplicate logic
+
+- **introduce production logging and failure policy controls.**
+  add configurable `fail_fast` vs `fail_soft`, structured logs, and summary artifacts for monitoring.
+
+- **document operational runbook.**
+  include input conventions, expected file naming patterns, schema contracts, common failures, and recovery playbooks for long-term maintainability.

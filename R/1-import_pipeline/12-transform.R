@@ -37,14 +37,13 @@ normalize_key_fields <- function(df, product_name, config) {
 # Function. Convert year columns to character
 # ------------------------------
 convert_year_columns <- function(df, config) {
-  # 1. Clean column names (remove trailing ".0")
   clean_names <- gsub("\\.0$", "", colnames(df))
-  df <- data.table::setnames(copy(df), old = colnames(df), new = clean_names)
+  if (!identical(clean_names, colnames(df))) {
+    data.table::setnames(df, old = colnames(df), new = clean_names)
+  }
 
-  # 2. Identify year columns
   year_cols <- identify_year_columns(df, config)
 
-  # 3. Convert year columns to character (vectorized)
   if (length(year_cols) > 0) {
     df[, (year_cols) := lapply(.SD, as.character), .SDcols = year_cols]
   }
@@ -72,10 +71,10 @@ reshape_to_long <- function(df, config) {
 # ------------------------------
 # Function. Add metadata columns
 # ------------------------------
-add_metadata <- function(fao_data_long, file_name, yearbook, config) {
+add_metadata <- function(fao_data_long_raw, file_name, yearbook, config) {
   notes_value <- config$defaults$notes_value
 
-  fao_data_long |>
+  fao_data_long_raw |>
     dplyr::mutate(
       document = file_name,
       notes = notes_value,
@@ -92,11 +91,11 @@ transform_file_dt <- function(df, file_name, yearbook, product_name, config) {
     normalize_key_fields(product_name, config) |>
     convert_year_columns(config)
 
-  fao_data_long <- df_norm |>
+  fao_data_long_raw <- df_norm |>
     reshape_to_long(config) |>
     add_metadata(file_name, yearbook, config)
 
-  list(wide = df_norm, long = fao_data_long)
+  list(wide_raw = df_norm, long_raw = fao_data_long_raw)
 }
 
 # ------------------------------
@@ -116,18 +115,18 @@ transform_single_file <- function(file_row, df_wide, config) {
   )
 }
 
-process_files_with_progress <- function(file_list_dt, read_data_list, config) {
+process_files <- function(file_list_dt, read_data_list, config) {
   progressr::handlers(progressr::handler_txtprogressbar(clear = FALSE))
 
   progressr::with_progress({
-    p <- progressr::progressor(along = seq_len(nrow(file_list_dt)))
+    progress <- progressr::progressor(along = seq_len(nrow(file_list_dt)))
 
     purrr::map2(
       seq_len(nrow(file_list_dt)),
       read_data_list,
       function(i, df_wide) {
         file_row <- file_list_dt[i, ]
-        p(sprintf("Processing file %d/%d", i, nrow(file_list_dt)))
+        progress(sprintf("processing file %d/%d", i, nrow(file_list_dt)))
         transform_single_file(file_row, df_wide, config)
       }
     ) |>
@@ -135,38 +134,23 @@ process_files_with_progress <- function(file_list_dt, read_data_list, config) {
   })
 }
 
-process_files_no_progress <- function(file_list_dt, read_data_list, config) {
-  purrr::map2(
-    seq_len(nrow(file_list_dt)),
-    read_data_list,
-    function(i, df_wide) {
-      transform_single_file(file_list_dt[i, ], df_wide, config)
-    }
-  ) |>
-    purrr::compact()
-}
-
-transform_files_list <- function(
-  file_list_dt,
-  read_data_list,
-  config,
-  enable_progress = TRUE
-) {
+transform_files_list <- function(file_list_dt, read_data_list, config) {
   checkmate::assert_data_frame(file_list_dt)
   checkmate::assert_list(read_data_list)
   stopifnot(nrow(file_list_dt) == length(read_data_list))
 
-  results <- if (enable_progress && nrow(file_list_dt) > 0) {
-    process_files_with_progress(file_list_dt, read_data_list, config)
-  } else {
-    process_files_no_progress(file_list_dt, read_data_list, config)
+  if (nrow(file_list_dt) == 0) {
+    return(list(
+      wide_raw = data.table::data.table(),
+      long_raw = data.table::data.table()
+    ))
   }
 
+  results <- process_files(file_list_dt, read_data_list, config)
+
   list(
-    wide = purrr::map(results, "wide") |> 
-      data.table::rbindlist(fill = TRUE),
-    long = purrr::map(results, "long") |> 
-      data.table::rbindlist(fill = TRUE)
+    wide_raw = data.table::rbindlist(lapply(results, `[[`, "wide_raw"), fill = TRUE),
+    long_raw = data.table::rbindlist(lapply(results, `[[`, "long_raw"), fill = TRUE)
   )
 }
 
