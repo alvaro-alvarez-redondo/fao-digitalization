@@ -33,7 +33,6 @@ export_single_column_list <- function(df, col_name, config, overwrite = TRUE) {
   path
 }
 
-
 # ------------------------------
 # Function. Normalize worksheet names
 # ------------------------------
