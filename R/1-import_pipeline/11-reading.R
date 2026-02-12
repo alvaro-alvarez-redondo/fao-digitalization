@@ -9,49 +9,88 @@
 # ------------------------------
 read_excel_sheet <- function(file_path, sheet_name, config) {
   base_cols <- config$column_required
-  errors <- character(0)
-
-  suppressMessages(
-    readxl::read_excel(
-      file_path,
-      sheet = sheet_name,
-      col_names = TRUE,
-      col_types = "text"
-    )
-  ) |>
-    (\(df) {
-      missing_base <- setdiff(base_cols, colnames(df))
-      if (length(missing_base) > 0) {
-        errors <<- c(
-          errors,
-          paste0(
-            "Sheet '",
-            sheet_name,
-            "' missing base columns: ",
-            paste(missing_base, collapse = ", "),
-            " in file '",
-            fs::path_file(file_path),
-            "'"
-          )
+  safe_read_result <- tryCatch(
+    {
+      suppressMessages(
+        readxl::read_excel(
+          file_path,
+          sheet = sheet_name,
+          col_names = TRUE,
+          col_types = "text"
         )
-        df[missing_base] <- NA_character_
-      }
-      df |>
-        dplyr::filter(dplyr::if_any(
-          all_of(base_cols),
-          ~ !is.na(.x) & .x != ""
-        )) |>
-        dplyr::mutate(variable = sheet_name) |>
-        data.table::as.data.table()
-    })() |>
-    (\(dt) list(data = dt, errors = errors))()
+      )
+    },
+    error = function(condition) {
+      return(structure(list(error_message = condition$message), class = "read_error"))
+    }
+  )
+
+  if (inherits(safe_read_result, "read_error")) {
+    return(list(
+      data = data.table::data.table(),
+      errors = paste0(
+        "failed to read sheet '",
+        sheet_name,
+        "' in file '",
+        fs::path_file(file_path),
+        "': ",
+        safe_read_result$error_message
+      )
+    ))
+  }
+
+  missing_base <- setdiff(base_cols, colnames(safe_read_result))
+  missing_base_errors <- if (length(missing_base) > 0) {
+    paste0(
+      "sheet '",
+      sheet_name,
+      "' missing base columns: ",
+      paste(missing_base, collapse = ", "),
+      " in file '",
+      fs::path_file(file_path),
+      "'"
+    )
+  } else {
+    character(0)
+  }
+
+  safe_read_result[missing_base] <- NA_character_
+
+  list(
+    data = safe_read_result |>
+      dplyr::filter(dplyr::if_any(
+        tidyselect::all_of(base_cols),
+        ~ !is.na(.x) & .x != ""
+      )) |>
+      dplyr::mutate(variable = sheet_name) |>
+      data.table::as.data.table(),
+    errors = missing_base_errors
+  )
 }
 
 # ------------------------------
 # Function. Read all sheets from a single file
 # ------------------------------
 read_file_sheets <- function(file_path, config) {
-  sheets <- readxl::excel_sheets(file_path)
+  sheets <- tryCatch(
+    readxl::excel_sheets(file_path),
+    error = function(condition) {
+      return(structure(list(error_message = condition$message), class = "read_error"))
+    }
+  )
+
+  if (inherits(sheets, "read_error")) {
+    return(list(
+      data = data.table::data.table(),
+      errors = paste0(
+        "failed to list sheets in file '",
+        fs::path_file(file_path),
+        "': ",
+        sheets$error_message
+      )
+    ))
+  }
+
   if (length(sheets) == 0) {
     return(list(data = data.table::data.table(), errors = character(0)))
   }
