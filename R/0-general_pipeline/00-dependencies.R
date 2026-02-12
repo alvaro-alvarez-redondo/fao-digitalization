@@ -15,10 +15,10 @@ required_packages <- c(
   "openxlsx", # Write Excel files
   "fs", # File system operations
   "here", # Project-relative paths
+  "stringi", # String transliteration and ASCII checks
   "progressr", # Progress bars for apply functions
   "renv", # Project-specific package management
   "testthat", # Unit testing framework
-  "purrr", # Functional programming tools
   "checkmate", # Assertions and checks
   "progress" # Progress bars for loops and apply functions
 )

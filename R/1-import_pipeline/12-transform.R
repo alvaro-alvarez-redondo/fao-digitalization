@@ -149,8 +149,12 @@ transform_files_list <- function(file_list_dt, read_data_list, config) {
   results <- process_files(file_list_dt, read_data_list, config)
 
   list(
-    wide_raw = data.table::rbindlist(lapply(results, `[[`, "wide_raw"), fill = TRUE),
-    long_raw = data.table::rbindlist(lapply(results, `[[`, "long_raw"), fill = TRUE)
+    wide_raw = results |>
+      purrr::map("wide_raw") |>
+      data.table::rbindlist(fill = TRUE),
+    long_raw = results |>
+      purrr::map("long_raw") |>
+      data.table::rbindlist(fill = TRUE)
   )
 }
 
