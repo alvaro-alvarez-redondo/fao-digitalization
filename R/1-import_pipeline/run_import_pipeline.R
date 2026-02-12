@@ -38,7 +38,9 @@ run_import_pipeline <- function(config) {
     config = config
   )
 
-  validation_groups <- transformed$long_raw[, .(data = list(.SD)), by = document]
+  validation_groups <- transformed$long_raw[, .(
+    data = list(data.table::copy(.SD)[, document := .BY$document])
+  ), by = .(document)]
   validation_results <- purrr::map(validation_groups$data, ~ validate_long_dt(.x, config))
 
   validated_dt_list <- purrr::map(validation_results, "data")
