@@ -50,7 +50,8 @@ load_pipeline_config <- function() {
   )
 
   column_order <- columns |>
-    unlist(use.names = FALSE)
+    unlist(use.names = FALSE) |>
+    unique()
 
   # fixed export behavior for predictable output generation
   fixed_export_columns <- c(

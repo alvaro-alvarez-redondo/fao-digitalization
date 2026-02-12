@@ -10,6 +10,15 @@
 validate_mandatory_fields_dt <- function(dt, config) {
   mandatory_cols <- config$column_required
 
+  missing_mandatory_cols <- setdiff(mandatory_cols, colnames(dt))
+  if (length(missing_mandatory_cols) > 0) {
+    dt[, (missing_mandatory_cols) := NA_character_]
+  }
+
+  if (!("document" %in% colnames(dt))) {
+    dt[, document := "unknown_document"]
+  }
+
   missing_long <- dt[, row_id := .I][] |>
     tidyr::pivot_longer(
       cols = tidyselect::all_of(mandatory_cols),

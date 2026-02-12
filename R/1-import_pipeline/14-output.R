@@ -27,8 +27,16 @@ consolidate_validated_dt <- function(dt_list, config) {
     dt_combined[, (missing_cols) := NA_character_]
   }
 
-  # Reorder columns
-  data.table::setcolorder(dt_combined, config$column_order)
+  # Reorder columns with a unique full-length order expected by data.table::setcolorder()
+  desired_order <- config$column_order |>
+    unique()
+
+  final_order <- c(
+    intersect(desired_order, colnames(dt_combined)),
+    setdiff(colnames(dt_combined), desired_order)
+  )
+
+  data.table::setcolorder(dt_combined, final_order)
 
   list(data = dt_combined, warnings = character(0))
 }
