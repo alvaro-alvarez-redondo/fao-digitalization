@@ -33,15 +33,41 @@ export_single_column_list <- function(df, col_name, config, overwrite = TRUE) {
   path
 }
 
+
 # ------------------------------
-# Function. Export multiple unique-column Excel files
+# Function. Normalize worksheet names
+# ------------------------------
+normalize_sheet_name <- function(col_name) {
+  col_name |>
+    normalize_filename() |>
+    stringr::str_sub(1, 31)
+}
+
+# ------------------------------
+# Function. Export all unique-column lists to one workbook
 # ------------------------------
 export_selected_unique_lists <- function(df, config, overwrite = TRUE) {
+  validate_export_import(df, "fao_unique_lists_raw")
+
   cols_to_export <- config$export_config$lists_to_export
-  purrr::map(
-    cols_to_export,
-    ~ export_single_column_list(df, .x, config, overwrite)
+  workbook_path <- generate_export_path(
+    config,
+    config$export_config$lists_workbook_name,
+    type = "lists"
   )
+
+  wb <- openxlsx::createWorkbook()
+
+  purrr::walk(cols_to_export, function(col_name) {
+    values <- get_unique_column(df, col_name)
+    sheet_name <- normalize_sheet_name(col_name)
+    openxlsx::addWorksheet(wb, sheet_name)
+    openxlsx::writeData(wb, sheet_name, values)
+  })
+
+  openxlsx::saveWorkbook(wb, workbook_path, overwrite = overwrite)
+
+  workbook_path
 }
 
 # ------------------------------

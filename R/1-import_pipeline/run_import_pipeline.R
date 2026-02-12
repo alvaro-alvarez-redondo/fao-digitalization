@@ -31,10 +31,10 @@ if (nrow(file_list_dt) == 0) {
 # ------------------------------
 # 2. Read all sheets
 # ------------------------------
-read_results <- purrr::map(file_list_dt$file_path, ~ read_file_sheets(.x, config))
-read_data_list <- purrr::map(read_results, "data")
-collected_reading_errors <- purrr::map(read_results, "errors") |>
-  unlist()
+read_pipeline_result <- read_pipeline_files(file_list_dt, config)
+read_data_list <- read_pipeline_result$read_data_list
+collected_reading_errors <- read_pipeline_result$errors
+rm(read_pipeline_result)
 
 # ------------------------------
 # 3. Transform all files (wide + long)
@@ -42,22 +42,23 @@ collected_reading_errors <- purrr::map(read_results, "errors") |>
 transformed <- transform_files_list(
   file_list_dt = file_list_dt,
   read_data_list = read_data_list,
-  config = config,
-  enable_progress = TRUE
+  config = config
 )
 
-fao_data_wide <- transformed$wide
-fao_data_long <- transformed$long
+fao_data_wide_raw <- transformed$wide_raw
+fao_data_long_raw <- transformed$long_raw
 
 # ------------------------------
 # 4. Validate long-format data
 # ------------------------------
-validation_results <- split(fao_data_long, fao_data_long$document) |>
-  purrr::map(~ validate_long_dt(.x, config))
+validation_groups <- fao_data_long_raw[, .(data = list(.SD)), by = document]
+validation_results <- purrr::map(validation_groups$data, ~ validate_long_dt(.x, config))
 
 validated_dt_list <- purrr::map(validation_results, "data")
 collected_errors <- purrr::map(validation_results, "errors") |>
-  unlist()
+  unlist(use.names = FALSE)
+rm(validation_groups, validation_results, read_data_list, transformed, fao_data_wide_raw)
+gc()
 
 # ------------------------------
 # 5. Consolidate all validated tables
@@ -65,6 +66,8 @@ collected_errors <- purrr::map(validation_results, "errors") |>
 consolidated_result <- consolidate_validated_dt(validated_dt_list, config)
 fao_data_raw <- consolidated_result$data
 collected_warnings <- consolidated_result$warnings
+rm(validated_dt_list, consolidated_result)
+gc()
 
 # ------------------------------
 # End of imports setup
