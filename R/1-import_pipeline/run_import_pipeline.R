@@ -31,6 +31,8 @@ purrr::walk(
 #' @importFrom cli cli_abort
 #' @importFrom here here
 #' @examples
+#' # progress_bar <- create_progress_bar(total = 2)
+#' # progress_bar$tick()
 #' # run_import_pipeline(config)
 run_import_pipeline <- function(config) {
   checkmate::assert_list(config, any.missing = FALSE)

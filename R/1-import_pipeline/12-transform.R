@@ -275,7 +275,6 @@ transform_single_file <- function(file_row, df_wide, config) {
 #' @param config named list with transform configuration.
 #' @return list of transformed per-file results.
 #' @importFrom checkmate assert_data_frame assert_list
-#' @importFrom progressr handlers handler_txtprogressbar with_progress progressor
 #' @importFrom purrr map2 compact
 #' @examples
 #' # process_files(file_list_dt_example, read_data_list_example, config_example)
@@ -284,22 +283,18 @@ process_files <- function(file_list_dt, read_data_list, config) {
   checkmate::assert_list(read_data_list)
   checkmate::assert_list(config, any.missing = FALSE)
 
-  progressr::handlers(progressr::handler_txtprogressbar(clear = FALSE))
+  progress_bar <- create_progress_bar(total = nrow(file_list_dt))
 
-  progressr::with_progress({
-    progress <- progressr::progressor(along = seq_len(nrow(file_list_dt)))
-
-    purrr::map2(
-      seq_len(nrow(file_list_dt)),
-      read_data_list,
-      \(i, df_wide) {
-        file_row <- file_list_dt[i, ]
-        progress(sprintf("processing file %d/%d", i, nrow(file_list_dt)))
-        transform_single_file(file_row, df_wide, config)
-      }
-    ) |>
-      purrr::compact()
-  })
+  purrr::map2(
+    seq_len(nrow(file_list_dt)),
+    read_data_list,
+    \(i, df_wide) {
+      file_row <- file_list_dt[i, ]
+      progress_bar$tick(tokens = list())
+      transform_single_file(file_row, df_wide, config)
+    }
+  ) |>
+    purrr::compact()
 }
 
 #' @title transform files list

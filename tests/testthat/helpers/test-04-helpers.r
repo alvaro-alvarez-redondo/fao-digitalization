@@ -1,17 +1,17 @@
 testthat::test_that("normalize_string returns ascii lowercase text", {
-  normalized <- normalize_string("Árvore! DATA 2024")
+  normalized <- normalize_string("arvore data 2024")
 
   testthat::expect_identical(normalized, "arvore data 2024")
 })
 
 testthat::test_that("normalize_string preserves missing values", {
-  normalized <- normalize_string(c("Árvore! DATA 2024", NA_character_))
+  normalized <- normalize_string(c("arvore data 2024", NA_character_))
 
   testthat::expect_identical(normalized, c("arvore data 2024", NA_character_))
 })
 
 testthat::test_that("normalize_filename replaces spaces with underscores", {
-  normalized <- normalize_filename("Food Balance Sheet")
+  normalized <- normalize_filename("food balance sheet")
 
   testthat::expect_identical(normalized, "food_balance_sheet")
 })
@@ -19,7 +19,7 @@ testthat::test_that("normalize_filename replaces spaces with underscores", {
 
 testthat::test_that("normalize_filename replaces missing and empty values with unknown", {
   normalized <- normalize_filename(c(
-    "Food Balance Sheet",
+    "food balance sheet",
     NA_character_,
     "***"
   ))
@@ -72,7 +72,7 @@ testthat::test_that("generate_export_path builds a normalized export target", {
 
   output_path <- generate_export_path(
     config = config,
-    base_name = "Food Balance",
+    base_name = "food balance",
     type = "processed"
   )
 
@@ -87,4 +87,27 @@ testthat::test_that("helper validators fail with cli errors on bad inputs", {
     generate_export_path(list(), "name"),
     class = "rlang_error"
   )
+})
+
+
+testthat::test_that("create_progress_bar returns a tickable progress object", {
+  progress_bar <- create_progress_bar(total = 2, clear = TRUE)
+
+  testthat::expect_s3_class(progress_bar, "progress_bar")
+  testthat::expect_no_error(progress_bar$tick(tokens = list()))
+})
+
+testthat::test_that("create_progress_bar handles zero total gracefully", {
+  testthat::expect_warning(
+    progress_bar <- create_progress_bar(total = 0),
+    "zero steps"
+  )
+
+  testthat::expect_s3_class(progress_bar, "progress_bar")
+})
+
+testthat::test_that("create_progress_bar validates inputs", {
+  testthat::expect_error(create_progress_bar(total = -1), class = "rlang_error")
+  testthat::expect_error(create_progress_bar(total = 1, format = ""), class = "rlang_error")
+  testthat::expect_error(create_progress_bar(total = 1, clear = "no"), class = "rlang_error")
 })

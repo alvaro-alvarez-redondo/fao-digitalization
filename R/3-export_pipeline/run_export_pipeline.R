@@ -18,7 +18,6 @@ purrr::walk(
 #' @param overwrite logical flag indicating whether existing files should be replaced; validated with checkmate::assert_flag.
 #' @return named list with two character scalars: processed_path and lists_path.
 #' @importFrom checkmate assert_data_frame assert_list assert_flag
-#' @importFrom progressr handlers handler_txtprogressbar with_progress progressor
 #' @importFrom purrr walk
 #' @importFrom here here
 #' @importFrom cli cli_abort
@@ -31,6 +30,8 @@ purrr::walk(
 #'   )
 #' )
 #' data_example <- data.frame(country = c("argentina", "brazil"))
+#' progress_bar <- create_progress_bar(total = 2)
+#' progress_bar$tick()
 #' run_export_pipeline(data_example, config, overwrite = TRUE)
 run_export_pipeline <- function(fao_data_raw, config, overwrite = TRUE) {
   checkmate::assert_data_frame(fao_data_raw, min.rows = 1)
@@ -38,29 +39,20 @@ run_export_pipeline <- function(fao_data_raw, config, overwrite = TRUE) {
   checkmate::assert_flag(overwrite)
 
   fao_data_raw <- ensure_data_table(fao_data_raw)
-  total_steps <- 2
+  progress_bar <- create_progress_bar(total = 2)
 
-  progressr::handlers(progressr::handler_txtprogressbar(
-    style = 3,
-    clear = FALSE
-  ))
+  processed_path <- export_processed_data(
+    fao_data_raw,
+    config,
+    base_name = "fao_data_raw",
+    overwrite = overwrite
+  )
+  progress_bar$tick(tokens = list())
 
-  progressr::with_progress({
-    progress <- progressr::progressor(along = seq_len(total_steps))
+  lists_path <- export_selected_unique_lists(fao_data_raw, config, overwrite)
+  progress_bar$tick(tokens = list())
 
-    processed_path <- export_processed_data(
-      fao_data_raw,
-      config,
-      base_name = "fao_data_raw",
-      overwrite = overwrite
-    )
-    progress()
-
-    lists_path <- export_selected_unique_lists(fao_data_raw, config, overwrite)
-    progress()
-
-    list(processed_path = processed_path, lists_path = lists_path)
-  })
+  list(processed_path = processed_path, lists_path = lists_path)
 }
 
 if (!exists("fao_data_raw")) {

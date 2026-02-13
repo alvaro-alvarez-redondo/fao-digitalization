@@ -13,7 +13,6 @@ required_packages <- c(
   "fs",
   "here",
   "stringi",
-  "progressr",
   "renv",
   "testthat",
   "checkmate",
