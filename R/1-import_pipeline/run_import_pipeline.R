@@ -1,3 +1,6 @@
+#' @title run import pipeline script
+#' @description discover, read, transform, and validate all import files
+
 import_scripts <- c(
   "10-file_io.R",
   "11-reading.R",
@@ -49,8 +52,7 @@ run_import_pipeline <- function(config) {
     config = config
   )
 
-  validation_groups <- transformed$long_raw[
-    ,
+  validation_groups <- transformed$long_raw[,
     .(data = list(data.table::copy(.SD)[, document := .BY$document])),
     by = .(document)
   ]

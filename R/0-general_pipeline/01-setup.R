@@ -1,6 +1,6 @@
 #' @title setup script
 #' @description initializes global options and provides helpers to build the
-#' pipeline configuration object and create required project directories.
+#' pipeline configuration object and create required project directories
 
 options(
   stringsAsFactors = FALSE,

@@ -2,7 +2,7 @@
 #' @description defines the project dependency registry and helper functions to
 #' validate, install, and load required packages for the analysis pipeline.
 #' this restores a clear script-level title while preserving roxygen-only
-#' documentation.
+#' documentation
 
 required_packages <- c(
   "tidyverse",

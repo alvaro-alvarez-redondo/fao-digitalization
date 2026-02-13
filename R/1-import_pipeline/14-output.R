@@ -1,3 +1,7 @@
+#' @title output script
+#' @description consolidate multiple validated long-format data.tables
+#' into a single data.table with controlled column order
+
 #' @title consolidate validated data tables
 #' @description consolidate multiple validated long-format tables into one
 #' `data.table`, enforce configured column presence and order, and return a
@@ -22,7 +26,11 @@
 consolidate_validated_dt <- function(dt_list, config) {
   checkmate::assert_list(dt_list, any.missing = TRUE)
   checkmate::assert_list(config, any.missing = FALSE)
-  checkmate::assert_character(config$column_order, any.missing = FALSE, min.len = 1)
+  checkmate::assert_character(
+    config$column_order,
+    any.missing = FALSE,
+    min.len = 1
+  )
 
   dt_list <- dt_list |>
     purrr::compact() |>

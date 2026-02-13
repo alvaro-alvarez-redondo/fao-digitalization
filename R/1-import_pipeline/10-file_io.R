@@ -1,3 +1,7 @@
+#' @title file input-output script
+#' @description discover all .xlsx files, validate file names,
+#' and extract product/yearbook metadata in a tidy, vectorized style
+
 #' @title extract file metadata
 #' @description build a standardized metadata table from a character vector of
 #' file paths. the function validates inputs, extracts file names, flags non-ascii
@@ -109,7 +113,14 @@ discover_files <- function(import_folder) {
 discover_pipeline_files <- function(config) {
   checkmate::assert_list(config, any.missing = FALSE)
 
-  import_folder <- purrr::pluck(config, "paths", "data", "imports", "raw", .default = NULL)
+  import_folder <- purrr::pluck(
+    config,
+    "paths",
+    "data",
+    "imports",
+    "raw",
+    .default = NULL
+  )
 
   checkmate::assert_string(import_folder, min.chars = 1)
   checkmate::assert_directory_exists(import_folder)

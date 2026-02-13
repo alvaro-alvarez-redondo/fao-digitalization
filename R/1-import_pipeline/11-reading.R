@@ -1,3 +1,7 @@
+#' @title reading script
+#' @description read all sheets from .xlsx files, enforce base columns,
+#' and return tidy data.tables with error logging
+
 #' @title read excel sheet
 #' @description read one excel sheet as text columns, validate required inputs,
 #' enforce required base columns, and return a standardized list containing a
@@ -108,7 +112,11 @@ read_excel_sheet <- function(file_path, sheet_name, config) {
 read_file_sheets <- function(file_path, config) {
   checkmate::assert_string(file_path, min.chars = 1)
   checkmate::assert_list(config, any.missing = FALSE)
-  checkmate::assert_character(config$column_required, any.missing = FALSE, min.len = 1)
+  checkmate::assert_character(
+    config$column_required,
+    any.missing = FALSE,
+    min.len = 1
+  )
 
   sheets <- tryCatch(
     readxl::excel_sheets(file_path),
@@ -149,13 +157,18 @@ read_file_sheets <- function(file_path, config) {
     character(0)
   }
 
-  sheets_list <- purrr::map(sheets, \(sheet_name) read_excel_sheet(file_path, sheet_name, config))
+  sheets_list <- purrr::map(sheets, \(sheet_name) {
+    read_excel_sheet(file_path, sheet_name, config)
+  })
 
   combined_data <- sheets_list |>
     purrr::map("data") |>
     data.table::rbindlist(use.names = TRUE, fill = TRUE)
 
-  combined_errors <- c(errors, sheets_list |> purrr::map("errors") |> unlist(use.names = FALSE))
+  combined_errors <- c(
+    errors,
+    sheets_list |> purrr::map("errors") |> unlist(use.names = FALSE)
+  )
 
   list(data = combined_data, errors = combined_errors)
 }
@@ -183,9 +196,17 @@ read_pipeline_files <- function(file_list_dt, config) {
     must.include = "file_path",
     what = "names(file_list_dt)"
   )
-  checkmate::assert_character(file_list_dt$file_path, any.missing = FALSE, null.ok = TRUE)
+  checkmate::assert_character(
+    file_list_dt$file_path,
+    any.missing = FALSE,
+    null.ok = TRUE
+  )
   checkmate::assert_list(config, any.missing = FALSE)
-  checkmate::assert_character(config$column_required, any.missing = FALSE, min.len = 1)
+  checkmate::assert_character(
+    config$column_required,
+    any.missing = FALSE,
+    min.len = 1
+  )
 
   if (nrow(file_list_dt) == 0) {
     return(list(read_data_list = list(), errors = character(0)))

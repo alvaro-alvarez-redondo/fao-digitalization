@@ -1,3 +1,6 @@
+#' @title validate log script
+#' @description validate mandatory fields, detect duplicates and collect errors/warnings
+
 #' @title validate mandatory fields data table
 #' @description validate mandatory columns in a long-format table, create missing
 #' mandatory columns as `na_character_`, ensure a `document` column exists, and
@@ -19,7 +22,11 @@
 validate_mandatory_fields_dt <- function(dt, config) {
   checkmate::assert_data_frame(dt)
   checkmate::assert_list(config, any.missing = FALSE)
-  checkmate::assert_character(config$column_required, any.missing = FALSE, min.len = 1)
+  checkmate::assert_character(
+    config$column_required,
+    any.missing = FALSE,
+    min.len = 1
+  )
 
   dt <- data.table::as.data.table(dt)
   mandatory_cols <- config$column_required
@@ -87,8 +94,7 @@ detect_duplicates_dt <- function(dt) {
 
   dt <- data.table::as.data.table(dt)
 
-  dup_counts <- dt[
-    ,
+  dup_counts <- dt[,
     .(duplicate_count = .N),
     by = .(product, variable, year, value, document)
   ]
@@ -136,7 +142,11 @@ detect_duplicates_dt <- function(dt) {
 validate_long_dt <- function(long_dt, config) {
   checkmate::assert_data_frame(long_dt)
   checkmate::assert_list(config, any.missing = FALSE)
-  checkmate::assert_character(config$column_required, any.missing = FALSE, min.len = 1)
+  checkmate::assert_character(
+    config$column_required,
+    any.missing = FALSE,
+    min.len = 1
+  )
 
   dt <- data.table::as.data.table(long_dt)
 

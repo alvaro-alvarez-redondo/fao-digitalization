@@ -1,3 +1,6 @@
+#' @title transform script
+#' @description normalize metadata, reshape data, and add required metadata columns
+
 #' @title identify year columns
 #' @description identify columns that represent year values in four-digit format
 #' or year ranges in `yyyy-yyyy` format, excluding known metadata columns from
@@ -13,7 +16,11 @@
 identify_year_columns <- function(df, config) {
   checkmate::assert_data_frame(df)
   checkmate::assert_list(config, any.missing = FALSE)
-  checkmate::assert_character(config$column_order, any.missing = FALSE, min.len = 1)
+  checkmate::assert_character(
+    config$column_order,
+    any.missing = FALSE,
+    min.len = 1
+  )
 
   candidate_cols <- setdiff(
     colnames(df),
@@ -42,7 +49,11 @@ normalize_key_fields <- function(df, product_name, config) {
   checkmate::assert_data_frame(df)
   checkmate::assert_string(product_name, min.chars = 1)
   checkmate::assert_list(config, any.missing = FALSE)
-  checkmate::assert_character(config$column_required, any.missing = FALSE, min.len = 1)
+  checkmate::assert_character(
+    config$column_required,
+    any.missing = FALSE,
+    min.len = 1
+  )
 
   base_cols <- config$column_required
   df[, setdiff(base_cols, colnames(df))] <- NA_character_
@@ -72,7 +83,11 @@ normalize_key_fields <- function(df, product_name, config) {
 convert_year_columns <- function(df, config) {
   checkmate::assert_data_frame(df)
   checkmate::assert_list(config, any.missing = FALSE)
-  checkmate::assert_character(config$column_order, any.missing = FALSE, min.len = 1)
+  checkmate::assert_character(
+    config$column_order,
+    any.missing = FALSE,
+    min.len = 1
+  )
 
   clean_names <- gsub("\\.0$", "", colnames(df))
 
@@ -106,8 +121,16 @@ convert_year_columns <- function(df, config) {
 reshape_to_long <- function(df, config) {
   checkmate::assert_data_frame(df)
   checkmate::assert_list(config, any.missing = FALSE)
-  checkmate::assert_character(config$column_id, any.missing = FALSE, min.len = 1)
-  checkmate::assert_character(config$column_order, any.missing = FALSE, min.len = 1)
+  checkmate::assert_character(
+    config$column_id,
+    any.missing = FALSE,
+    min.len = 1
+  )
+  checkmate::assert_character(
+    config$column_order,
+    any.missing = FALSE,
+    min.len = 1
+  )
 
   column_id <- config$column_id
   year_cols <- identify_year_columns(df, config)
