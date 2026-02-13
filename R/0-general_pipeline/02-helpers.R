@@ -230,3 +230,64 @@ generate_export_path <- function(
 
   fs::path(folder, paste0(normalize_filename(base_name), suffix))
 }
+
+#' @title create configurable progress bar
+#' @description create a standardized `progress::progress_bar` object with
+#' project-wide defaults for appearance and clear behavior. this helper
+#' centralizes progress bar configuration, forces rendering in non-interactive
+#' sessions, and handles edge cases for totals of zero or one in a predictable
+#' way.
+#' @param total integerish scalar defining the number of progress steps.
+#' must be greater than or equal to zero.
+#' @param format non-empty character scalar defining the progress display
+#' template. supports progress tokens such as `:bar`, `:percent`, `:elapsed`,
+#' and `:eta`.
+#' @param clear logical scalar indicating whether the progress bar should be
+#' cleared from the terminal when complete.
+#' @param force logical scalar indicating whether rendering should be forced on
+#' terminals where support detection would otherwise disable drawing.
+#' @return a `progress::progress_bar` object ready for `tick()` calls.
+#' @importFrom checkmate check_int check_string check_flag
+#' @importFrom cli cli_warn symbol
+#' @importFrom progress progress_bar
+#' @examples
+#' progress_bar <- create_progress_bar(total = 3)
+#' progress_bar$tick(tokens = list(step = "first"))
+create_progress_bar <- function(
+  total,
+  format = paste(
+    cli::symbol$tick,
+    ":bar",
+    ":percent",
+    "elapsed:",
+    ":elapsed",
+    "eta:",
+    ":eta",
+    "step:",
+    ":step"
+  ),
+  clear = FALSE,
+  force = TRUE
+) {
+  assert_or_abort(checkmate::check_int(total, lower = 0))
+  assert_or_abort(checkmate::check_string(format, min.chars = 1))
+  assert_or_abort(checkmate::check_flag(clear))
+  assert_or_abort(checkmate::check_flag(force))
+
+  effective_total <- if (total == 0) 1L else as.integer(total)
+
+  progress_bar <- progress::progress_bar$new(
+    format = format,
+    total = effective_total,
+    clear = clear,
+    show_after = 0,
+    force = force
+  )
+
+  if (total == 0) {
+    cli::cli_warn("progress bar initialized with zero steps; auto-completing.")
+    progress_bar$terminate()
+  }
+
+  progress_bar
+}
