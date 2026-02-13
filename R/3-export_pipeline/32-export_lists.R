@@ -37,9 +37,15 @@ export_single_column_list <- function(df, col_name, config, overwrite = TRUE) {
 # Function. Normalize worksheet names
 # ------------------------------
 normalize_sheet_name <- function(col_name) {
-  col_name |>
+  assert_or_abort(checkmate::check_atomic(col_name, min.len = 1, any.missing = TRUE))
+
+  sheet_name <- col_name |>
     normalize_filename() |>
     stringr::str_sub(1, 31)
+
+  sheet_name[is.na(sheet_name) | sheet_name == ""] <- "sheet"
+
+  sheet_name
 }
 
 # ------------------------------
