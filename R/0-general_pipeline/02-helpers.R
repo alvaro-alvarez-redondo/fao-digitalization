@@ -26,8 +26,9 @@ assert_or_abort <- function(check_result) {
 #' @title normalize free text into lowercase ascii
 #' @description converts input text to lowercase ascii, removes non-alphanumeric
 #'   characters (except spaces), and squishes repeated spaces.
-#' @param string atomic vector with length >= 1 and no missing values. validated
-#'   with `checkmate::check_atomic(any.missing = FALSE, min.len = 1)`.
+#' @param string atomic vector with length >= 1. missing values are allowed and
+#'   preserved in the output. validated with
+#'   `checkmate::check_atomic(any.missing = TRUE, min.len = 1)`.
 #' @return character vector with normalized lowercase ascii text and single-space
 #'   token separation.
 #' @section reproducibility:
@@ -41,7 +42,7 @@ assert_or_abort <- function(check_result) {
 #' @importFrom stringr str_replace_all str_squish str_to_lower
 #' @importFrom stringi stri_trans_general
 normalize_string <- function(string) {
-  assert_or_abort(checkmate::check_atomic(string, min.len = 1, any.missing = FALSE))
+  assert_or_abort(checkmate::check_atomic(string, min.len = 1, any.missing = TRUE))
 
   string |>
     as.character() |>
@@ -54,8 +55,9 @@ normalize_string <- function(string) {
 #' @title normalize file-friendly names
 #' @description normalizes text and replaces spaces with underscores for safe,
 #'   consistent filename stems.
-#' @param filename atomic vector with length >= 1 and no missing values.
-#'   validated with `checkmate::check_atomic(any.missing = FALSE, min.len = 1)`.
+#' @param filename atomic vector with length >= 1. missing or empty values are
+#'   converted to `"unknown"`. validated with
+#'   `checkmate::check_atomic(any.missing = TRUE, min.len = 1)`.
 #' @return character vector where values are lowercase ascii and space-delimited
 #'   tokens are joined with underscores.
 #' @section reproducibility:
@@ -65,11 +67,15 @@ normalize_string <- function(string) {
 #' @importFrom checkmate check_atomic
 #' @importFrom stringr str_replace_all
 normalize_filename <- function(filename) {
-  assert_or_abort(checkmate::check_atomic(filename, min.len = 1, any.missing = FALSE))
+  assert_or_abort(checkmate::check_atomic(filename, min.len = 1, any.missing = TRUE))
 
-  filename |>
+  normalized_filename <- filename |>
     normalize_string() |>
     stringr::str_replace_all(" ", "_")
+
+  normalized_filename[is.na(normalized_filename) | normalized_filename == ""] <- "unknown"
+
+  normalized_filename
 }
 
 #' @title extract yearbook token from parsed name parts
