@@ -46,7 +46,7 @@ testthat::test_that("transform_file_dt returns expected class and dimensions", {
   testthat::expect_equal(ncol(transformed$long_raw), length(test_config$column_order))
 })
 
-testthat::test_that("add_metadata normalizes na notes defaults to empty string", {
+testthat::test_that("add_metadata preserves na notes defaults", {
   input_df <- data.frame(country = "nepal", year = "2020", value = "1")
   config_with_na <- list(defaults = list(notes_value = NA_character_))
 
@@ -58,11 +58,11 @@ testthat::test_that("add_metadata normalizes na notes defaults to empty string",
   )
 
   testthat::expect_true(data.table::is.data.table(output_dt))
-  testthat::expect_identical(output_dt$notes, "")
+  testthat::expect_identical(output_dt$notes, NA_character_)
 })
 
-testthat::test_that("load_pipeline_config sets empty-string notes default", {
+testthat::test_that("load_pipeline_config sets missing notes default", {
   config <- load_pipeline_config()
 
-  testthat::expect_identical(config$defaults$notes_value, "")
+  testthat::expect_identical(config$defaults$notes_value, NA_character_)
 })
