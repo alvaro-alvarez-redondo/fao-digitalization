@@ -45,3 +45,24 @@ testthat::test_that("transform_file_dt returns expected class and dimensions", {
   testthat::expect_equal(nrow(transformed$long_raw), 2)
   testthat::expect_equal(ncol(transformed$long_raw), length(test_config$column_order))
 })
+
+testthat::test_that("add_metadata normalizes na notes defaults to empty string", {
+  input_df <- data.frame(country = "nepal", year = "2020", value = "1")
+  config_with_na <- list(defaults = list(notes_value = NA_character_))
+
+  output_dt <- add_metadata(
+    fao_data_long_raw = input_df,
+    file_name = "sample_file.xlsx",
+    yearbook = "yb_2020",
+    config = config_with_na
+  )
+
+  testthat::expect_true(data.table::is.data.table(output_dt))
+  testthat::expect_identical(output_dt$notes, "")
+})
+
+testthat::test_that("load_pipeline_config sets empty-string notes default", {
+  config <- load_pipeline_config()
+
+  testthat::expect_identical(config$defaults$notes_value, "")
+})

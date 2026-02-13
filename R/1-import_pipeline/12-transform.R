@@ -156,11 +156,13 @@ reshape_to_long <- function(df, config) {
 #' @param file_name character scalar source file name.
 #' @param yearbook character scalar yearbook label.
 #' @param config named list containing `defaults$notes_value` as a character
-#' scalar.
+#' scalar. when `defaults$notes_value` is `na`, it is normalized to an empty
+#' string to keep downstream processing stable.
 #' @return data table with metadata columns added.
-#' @importFrom checkmate assert_data_frame assert_string assert_list
+#' @importFrom checkmate assert_data_frame assert_string assert_list assert_character
 #' @importFrom dplyr mutate
 #' @importFrom data.table as.data.table
+#' @importFrom cli cli_warn
 #' @examples
 #' df_example <- data.frame(country = "x", year = "2020", value = "1")
 #' config_example <- list(defaults = list(notes_value = ""))
@@ -171,9 +173,14 @@ add_metadata <- function(fao_data_long_raw, file_name, yearbook, config) {
   checkmate::assert_string(yearbook, min.chars = 1)
   checkmate::assert_list(config, any.missing = FALSE)
   checkmate::assert_list(config$defaults, any.missing = FALSE)
-  checkmate::assert_string(config$defaults$notes_value)
+  checkmate::assert_character(config$defaults$notes_value, len = 1)
 
   notes_value <- config$defaults$notes_value
+
+  if (is.na(notes_value)) {
+    cli::cli_warn("`config$defaults$notes_value` is `na`; using an empty string")
+    notes_value <- ""
+  }
 
   fao_data_long_raw |>
     dplyr::mutate(
