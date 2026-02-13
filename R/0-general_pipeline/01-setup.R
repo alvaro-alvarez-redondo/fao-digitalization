@@ -1,25 +1,31 @@
-# ============================================================
-# Script:  01-setup.R
-# Purpose: Initialize project paths, configuration objects,
-#          and required directory structure.
-# ============================================================
+#' @title setup script
+#' @description initializes global options and provides helpers to build the
+#' pipeline configuration object and create required project directories.
 
-# ------------------------------
-# Global options
-# ------------------------------
 options(
-  stringsAsFactors = FALSE, # Do not convert strings to factors
-  scipen = 999 # Avoid scientific notation
+  stringsAsFactors = FALSE,
+  scipen = 999
 )
 
-# ------------------------------
-# Function. Pipeline configuration
-# ------------------------------
+#' @title load pipeline config
+#' @description builds and returns a deterministic configuration object for the
+#' pipeline, including project-relative paths, file names, semantic column
+#' groups, export settings, and default values used downstream.
+#' @return named list with `project_root`, `paths`, `files`, `columns`,
+#' `column_required`, `column_id`, `column_order`, `export_config`, and
+#' `defaults`.
+#' @importFrom here here
+#' @importFrom fs path
+#' @importFrom checkmate assert_string
+#' @examples
+#' config <- load_pipeline_config()
+#' names(config)
 load_pipeline_config <- function() {
   project_root <- here::here()
+  checkmate::assert_string(project_root, min.chars = 1)
+
   build_path <- function(...) fs::path(project_root, ...)
 
-  # fixed project folders for this pipeline scope
   paths <- list(
     data = list(
       imports = list(
@@ -34,14 +40,12 @@ load_pipeline_config <- function() {
     )
   )
 
-  # fixed output names for a single-product pipeline
   files <- list(
     raw_data = "fao_data_raw.xlsx",
     wide_raw_data = "fao_data_wide_raw.xlsx",
     long_raw_data = "fao_data_long_raw.xlsx"
   )
 
-  # semantic column groups for all transformations
   columns <- list(
     base = c("continent", "country", "unit", "footnotes"),
     id = c("product", "variable", "unit", "continent", "country", "footnotes"),
@@ -53,7 +57,6 @@ load_pipeline_config <- function() {
     unlist(use.names = FALSE) |>
     unique()
 
-  # fixed export behavior for predictable output generation
   fixed_export_columns <- c(
     "product",
     "variable",
@@ -87,18 +90,29 @@ load_pipeline_config <- function() {
   )
 }
 
-# ------------------------------
-# Function. Create required directories
-# ------------------------------
+#' @title create required directories
+#' @description validates a nested list of directory paths, flattens it to a
+#' character vector, creates every directory if missing, and returns the
+#' resolved vector invisibly.
+#' @param paths named or unnamed list containing character path elements. must
+#' be a non-empty list that resolves to a non-empty character vector with no
+#' missing values.
+#' @return invisible character vector of directories passed to
+#' `fs::dir_create()`.
+#' @importFrom checkmate assert_list assert_character
+#' @importFrom fs dir_create
+#' @examples
+#' temp_paths <- list(a = file.path(tempdir(), "a"), b = file.path(tempdir(), "b"))
+#' create_required_directories(temp_paths)
 create_required_directories <- function(paths) {
+  checkmate::assert_list(paths, min.len = 1)
+
   all_directories <- paths |>
     unlist(recursive = TRUE, use.names = FALSE)
+
+  checkmate::assert_character(all_directories, any.missing = FALSE, min.len = 1)
 
   fs::dir_create(all_directories)
 
   invisible(all_directories)
 }
-
-# ------------------------------
-# End of script
-# ------------------------------
