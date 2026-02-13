@@ -50,8 +50,34 @@ testthat::test_that("transform_single_file defaults missing product metadata", {
     `2020` = "1"
   )
 
+  transformed <- testthat::expect_no_warning(
+    transform_single_file(file_row, input_dt, test_config)
+  )
+
+  testthat::expect_identical(transformed$wide_raw$product[[1]], "unknown")
+})
+
+testthat::test_that("transform_single_file optionally emits missing product metadata warning", {
+  file_row <- tibble::tibble(
+    file_name = "sample_file.xlsx",
+    yearbook = "yb_2020",
+    product = NA_character_
+  )
+
+  input_dt <- data.table::data.table(
+    variable = "production",
+    continent = "asia",
+    country = "nepal",
+    unit = "t",
+    footnotes = "none",
+    `2020` = "1"
+  )
+
+  config_with_warning <- test_config
+  config_with_warning$messages$show_missing_product_metadata_warning <- TRUE
+
   transformed <- testthat::expect_warning(
-    transform_single_file(file_row, input_dt, test_config),
+    transform_single_file(file_row, input_dt, config_with_warning),
     regexp = "missing product metadata",
     ignore.case = TRUE
   )

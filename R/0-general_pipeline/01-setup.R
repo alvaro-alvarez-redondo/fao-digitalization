@@ -86,7 +86,8 @@ load_pipeline_config <- function() {
     column_id = columns$id,
     column_order = column_order,
     export_config = export_config,
-    defaults = list(notes_value = NA_character_)
+    defaults = list(notes_value = NA_character_),
+    messages = list(show_missing_product_metadata_warning = FALSE)
   )
 }
 
