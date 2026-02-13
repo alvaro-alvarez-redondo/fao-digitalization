@@ -42,6 +42,7 @@ run_export_pipeline <- function(fao_data_raw, config, overwrite = TRUE) {
 
   progressr::handlers(progressr::handler_txtprogressbar(
     style = 3,
+    width = 40,
     clear = FALSE
   ))
 
@@ -54,10 +55,10 @@ run_export_pipeline <- function(fao_data_raw, config, overwrite = TRUE) {
       base_name = "fao_data_raw",
       overwrite = overwrite
     )
-    progress()
+    progress("export pipeline: exporting processed dataset")
 
     lists_path <- export_selected_unique_lists(fao_data_raw, config, overwrite)
-    progress()
+    progress("export pipeline: exporting unique lists")
 
     list(processed_path = processed_path, lists_path = lists_path)
   })
