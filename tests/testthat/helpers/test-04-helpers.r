@@ -91,23 +91,25 @@ testthat::test_that("helper validators fail with cli errors on bad inputs", {
 
 
 testthat::test_that("create_progress_bar returns a tickable progress object", {
-  progress_bar <- create_progress_bar(total = 2, clear = TRUE)
+  progress_bar <- create_progress_bar(total = 2, color = "green")
 
   testthat::expect_s3_class(progress_bar, "progress_bar")
   testthat::expect_no_error(progress_bar$tick(tokens = list()))
 })
 
-testthat::test_that("create_progress_bar handles zero total gracefully", {
-  testthat::expect_warning(
-    progress_bar <- create_progress_bar(total = 0),
-    "zero steps"
-  )
+testthat::test_that("create_progress_bar supports approved colors", {
+  green_progress_bar <- create_progress_bar(total = 1, color = "green")
+  blue_progress_bar <- create_progress_bar(total = 1, color = "blue")
+  cyan_progress_bar <- create_progress_bar(total = 1, color = "cyan")
 
-  testthat::expect_s3_class(progress_bar, "progress_bar")
+  testthat::expect_s3_class(green_progress_bar, "progress_bar")
+  testthat::expect_s3_class(blue_progress_bar, "progress_bar")
+  testthat::expect_s3_class(cyan_progress_bar, "progress_bar")
 })
 
 testthat::test_that("create_progress_bar validates inputs", {
+  testthat::expect_error(create_progress_bar(total = 0), class = "rlang_error")
   testthat::expect_error(create_progress_bar(total = -1), class = "rlang_error")
-  testthat::expect_error(create_progress_bar(total = 1, format = ""), class = "rlang_error")
-  testthat::expect_error(create_progress_bar(total = 1, clear = "no"), class = "rlang_error")
+  testthat::expect_error(create_progress_bar(total = 1, color = ""), class = "rlang_error")
+  testthat::expect_error(create_progress_bar(total = 1, color = "red"), class = "rlang_error")
 })

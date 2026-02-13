@@ -231,55 +231,36 @@ generate_export_path <- function(
   fs::path(folder, paste0(normalize_filename(base_name), suffix))
 }
 
-#' @title create configurable progress bar
-#' @description create a standardized `progress::progress_bar` object with
-#' project-wide defaults for appearance and clear behavior. this helper
-#' centralizes progress bar configuration and handles edge cases for totals of
-#' zero or one in a predictable way.
-#' @param total integerish scalar defining the number of progress steps.
-#' must be greater than or equal to zero.
-#' @param format non-empty character scalar defining the progress display
-#' template. supports progress tokens such as `:bar`, `:percent`, `:elapsed`,
-#' and `:eta`.
-#' @param clear logical scalar indicating whether the progress bar should be
-#' cleared from the terminal when complete.
+#' @title create standardized progress bar
+#' @description create a standardized `progress::progress_bar` object with a
+#' fixed format for the full project. the style is always
+#' `[:bar] :percent :elapsed :eta`, and color can be selected from approved
+#' cli colors.
+#' @param total positive integer scalar defining the total number of steps.
+#' @param color non-empty character scalar with the color name used to style
+#' the bar format. supported values are `"green"`, `"blue"`, and `"cyan"`.
 #' @return a `progress::progress_bar` object ready for `tick()` calls.
-#' @importFrom checkmate check_int check_string check_flag
-#' @importFrom cli cli_warn symbol
+#' @importFrom checkmate check_int check_string check_choice
 #' @importFrom progress progress_bar
 #' @examples
-#' progress_bar <- create_progress_bar(total = 3)
+#' progress_bar <- create_progress_bar(total = 3, color = "green")
 #' progress_bar$tick()
-create_progress_bar <- function(
-  total,
-  format = paste(
-    cli::symbol$tick,
-    ":bar",
-    ":percent",
-    "elapsed:",
-    ":elapsed",
-    "eta:",
-    ":eta"
-  ),
-  clear = FALSE
-) {
-  assert_or_abort(checkmate::check_int(total, lower = 0))
-  assert_or_abort(checkmate::check_string(format, min.chars = 1))
-  assert_or_abort(checkmate::check_flag(clear))
+create_progress_bar <- function(total, color = "green") {
+  assert_or_abort(checkmate::check_int(total, lower = 1))
+  assert_or_abort(checkmate::check_string(color, min.chars = 1))
+  assert_or_abort(checkmate::check_choice(color, c("green", "blue", "cyan")))
 
-  effective_total <- if (total == 0) 1L else as.integer(total)
-
-  progress_bar <- progress::progress_bar$new(
-    format = format,
-    total = effective_total,
-    clear = clear,
-    show_after = 0
+  style_color <- switch(
+    color,
+    green = cli::col_green,
+    blue = cli::col_blue,
+    cyan = cli::col_cyan
   )
 
-  if (total == 0) {
-    cli::cli_warn("progress bar initialized with zero steps; auto-completing.")
-    progress_bar$terminate()
-  }
-
-  progress_bar
+  progress::progress_bar$new(
+    format = style_color("[:bar] :percent :elapsed :eta"),
+    total = as.integer(total),
+    clear = FALSE,
+    show_after = 0
+  )
 }
