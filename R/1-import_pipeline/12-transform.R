@@ -284,7 +284,11 @@ process_files <- function(file_list_dt, read_data_list, config) {
   checkmate::assert_list(read_data_list)
   checkmate::assert_list(config, any.missing = FALSE)
 
-  progressr::handlers(progressr::handler_txtprogressbar(clear = FALSE))
+  progressr::handlers(progressr::handler_txtprogressbar(
+    style = 3,
+    width = 40,
+    clear = FALSE
+  ))
 
   progressr::with_progress({
     progress <- progressr::progressor(along = seq_len(nrow(file_list_dt)))
@@ -294,7 +298,13 @@ process_files <- function(file_list_dt, read_data_list, config) {
       read_data_list,
       \(i, df_wide) {
         file_row <- file_list_dt[i, ]
-        progress(sprintf("processing file %d/%d", i, nrow(file_list_dt)))
+        progress(
+          sprintf(
+            "runing 1-import_pipeline | processing file %d/%d",
+            i,
+            nrow(file_list_dt)
+          )
+        )
         transform_single_file(file_row, df_wide, config)
       }
     ) |>
