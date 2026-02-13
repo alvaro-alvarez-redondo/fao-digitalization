@@ -156,16 +156,14 @@ reshape_to_long <- function(df, config) {
 #' @param file_name character scalar source file name.
 #' @param yearbook character scalar yearbook label.
 #' @param config named list containing `defaults$notes_value` as a character
-#' scalar. when `defaults$notes_value` is `na`, it is normalized to an empty
-#' string to keep downstream processing stable.
+#' scalar and may be `na_character_` when notes are intentionally missing.
 #' @return data table with metadata columns added.
 #' @importFrom checkmate assert_data_frame assert_string assert_list assert_character
 #' @importFrom dplyr mutate
 #' @importFrom data.table as.data.table
-#' @importFrom cli cli_warn
 #' @examples
 #' df_example <- data.frame(country = "x", year = "2020", value = "1")
-#' config_example <- list(defaults = list(notes_value = ""))
+#' config_example <- list(defaults = list(notes_value = NA_character_))
 #' add_metadata(df_example, "file.xlsx", "yearbook_a", config_example)
 add_metadata <- function(fao_data_long_raw, file_name, yearbook, config) {
   checkmate::assert_data_frame(fao_data_long_raw)
@@ -176,11 +174,6 @@ add_metadata <- function(fao_data_long_raw, file_name, yearbook, config) {
   checkmate::assert_character(config$defaults$notes_value, len = 1)
 
   notes_value <- config$defaults$notes_value
-
-  if (is.na(notes_value)) {
-    cli::cli_warn("`config$defaults$notes_value` is `na`; using an empty string")
-    notes_value <- ""
-  }
 
   fao_data_long_raw |>
     dplyr::mutate(
@@ -229,7 +222,9 @@ transform_file_dt <- function(df, file_name, yearbook, product_name, config) {
 #' @param df_wide data frame or data table for one file.
 #' @param config named list with transform configuration.
 #' @return named list from `transform_file_dt` or `null` when `df_wide` is empty.
-#' @importFrom checkmate assert_data_frame assert_list assert_names
+#' @importFrom checkmate assert_data_frame assert_list assert_names assert_flag
+#' @importFrom purrr pluck
+#' @importFrom cli cli_warn
 #' @examples
 #' # transform_single_file(file_row_example, df_wide_example, config_example)
 transform_single_file <- function(file_row, df_wide, config) {
@@ -242,15 +237,35 @@ transform_single_file <- function(file_row, df_wide, config) {
   checkmate::assert_data_frame(df_wide)
   checkmate::assert_list(config, any.missing = FALSE)
 
+  warn_missing_product <- purrr::pluck(
+    config,
+    "defaults",
+    "warn_missing_product",
+    .default = FALSE
+  )
+  checkmate::assert_flag(warn_missing_product)
+
   if (nrow(df_wide) == 0) {
     return(NULL)
+  }
+
+  product_name <- file_row$product[[1]]
+
+  if (is.na(product_name) || product_name == "") {
+    if (warn_missing_product) {
+      cli::cli_warn(c(
+        "missing product metadata detected; using fallback value 'unknown'",
+        "i" = "file: {file_row$file_name[[1]]}"
+      ))
+    }
+    product_name <- "unknown"
   }
 
   transform_file_dt(
     df = df_wide,
     file_name = file_row$file_name,
     yearbook = file_row$yearbook,
-    product_name = file_row$product,
+    product_name = product_name,
     config = config
   )
 }

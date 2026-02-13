@@ -24,14 +24,13 @@ required_packages <- c(
 #' @title check dependencies
 #' @description validates a character vector of package names, identifies missing packages,
 #' and installs any package that is not currently available in the active r library paths.
-#' this function is defensive and emits cli messages only when installations are required.
+#' this function is defensive and installs packages silently when required.
 #' @param packages character vector. must be non-missing, non-empty, and contain at least
 #' one package name.
 #' @return character vector of missing package names. returns an empty character vector when
 #' all dependencies are already installed.
 #' @importFrom checkmate assert_character
 #' @importFrom utils install.packages installed.packages
-#' @importFrom cli cli_alert_info
 #' @examples
 #' missing_packages <- check_dependencies(c("stats", "utils"))
 #' missing_packages
@@ -41,9 +40,6 @@ check_dependencies <- function(packages) {
   missing_packages <- setdiff(packages, rownames(utils::installed.packages()))
 
   if (length(missing_packages) > 0) {
-    cli::cli_alert_info(
-      "installing missing packages: {paste(missing_packages, collapse = ', ')}"
-    )
     utils::install.packages(missing_packages)
   }
 

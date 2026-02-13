@@ -33,3 +33,54 @@ testthat::test_that("transform_single_file returns null for empty table", {
 
   testthat::expect_true(is.null(transformed))
 })
+
+testthat::test_that("transform_single_file defaults missing product metadata silently", {
+  file_row <- tibble::tibble(
+    file_name = "sample_file.xlsx",
+    yearbook = "yb_2020",
+    product = NA_character_
+  )
+
+  input_dt <- data.table::data.table(
+    variable = "production",
+    continent = "asia",
+    country = "nepal",
+    unit = "t",
+    footnotes = "none",
+    `2020` = "1"
+  )
+
+  transformed <- testthat::expect_no_warning(
+    transform_single_file(file_row, input_dt, test_config)
+  )
+
+  testthat::expect_identical(transformed$wide_raw$product[[1]], "unknown")
+})
+
+testthat::test_that("transform_single_file warns when warning flag is enabled", {
+  file_row <- tibble::tibble(
+    file_name = "sample_file.xlsx",
+    yearbook = "yb_2020",
+    product = NA_character_
+  )
+
+  input_dt <- data.table::data.table(
+    variable = "production",
+    continent = "asia",
+    country = "nepal",
+    unit = "t",
+    footnotes = "none",
+    `2020` = "1"
+  )
+
+  config_with_warning <- test_config
+  config_with_warning$defaults$warn_missing_product <- TRUE
+
+  transformed <- testthat::expect_warning(
+    transform_single_file(file_row, input_dt, config_with_warning),
+    regexp = "missing product metadata",
+    ignore.case = TRUE
+  )
+
+  testthat::expect_identical(transformed$wide_raw$product[[1]], "unknown")
+})
