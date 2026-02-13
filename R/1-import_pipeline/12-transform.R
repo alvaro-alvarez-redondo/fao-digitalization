@@ -240,13 +240,20 @@ transform_single_file <- function(file_row, df_wide, config) {
     return(NULL)
   }
 
+  show_missing_product_metadata_warning <-
+    !is.null(config$messages$show_missing_product_metadata_warning) &&
+    isTRUE(config$messages$show_missing_product_metadata_warning)
+
   product_name <- file_row$product[[1]]
 
   if (is.na(product_name) || product_name == "") {
-    cli::cli_warn(c(
-      "missing product metadata detected; using fallback value 'unknown'",
-      "i" = "file: {file_row$file_name[[1]]}"
-    ))
+    if (show_missing_product_metadata_warning) {
+      cli::cli_warn(c(
+        "missing product metadata detected; using fallback value 'unknown'",
+        "i" = "file: {file_row$file_name[[1]]}"
+      ))
+    }
+
     product_name <- "unknown"
   }
 
