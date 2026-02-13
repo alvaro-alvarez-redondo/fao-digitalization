@@ -20,6 +20,7 @@ required_packages <- c(
   "renv", # Project-specific package management
   "testthat", # Unit testing framework
   "checkmate", # Assertions and checks
+  "cli", # Structured cli messaging
   "progress" # Progress bars for loops and apply functions
 )
 
