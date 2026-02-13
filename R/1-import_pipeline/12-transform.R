@@ -284,7 +284,7 @@ process_files <- function(file_list_dt, read_data_list, config) {
   checkmate::assert_list(read_data_list)
   checkmate::assert_list(config, any.missing = FALSE)
 
-  progressr::handlers(progressr::handler_txtprogressbar(clear = FALSE))
+  progressr::handlers(progressr::handler_txtprogressbar(width = 40, clear = FALSE))
 
   progressr::with_progress({
     progress <- progressr::progressor(along = seq_len(nrow(file_list_dt)))

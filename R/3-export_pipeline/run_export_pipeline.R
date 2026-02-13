@@ -42,6 +42,7 @@ run_export_pipeline <- function(fao_data_raw, config, overwrite = TRUE) {
 
   progressr::handlers(progressr::handler_txtprogressbar(
     style = 3,
+    width = 40,
     clear = FALSE
   ))
 
