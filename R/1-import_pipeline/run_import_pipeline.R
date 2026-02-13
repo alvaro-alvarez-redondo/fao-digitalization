@@ -26,7 +26,7 @@ purrr::walk(
 #' as transformed wide `data.table`, and `diagnostics` list with
 #' `reading_errors`, `validation_errors`, and `warnings` character vectors.
 #' @importFrom checkmate assert_list assert_string assert_directory_exists
-#' @importFrom purrr map walk
+#' @importFrom purrr map walk transpose
 #' @importFrom data.table copy
 #' @importFrom cli cli_abort
 #' @importFrom here here
@@ -45,8 +45,20 @@ run_import_pipeline <- function(config) {
     cli::cli_abort("no excel files were found. pipeline terminated")
   }
 
-  read_pipeline_result <- read_pipeline_files(file_list_dt, config)
-  read_data_list <- read_pipeline_result$read_data_list
+  progress_bar <- create_progress_bar(total = nrow(file_list_dt), color = "blue")
+
+  read_results <- purrr::map(
+    file_list_dt$file_path,
+    \(file_path) {
+      read_result <- read_file_sheets(file_path, config)
+      progress_bar$tick(tokens = list())
+      read_result
+    }
+  )
+
+  parsed_read_results <- purrr::transpose(read_results)
+  read_data_list <- parsed_read_results$data
+  reading_errors <- parsed_read_results$errors |> unlist(use.names = FALSE)
 
   transformed <- transform_files_list(
     file_list_dt = file_list_dt,
@@ -75,7 +87,7 @@ run_import_pipeline <- function(config) {
     data = consolidated_result$data,
     wide_raw = transformed$wide_raw,
     diagnostics = list(
-      reading_errors = read_pipeline_result$errors,
+      reading_errors = reading_errors,
       validation_errors = validation_errors,
       warnings = consolidated_result$warnings
     )

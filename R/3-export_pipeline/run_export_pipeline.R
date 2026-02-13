@@ -18,7 +18,7 @@ purrr::walk(
 #' @param overwrite logical flag indicating whether existing files should be replaced; validated with checkmate::assert_flag.
 #' @return named list with two character scalars: processed_path and lists_path.
 #' @importFrom checkmate assert_data_frame assert_list assert_flag
-#' @importFrom purrr walk
+#' @importFrom purrr walk imap
 #' @importFrom here here
 #' @importFrom cli cli_abort
 #' @examples
@@ -39,20 +39,36 @@ run_export_pipeline <- function(fao_data_raw, config, overwrite = TRUE) {
   checkmate::assert_flag(overwrite)
 
   fao_data_raw <- ensure_data_table(fao_data_raw)
-  progress_bar <- create_progress_bar(total = 2)
 
-  processed_path <- export_processed_data(
-    fao_data_raw,
-    config,
-    base_name = "fao_data_raw",
-    overwrite = overwrite
+  export_tasks <- list(
+    processed = \() export_processed_data(
+      fao_data_raw,
+      config,
+      base_name = "fao_data_raw",
+      overwrite = overwrite
+    ),
+    lists = \() export_selected_unique_lists(
+      fao_data_raw,
+      config,
+      overwrite
+    )
   )
-  progress_bar$tick(tokens = list())
 
-  lists_path <- export_selected_unique_lists(fao_data_raw, config, overwrite)
-  progress_bar$tick(tokens = list())
+  progress_bar <- create_progress_bar(total = length(export_tasks), color = "cyan")
 
-  list(processed_path = processed_path, lists_path = lists_path)
+  export_paths <- purrr::imap(
+    export_tasks,
+    \(task_function, task_name) {
+      output_path <- task_function()
+      progress_bar$tick(tokens = list(task = task_name))
+      output_path
+    }
+  )
+
+  list(
+    processed_path = export_paths$processed,
+    lists_path = export_paths$lists
+  )
 }
 
 if (!exists("fao_data_raw")) {
