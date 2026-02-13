@@ -14,3 +14,9 @@ testthat::test_dir(
   here::here("tests/testthat/edge_cases"),
   reporter = "summary"
 )
+
+
+testthat::test_dir(
+  here::here("tests/testthat/helpers"),
+  reporter = "summary"
+)
