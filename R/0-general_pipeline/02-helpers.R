@@ -38,7 +38,11 @@ assert_or_abort <- function(check_result) {
 #' @examples
 #' normalize_string("árvore! data 2024")
 normalize_string <- function(string) {
-  assert_or_abort(checkmate::check_atomic(string, min.len = 1, any.missing = TRUE))
+  assert_or_abort(checkmate::check_atomic(
+    string,
+    min.len = 1,
+    any.missing = TRUE
+  ))
 
   string |>
     as.character() |>
@@ -60,13 +64,19 @@ normalize_string <- function(string) {
 #' @examples
 #' normalize_filename("food balance sheet")
 normalize_filename <- function(filename) {
-  assert_or_abort(checkmate::check_atomic(filename, min.len = 1, any.missing = TRUE))
+  assert_or_abort(checkmate::check_atomic(
+    filename,
+    min.len = 1,
+    any.missing = TRUE
+  ))
 
   normalized_filename <- filename |>
     normalize_string() |>
     stringr::str_replace_all(" ", "_")
 
-  normalized_filename[is.na(normalized_filename) | normalized_filename == ""] <- "unknown"
+  normalized_filename[
+    is.na(normalized_filename) | normalized_filename == ""
+  ] <- "unknown"
 
   normalized_filename
 }
@@ -77,19 +87,23 @@ normalize_filename <- function(filename) {
 #' @param parts character vector with no missing values and length greater than
 #' or equal to one. validated with
 #' `checkmate::check_character(min.len = 1, any.missing = false)`.
-#' @return character scalar with combined yearbook tokens, or `na_character_`
+#' @return character scalar with combined yearbook tokens, or `NA_character_`
 #' when the input has fewer than four elements.
 #' @importFrom checkmate check_character
 #' @examples
 #' extract_yearbook(c("fao", "yb", "2020", "2021", "file.xlsx"))
 extract_yearbook <- function(parts) {
-  assert_or_abort(checkmate::check_character(parts, min.len = 1, any.missing = FALSE))
+  assert_or_abort(checkmate::check_character(
+    parts,
+    min.len = 1,
+    any.missing = FALSE
+  ))
 
   if (length(parts) >= 4) {
     return(paste(parts[2:4], collapse = "_"))
   }
 
-  na_character_
+  NA_character_
 }
 
 #' @title extract product token suffix from parsed name parts
@@ -98,14 +112,18 @@ extract_yearbook <- function(parts) {
 #' @param parts character vector with no missing values and length greater than
 #' or equal to one. validated with
 #' `checkmate::check_character(min.len = 1, any.missing = false)`.
-#' @return character scalar with product tokens, or `na_character_` when the
+#' @return character scalar with product tokens, or `NA_character_` when the
 #' input has fewer than seven elements.
 #' @importFrom checkmate check_character
 #' @importFrom fs path_ext_remove
 #' @examples
 #' extract_product(c("a", "b", "c", "d", "e", "f", "rice", "grain.xlsx"))
 extract_product <- function(parts) {
-  assert_or_abort(checkmate::check_character(parts, min.len = 1, any.missing = FALSE))
+  assert_or_abort(checkmate::check_character(
+    parts,
+    min.len = 1,
+    any.missing = FALSE
+  ))
 
   if (length(parts) > 6) {
     product_parts <- parts[7:length(parts)]
@@ -116,7 +134,7 @@ extract_product <- function(parts) {
     return(paste(product_parts, collapse = "_"))
   }
 
-  na_character_
+  NA_character_
 }
 
 #' @title ensure data.frame input is a data.table

@@ -36,7 +36,10 @@ testthat::test_that("raw data critical values are not null", {
   critical_columns <- c("product", "variable", "year", "document")
 
   has_non_null_values <- raw_table |>
-    dplyr::summarise(dplyr::across(dplyr::all_of(critical_columns), ~ all(!is.na(.x) & .x != ""))) |>
+    dplyr::summarise(dplyr::across(
+      dplyr::all_of(critical_columns),
+      ~ all(!is.na(.x) & .x != "")
+    )) |>
     unlist(use.names = FALSE) |>
     all()
 

@@ -18,9 +18,16 @@ testthat::test_that("normalize_filename replaces spaces with underscores", {
 
 
 testthat::test_that("normalize_filename replaces missing and empty values with unknown", {
-  normalized <- normalize_filename(c("Food Balance Sheet", NA_character_, "***"))
+  normalized <- normalize_filename(c(
+    "Food Balance Sheet",
+    NA_character_,
+    "***"
+  ))
 
-  testthat::expect_identical(normalized, c("food_balance_sheet", "unknown", "unknown"))
+  testthat::expect_identical(
+    normalized,
+    c("food_balance_sheet", "unknown", "unknown")
+  )
 })
 
 testthat::test_that("extract_yearbook returns expected token window", {
@@ -76,5 +83,8 @@ testthat::test_that("generate_export_path builds a normalized export target", {
 testthat::test_that("helper validators fail with cli errors on bad inputs", {
   testthat::expect_error(normalize_string(NULL), class = "rlang_error")
   testthat::expect_error(ensure_data_table("invalid"), class = "rlang_error")
-  testthat::expect_error(generate_export_path(list(), "name"), class = "rlang_error")
+  testthat::expect_error(
+    generate_export_path(list(), "name"),
+    class = "rlang_error"
+  )
 })

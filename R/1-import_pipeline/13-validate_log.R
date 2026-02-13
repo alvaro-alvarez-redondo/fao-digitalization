@@ -48,7 +48,10 @@ validate_mandatory_fields_dt <- function(dt, config) {
 # Function. Detect duplicates
 # ------------------------------
 detect_duplicates_dt <- function(dt) {
-  dup_counts <- dt[, .(duplicate_count = .N), by = .(product, variable, year, value, document)]
+  dup_counts <- dt[,
+    .(duplicate_count = .N),
+    by = .(product, variable, year, value, document)
+  ]
   dup_rows <- dup_counts[duplicate_count > 1]
 
   errors <- character(0)

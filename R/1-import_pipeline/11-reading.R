@@ -21,7 +21,10 @@ read_excel_sheet <- function(file_path, sheet_name, config) {
       )
     },
     error = function(condition) {
-      return(structure(list(error_message = condition$message), class = "read_error"))
+      return(structure(
+        list(error_message = condition$message),
+        class = "read_error"
+      ))
     }
   )
 
@@ -75,7 +78,10 @@ read_file_sheets <- function(file_path, config) {
   sheets <- tryCatch(
     readxl::excel_sheets(file_path),
     error = function(condition) {
-      return(structure(list(error_message = condition$message), class = "read_error"))
+      return(structure(
+        list(error_message = condition$message),
+        class = "read_error"
+      ))
     }
   )
 
@@ -126,7 +132,10 @@ read_pipeline_files <- function(file_list_dt, config) {
     return(list(read_data_list = list(), errors = character(0)))
   }
 
-  read_results <- purrr::map(file_list_dt$file_path, ~ read_file_sheets(.x, config))
+  read_results <- purrr::map(
+    file_list_dt$file_path,
+    ~ read_file_sheets(.x, config)
+  )
   parsed_results <- purrr::transpose(read_results)
 
   list(
