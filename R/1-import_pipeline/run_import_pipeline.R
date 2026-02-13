@@ -1,5 +1,5 @@
-#' @title run import pipeline script
-#' @description discover, read, transform, and validate all import files
+# script: run import pipeline script
+# description: discover, read, transform, and validate all import files
 
 import_scripts <- c(
   "10-file_io.R",

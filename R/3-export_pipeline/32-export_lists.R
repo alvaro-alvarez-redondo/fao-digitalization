@@ -96,8 +96,15 @@ export_selected_unique_lists <- function(df, config, overwrite = TRUE) {
   checkmate::assert_list(config, names = "named")
   checkmate::assert_flag(overwrite)
   checkmate::assert_list(config$export_config, names = "named")
-  checkmate::assert_character(config$export_config$lists_to_export, min.len = 1, any.missing = FALSE)
-  checkmate::assert_string(config$export_config$lists_workbook_name, min.chars = 1)
+  checkmate::assert_character(
+    config$export_config$lists_to_export,
+    min.len = 1,
+    any.missing = FALSE
+  )
+  checkmate::assert_string(
+    config$export_config$lists_workbook_name,
+    min.chars = 1
+  )
 
   validate_export_import(df, "fao_unique_lists_raw")
 

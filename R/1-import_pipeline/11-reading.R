@@ -1,6 +1,6 @@
-#' @title reading script
-#' @description read all sheets from .xlsx files, enforce base columns,
-#' and return tidy data.tables with error logging
+# script: reading script
+# description: read all sheets from .xlsx files, enforce base columns,
+# and return tidy data.tables with error logging
 
 #' @title read excel sheet
 #' @description read one excel sheet as text columns, validate required inputs,

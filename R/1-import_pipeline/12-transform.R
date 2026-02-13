@@ -1,5 +1,5 @@
-#' @title transform script
-#' @description normalize metadata, reshape data, and add required metadata columns
+# script: transform script
+# description: normalize metadata, reshape data, and add required metadata columns
 
 #' @title identify year columns
 #' @description identify columns that represent year values in four-digit format

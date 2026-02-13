@@ -1,7 +1,7 @@
-#' @title run general pipeline script
-#' @description sources the general pipeline scripts, ensures project
-#' dependencies are installed and loaded, then builds configuration and creates
-#' required directories.
+# script: run general pipeline script
+# description: sources the general pipeline scripts, ensures project
+# dependencies are installed and loaded, then builds configuration and creates
+# required directories.
 
 #' @title source general scripts
 #' @description validates a character vector of script names, resolves each

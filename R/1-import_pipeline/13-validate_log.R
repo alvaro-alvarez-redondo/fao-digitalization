@@ -1,5 +1,5 @@
-#' @title validate log script
-#' @description validate mandatory fields, detect duplicates and collect errors/warnings
+# script: validate log script
+# description: validate mandatory fields, detect duplicates and collect errors/warnings
 
 #' @title validate mandatory fields data table
 #' @description validate mandatory columns in a long-format table, create missing

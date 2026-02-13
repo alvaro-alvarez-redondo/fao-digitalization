@@ -1,6 +1,6 @@
-#' @title helpers script
-#' @description provides helper functions for validation, string normalization,
-#' export path generation, and data.table coercion used across the pipeline
+# script: helpers script
+# description: provides helper functions for validation, string normalization,
+# export path generation, and data.table coercion used across the pipeline
 
 #' @title assert checkmate validation results with cli errors
 #' @description validates the output of a `checkmate::check_*` call, requiring a

@@ -1,6 +1,6 @@
-#' @title output script
-#' @description consolidate multiple validated long-format data.tables
-#' into a single data.table with controlled column order
+# script: output script
+# description: consolidate multiple validated long-format data.tables
+# into a single data.table with controlled column order
 
 #' @title consolidate validated data tables
 #' @description consolidate multiple validated long-format tables into one

@@ -1,6 +1,6 @@
-#' @title file input-output script
-#' @description discover all .xlsx files, validate file names,
-#' and extract product/yearbook metadata in a tidy, vectorized style
+# script: file input-output script
+# description: discover all .xlsx files, validate file names,
+# and extract product/yearbook metadata in a tidy, vectorized style
 
 #' @title extract file metadata
 #' @description build a standardized metadata table from a character vector of
