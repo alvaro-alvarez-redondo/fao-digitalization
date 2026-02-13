@@ -35,7 +35,8 @@ read_excel_sheet <- function(file_path, sheet_name, config) {
       path = file_path,
       sheet = sheet_name,
       col_names = TRUE,
-      col_types = "text"
+      col_types = "text",
+      .name_repair = "unique_quiet"
     ),
     error = function(condition) {
       structure(
