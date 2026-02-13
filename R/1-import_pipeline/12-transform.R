@@ -230,6 +230,7 @@ transform_file_dt <- function(df, file_name, yearbook, product_name, config) {
 #' @param config named list with transform configuration.
 #' @return named list from `transform_file_dt` or `null` when `df_wide` is empty.
 #' @importFrom checkmate assert_data_frame assert_list assert_names
+#' @importFrom cli cli_warn
 #' @examples
 #' # transform_single_file(file_row_example, df_wide_example, config_example)
 transform_single_file <- function(file_row, df_wide, config) {
@@ -246,11 +247,21 @@ transform_single_file <- function(file_row, df_wide, config) {
     return(NULL)
   }
 
+  product_name <- file_row$product[[1]]
+
+  if (is.na(product_name) || product_name == "") {
+    cli::cli_warn(c(
+      "missing product metadata detected; using fallback value 'unknown'",
+      "i" = "file: {file_row$file_name[[1]]}"
+    ))
+    product_name <- "unknown"
+  }
+
   transform_file_dt(
     df = df_wide,
     file_name = file_row$file_name,
     yearbook = file_row$yearbook,
-    product_name = file_row$product,
+    product_name = product_name,
     config = config
   )
 }
