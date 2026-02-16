@@ -27,13 +27,16 @@ testthat::test_that("discover_pipeline_files fails fast for missing import path"
   )
 })
 
-testthat::test_that("read_file_sheets handles missing file with error", {
+testthat::test_that("read_file_sheets returns structured errors for missing file", {
   missing_path <- fs::path(withr::local_tempdir(), "missing.xlsx")
 
-  testthat::expect_error(
-    read_file_sheets(missing_path, test_config),
-    regexp = "path does not exist|cannot open the connection|does not exist"
-  )
+  result <- read_file_sheets(missing_path, test_config)
+
+  testthat::expect_true(data.table::is.data.table(result$data))
+  testthat::expect_equal(nrow(result$data), 0)
+  testthat::expect_type(result$errors, "character")
+  testthat::expect_length(result$errors, 1)
+  testthat::expect_match(result$errors[[1]], "failed to list sheets", ignore.case = TRUE)
 })
 
 testthat::test_that("transform_single_file returns null for empty table", {
@@ -155,5 +158,26 @@ testthat::test_that("process_files fails fast when read_data_list length differs
   testthat::expect_error(
     process_files(file_list_dt, read_data_list, test_config),
     regexp = "length must match"
+  )
+})
+
+testthat::test_that("read_pipeline_files returns stable empty output for empty file metadata", {
+  empty_file_list <- data.table::data.table(file_path = character(0))
+
+  result <- read_pipeline_files(empty_file_list, test_config)
+
+  testthat::expect_type(result, "list")
+  testthat::expect_identical(result$read_data_list, list())
+  testthat::expect_identical(result$errors, character(0))
+})
+
+testthat::test_that("read_excel_sheet validates config base columns", {
+  testthat::expect_error(
+    read_excel_sheet(
+      file_path = "dummy.xlsx",
+      sheet_name = "sheet1",
+      config = list(column_required = character(0))
+    ),
+    regexp = "column_required|min.len"
   )
 })

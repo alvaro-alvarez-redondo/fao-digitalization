@@ -163,13 +163,13 @@ validate_long_dt <- function(long_dt, config) {
 #' @title identify row-level validation errors for consolidated data
 #' @description audits consolidated `fao_data_raw` rows against validation rules
 #' and returns only dirty rows. the function builds a row-level `error_columns`
-#' field listing all failing columns separated by `"; "`.
+#' field listing only columns that fail in each specific row, separated by `", "`.
 #' @param fao_data_raw data frame or data table containing consolidated raw fao
 #' observations.
 #' @return `data.table` containing only rows with at least one validation error,
 #' with `error_columns` as the first column.
 #' @importFrom checkmate assert_data_frame assert_string assert_names
-#' @importFrom data.table as.data.table copy setcolorder
+#' @importFrom data.table as.data.table copy data.table setcolorder
 #' @importFrom readr parse_double
 #' @importFrom stringr str_detect
 #' @examples
@@ -315,18 +315,20 @@ identify_validation_errors <- function(fao_data_raw) {
   error_columns <- rep("", row_count)
 
   if (nrow(flagged_pairs) > 0) {
-    flagged_names <- colnames(flags_dt)[flagged_pairs[, "col"]]
-    row_groups <- split(flagged_names, flagged_pairs[, "row"])
-
-    error_columns[as.integer(names(row_groups))] <- vapply(
-      row_groups,
-      \(column_names) paste(unique(column_names), collapse = "; "),
-      FUN.VALUE = character(1)
+    flagged_dt <- data.table::data.table(
+      row_id = flagged_pairs[, "row"],
+      column_name = colnames(flags_dt)[flagged_pairs[, "col"]]
     )
+
+    error_by_row <- unique(flagged_dt, by = c("row_id", "column_name"))[, .(
+      error_columns = paste(column_name, collapse = ", ")
+    ), by = row_id]
+
+    error_columns[error_by_row$row_id] <- error_by_row$error_columns
   }
 
   output_dt <- data.table::copy(audit_dt)
-  output_dt[, error_columns := error_columns]
+  output_dt[, error_columns := as.character(error_columns)]
   data.table::setcolorder(
     output_dt,
     c("error_columns", setdiff(colnames(output_dt), "error_columns"))
