@@ -1,1 +1,1 @@
-source(here::here("run_pipeline.R"), echo = FALSE)
+source(here::here("R/run_pipeline.R"), echo = FALSE)

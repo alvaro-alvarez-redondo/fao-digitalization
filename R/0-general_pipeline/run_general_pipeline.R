@@ -52,7 +52,10 @@ run_general_pipeline <- function() {
 
   total_steps <- 5
 
-  progressr::handlers(progressr::handler_txtprogressbar(width = 40, clear = FALSE))
+  progressr::handlers(progressr::handler_txtprogressbar(
+    width = 40,
+    clear = FALSE
+  ))
 
   progressr::with_progress({
     progress <- progressr::progressor(along = seq_len(total_steps))
