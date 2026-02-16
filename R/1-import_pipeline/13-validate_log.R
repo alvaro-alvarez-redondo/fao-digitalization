@@ -162,14 +162,13 @@ validate_long_dt <- function(long_dt, config) {
 
 #' @title identify row-level validation errors for consolidated data
 #' @description audits consolidated `fao_data_raw` rows against validation rules
-#' and returns only dirty rows. the function builds a row-level `error_columns`
-#' field listing only columns that fail in each specific row, separated by `", "`.
+#' and returns only rows that fail at least one validation rule.
 #' @param fao_data_raw data frame or data table containing consolidated raw fao
 #' observations.
 #' @return `data.table` containing only rows with at least one validation error,
-#' with `error_columns` as the first column.
+#' sorted alphabetically by `document`.
 #' @importFrom checkmate assert_data_frame assert_string assert_names
-#' @importFrom data.table as.data.table copy data.table setcolorder
+#' @importFrom data.table as.data.table copy data.table setorderv
 #' @importFrom readr parse_double
 #' @importFrom stringr str_detect
 #' @examples
@@ -310,34 +309,14 @@ identify_validation_errors <- function(fao_data_raw) {
   }
 
   flags_dt <- data.table::as.data.table(error_flags)
-  flagged_pairs <- which(as.matrix(flags_dt), arr.ind = TRUE)
+  row_has_error <- rowSums(as.matrix(flags_dt)) > 0
 
-  error_columns <- rep("", row_count)
+  output_dt <- audit_dt[row_has_error] |>
+    data.table::copy()
 
-  if (nrow(flagged_pairs) > 0) {
-    flagged_dt <- data.table::data.table(
-      row_id = flagged_pairs[, "row"],
-      column_name = colnames(flags_dt)[flagged_pairs[, "col"]]
-    )
+  data.table::setorderv(output_dt, cols = "document", na.last = TRUE)
 
-    error_by_row <- unique(flagged_dt, by = c("row_id", "column_name"))[,
-      .(
-        error_columns = paste(column_name, collapse = ", ")
-      ),
-      by = row_id
-    ]
-
-    error_columns[error_by_row$row_id] <- error_by_row$error_columns
-  }
-
-  output_dt <- data.table::copy(audit_dt)
-  output_dt[, error_columns := as.character(error_columns)]
-  data.table::setcolorder(
-    output_dt,
-    c("error_columns", setdiff(colnames(output_dt), "error_columns"))
-  )
-
-  output_dt[nzchar(error_columns)]
+  output_dt
 }
 
 #' @title mirror raw import errors into dataset audit folder
@@ -420,8 +399,9 @@ mirror_raw_import_errors <- function(
 
 #' @title export validation audit report to excel
 #' @description writes row-level validation errors to an excel workbook for
-#' manual review and returns the resolved output path.
-#' @param audit_dt data table containing dirty rows and `error_columns`.
+#' manual review and returns the resolved output path. before export, rows are
+#' sorted alphabetically by `document`.
+#' @param audit_dt data table containing dirty rows.
 #' @param output_path character scalar output path for the excel file. the
 #' default is a generic project audit file and should usually be overridden by
 #' `config$paths$data$audit$audit_file_path`.
@@ -431,7 +411,7 @@ mirror_raw_import_errors <- function(
 #' @importFrom openxlsx createWorkbook addWorksheet writeData saveWorkbook
 #' @importFrom cli cli_inform
 #' @examples
-#' # export_validation_audit_report(data.table::data.table(error_columns = "year"))
+#' # export_validation_audit_report(data.table::data.table(document = "sample.xlsx"))
 export_validation_audit_report <- function(
   audit_dt,
   output_path = fs::path(here::here("data", "audit"), "audit.xlsx")
@@ -440,15 +420,21 @@ export_validation_audit_report <- function(
   checkmate::assert_string(output_path, min.chars = 1)
   checkmate::assert_names(
     names(audit_dt),
-    must.include = "error_columns",
+    must.include = "document",
     what = "names(audit_dt)"
   )
+
+  export_dt <- audit_dt |>
+    data.table::as.data.table() |>
+    data.table::copy()
+
+  data.table::setorderv(export_dt, cols = "document", na.last = TRUE)
 
   fs::dir_create(fs::path_dir(output_path))
 
   workbook <- openxlsx::createWorkbook()
   openxlsx::addWorksheet(workbook, "audit_report")
-  openxlsx::writeData(workbook, "audit_report", audit_dt)
+  openxlsx::writeData(workbook, "audit_report", export_dt)
   openxlsx::saveWorkbook(workbook, output_path, overwrite = TRUE)
 }
 
