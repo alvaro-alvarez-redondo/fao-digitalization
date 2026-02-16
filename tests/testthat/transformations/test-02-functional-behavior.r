@@ -158,3 +158,45 @@ testthat::test_that("consolidate_validated_dt fails when column_order is undefin
     regexp = "config\\$column_order"
   )
 })
+
+
+testthat::test_that("load_pipeline_config builds dataset-scoped audit paths", {
+  config <- load_pipeline_config("my dataset")
+
+  testthat::expect_identical(config$dataset_name, "my_dataset")
+  testthat::expect_match(config$paths$data$audit$audit_dir, "data[/\\]audit[/\\]my_dataset$")
+  testthat::expect_match(config$paths$data$audit$audit_file_path, "my_dataset_audit\\.xlsx$")
+  testthat::expect_match(
+    config$paths$data$audit$raw_imports_mirror_dir,
+    "data[/\\]audit[/\\]my_dataset[/\\]raw_imports_mirror$"
+  )
+})
+
+testthat::test_that("load_pipeline_config can infer dataset name from data attribute", {
+  sample_dt <- data.table::data.table(id = 1)
+  attr(sample_dt, "dataset_name") <- "survey results"
+
+  config <- load_pipeline_config(dataset_name = "", data = sample_dt)
+
+  testthat::expect_identical(config$dataset_name, "survey_results")
+  testthat::expect_match(config$paths$data$audit$audit_file_path, "survey_results_audit\\.xlsx$")
+})
+
+testthat::test_that("create_required_directories normalizes file targets to parent folders", {
+  temp_root <- withr::local_tempdir()
+
+  paths <- list(
+    data = list(
+      audit = list(
+        audit_dir = fs::path(temp_root, "audit", "dataset_a"),
+        audit_file_path = fs::path(temp_root, "audit", "dataset_a", "dataset_a_audit.xlsx")
+      )
+    )
+  )
+
+  created_dirs <- create_required_directories(paths)
+
+  testthat::expect_true(fs::dir_exists(fs::path(temp_root, "audit", "dataset_a")))
+  testthat::expect_false(fs::dir_exists(fs::path(temp_root, "audit", "dataset_a", "dataset_a_audit.xlsx")))
+  testthat::expect_true(fs::path(temp_root, "audit", "dataset_a") %in% created_dirs)
+})

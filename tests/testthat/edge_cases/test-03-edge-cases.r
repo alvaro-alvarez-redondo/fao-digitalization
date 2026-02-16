@@ -133,3 +133,27 @@ testthat::test_that("process_files fails fast when read_data_list contains non-t
     regexp = "read_data_list"
   )
 })
+
+testthat::test_that("process_files fails fast when read_data_list length differs from file metadata rows", {
+  file_list_dt <- data.table::data.table(
+    file_name = c("a.xlsx", "b.xlsx"),
+    yearbook = c("yb_2020", "yb_2021"),
+    product = c("rice", "wheat")
+  )
+
+  read_data_list <- list(
+    data.table::data.table(
+      variable = "production",
+      continent = "asia",
+      country = "nepal",
+      unit = "t",
+      footnotes = "none",
+      `2020` = "1"
+    )
+  )
+
+  testthat::expect_error(
+    process_files(file_list_dt, read_data_list, test_config),
+    regexp = "length must match"
+  )
+})

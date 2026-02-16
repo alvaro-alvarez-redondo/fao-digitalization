@@ -108,9 +108,10 @@ testthat::test_that("validate_data warns and creates report for dirty rows", {
 
   config <- test_config
   config$paths$data$imports$raw <- temp_raw_imports
-  config$paths$data$audit$dataset_dir <- fs::path(withr::local_tempdir(), "audit", "fao_data_raw")
-  config$paths$data$audit$audit_file_path <- fs::path(config$paths$data$audit$dataset_dir, "fao_data_raw_audit.xlsx")
-  config$paths$data$audit$raw_imports_mirror_dir <- fs::path(config$paths$data$audit$dataset_dir, "raw_imports_mirror")
+  config$paths$data$audit$audit_dir <- fs::path(withr::local_tempdir(), "audit", config$dataset_name)
+  config$paths$data$audit$dataset_dir <- config$paths$data$audit$audit_dir
+  config$paths$data$audit$audit_file_path <- fs::path(config$paths$data$audit$audit_dir, paste0(config$dataset_name, "_audit.xlsx"))
+  config$paths$data$audit$raw_imports_mirror_dir <- fs::path(config$paths$data$audit$audit_dir, "raw_imports_mirror")
 
   validated_dt <- testthat::expect_warning(
     validate_data(input_dt, config = config),
