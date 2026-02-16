@@ -1,13 +1,13 @@
 raw_table <- data.table::data.table(
   continent = "asia",
   country = "nepal",
-  unit = "t",
-  footnotes = "none",
   product = "rice",
   variable = "production",
+  unit = "t",
   year = "2020",
   value = "1",
   notes = NA_character_,
+  footnotes = "none",
   yearbook = "yb_2020",
   document = "sample_file.xlsx"
 )

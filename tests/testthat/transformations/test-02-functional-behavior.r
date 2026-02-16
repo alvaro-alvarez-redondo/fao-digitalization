@@ -66,3 +66,65 @@ testthat::test_that("load_pipeline_config sets missing notes default", {
 
   testthat::expect_identical(config$defaults$notes_value, NA_character_)
 })
+
+
+testthat::test_that("load_pipeline_config sets analytical target column order", {
+  config <- load_pipeline_config()
+
+  expected_order <- c(
+    "continent",
+    "country",
+    "product",
+    "variable",
+    "unit",
+    "year",
+    "value",
+    "notes",
+    "footnotes",
+    "yearbook",
+    "document"
+  )
+
+  testthat::expect_identical(config$column_order, expected_order)
+})
+
+testthat::test_that("consolidate_validated_dt reorders columns without dropping extras", {
+  dt_list <- list(
+    data.table::data.table(
+      country = "nepal",
+      continent = "asia",
+      variable = "production",
+      product = "rice",
+      unit = "t",
+      year = "2020",
+      value = "1",
+      notes = NA_character_,
+      footnotes = "none",
+      yearbook = "yb_2020",
+      document = "sample_file.xlsx",
+      extra_metric = "x"
+    )
+  )
+
+  consolidated <- consolidate_validated_dt(dt_list, test_config)
+
+  expected_prefix <- c(
+    "continent",
+    "country",
+    "product",
+    "variable",
+    "unit",
+    "year",
+    "value",
+    "notes",
+    "footnotes",
+    "yearbook",
+    "document"
+  )
+
+  testthat::expect_identical(
+    colnames(consolidated$data)[seq_along(expected_prefix)],
+    expected_prefix
+  )
+  testthat::expect_true("extra_metric" %in% colnames(consolidated$data))
+})
