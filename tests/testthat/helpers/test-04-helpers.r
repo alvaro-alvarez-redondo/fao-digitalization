@@ -72,12 +72,42 @@ testthat::test_that("generate_export_path builds a normalized export target", {
 
   output_path <- generate_export_path(
     config = config,
-    base_name = "Food Balance",
-    type = "processed"
+    base_name = "food balance",
+    type = "processed",
+    use_here = FALSE
   )
 
   testthat::expect_true(fs::is_dir(config$paths$data$exports$processed))
   testthat::expect_match(output_path, "food_balance_data\\.xlsx$")
+})
+
+
+testthat::test_that("generate_export_path resolves relative folders with here", {
+  config <- list(
+    paths = list(
+      data = list(
+        exports = list(
+          processed = "tmp/export_outputs",
+          lists = "tmp/export_lists"
+        )
+      )
+    ),
+    export_config = list(
+      data_suffix = "_data.xlsx",
+      list_suffix = "_list.xlsx"
+    )
+  )
+
+  output_path <- generate_export_path(
+    config = config,
+    base_name = "food balance",
+    type = "processed"
+  )
+
+  testthat::expect_identical(
+    fs::path_norm(output_path),
+    fs::path_norm(here::here("tmp/export_outputs/food_balance_data.xlsx"))
+  )
 })
 
 testthat::test_that("helper validators fail with cli errors on bad inputs", {
