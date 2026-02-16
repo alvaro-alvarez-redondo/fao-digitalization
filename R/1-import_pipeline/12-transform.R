@@ -276,13 +276,25 @@ transform_single_file <- function(file_row, df_wide, config) {
 #' @return list of transformed per-file results.
 #' @importFrom checkmate assert_data_frame assert_list
 #' @importFrom progressr handlers handler_txtprogressbar with_progress progressor
-#' @importFrom purrr map2 compact
+#' @importFrom purrr compact detect_index map2
 #' @examples
 #' # process_files(file_list_dt_example, read_data_list_example, config_example)
 process_files <- function(file_list_dt, read_data_list, config) {
   checkmate::assert_data_frame(file_list_dt)
   checkmate::assert_list(read_data_list)
   checkmate::assert_list(config, any.missing = FALSE)
+
+  invalid_read_data_index <- purrr::detect_index(
+    read_data_list,
+    \(x) !is.data.frame(x)
+  )
+
+  if (invalid_read_data_index > 0) {
+    cli::cli_abort(c(
+      "all elements in {.arg read_data_list} must be data.frame-compatible objects",
+      "x" = "invalid element index: {invalid_read_data_index}"
+    ))
+  }
 
   progressr::handlers(progressr::handler_txtprogressbar(width = 40, clear = FALSE))
 
@@ -336,6 +348,13 @@ transform_files_list <- function(file_list_dt, read_data_list, config) {
   }
 
   results <- process_files(file_list_dt, read_data_list, config)
+
+  if (length(results) == 0) {
+    return(list(
+      wide_raw = data.table::data.table(),
+      long_raw = data.table::data.table()
+    ))
+  }
 
   list(
     wide_raw = results |>

@@ -1,10 +1,11 @@
 testthat::test_that("load_pipeline_config returns expected core fields", {
-  config <- load_pipeline_config()
+  config <- load_pipeline_config("fao_data_raw")
 
   testthat::expect_named(
     config,
     c(
       "project_root",
+      "dataset_name",
       "paths",
       "files",
       "columns",
@@ -12,13 +13,18 @@ testthat::test_that("load_pipeline_config returns expected core fields", {
       "column_id",
       "column_order",
       "export_config",
-      "defaults"
+      "defaults",
+      "messages"
     )
   )
 
   testthat::expect_equal(config$files$raw_data, "fao_data_raw.xlsx")
   testthat::expect_equal(config$files$wide_raw_data, "fao_data_wide_raw.xlsx")
   testthat::expect_equal(config$files$long_raw_data, "fao_data_long_raw.xlsx")
+
+  testthat::expect_identical(config$dataset_name, "fao_data_raw")
+  testthat::expect_match(config$paths$data$audit$audit_file_path, "fao_data_raw_audit\\.xlsx$")
+  testthat::expect_match(config$paths$data$audit$raw_imports_mirror_dir, "raw_imports_mirror$")
 })
 
 testthat::test_that("transform_file_dt returns expected class and dimensions", {
@@ -62,14 +68,14 @@ testthat::test_that("add_metadata preserves na notes defaults", {
 })
 
 testthat::test_that("load_pipeline_config sets missing notes default", {
-  config <- load_pipeline_config()
+  config <- load_pipeline_config("fao_data_raw")
 
   testthat::expect_identical(config$defaults$notes_value, NA_character_)
 })
 
 
 testthat::test_that("load_pipeline_config sets analytical target column order", {
-  config <- load_pipeline_config()
+  config <- load_pipeline_config("fao_data_raw")
 
   expected_order <- c(
     "continent",
