@@ -327,7 +327,10 @@ identify_validation_errors <- function(fao_data_raw) {
 
   output_dt <- data.table::copy(audit_dt)
   output_dt[, error_columns := error_columns]
-  data.table::setcolorder(output_dt, c("error_columns", setdiff(colnames(output_dt), "error_columns")))
+  data.table::setcolorder(
+    output_dt,
+    c("error_columns", setdiff(colnames(output_dt), "error_columns"))
+  )
 
   output_dt[nzchar(error_columns)]
 }
@@ -348,11 +351,20 @@ identify_validation_errors <- function(fao_data_raw) {
 #' # export_validation_audit_report(data.table::data.table(error_columns = "year"))
 export_validation_audit_report <- function(
   audit_dt,
-  output_path = here::here("data", "exports", "audit", "fao_data_raw_audit.xlsx")
+  output_path = here::here(
+    "data",
+    "exports",
+    "audit",
+    "fao_data_raw_audit.xlsx"
+  )
 ) {
   checkmate::assert_data_frame(audit_dt)
   checkmate::assert_string(output_path, min.chars = 1)
-  checkmate::assert_names(names(audit_dt), must.include = "error_columns", what = "names(audit_dt)")
+  checkmate::assert_names(
+    names(audit_dt),
+    must.include = "error_columns",
+    what = "names(audit_dt)"
+  )
 
   fs::dir_create(fs::path_dir(output_path))
 
@@ -360,10 +372,6 @@ export_validation_audit_report <- function(
   openxlsx::addWorksheet(workbook, "audit_report")
   openxlsx::writeData(workbook, "audit_report", audit_dt)
   openxlsx::saveWorkbook(workbook, output_path, overwrite = TRUE)
-
-  cli::cli_inform("validation audit report saved to: {output_path}")
-
-  output_path
 }
 
 #' @title validate consolidated fao data for analytical readiness
@@ -397,7 +405,12 @@ export_validation_audit_report <- function(
 #' validate_data(data_example)
 validate_data <- function(
   fao_data_raw,
-  output_path = here::here("data", "exports", "audit", "fao_data_raw_audit.xlsx")
+  output_path = here::here(
+    "data",
+    "exports",
+    "audit",
+    "fao_data_raw_audit.xlsx"
+  )
 ) {
   checkmate::assert_data_frame(fao_data_raw)
   checkmate::assert_string(output_path, min.chars = 1)
@@ -411,7 +424,7 @@ validate_data <- function(
     )
 
     cli::cli_warn(
-      "data validation failed for {nrow(audit_dt)} row(s). review the audit report at: {report_path}"
+      "Data validation failed for {nrow(audit_dt)} row(s). review the audit report at {.file {report_path}} for details."
     )
   }
 
@@ -419,9 +432,11 @@ validate_data <- function(
     data.table::as.data.table() |>
     data.table::copy()
 
-  validated_dt[, value := suppressWarnings(
-    readr::parse_double(as.character(value), na = c("", "na", "nan", "null"))
-  )]
+  validated_dt[,
+    value := suppressWarnings(
+      readr::parse_double(as.character(value), na = c("", "na", "nan", "null"))
+    )
+  ]
 
   validated_dt
 }
