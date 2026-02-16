@@ -284,6 +284,17 @@ process_files <- function(file_list_dt, read_data_list, config) {
   checkmate::assert_list(read_data_list)
   checkmate::assert_list(config, any.missing = FALSE)
 
+  expected_items <- nrow(file_list_dt)
+  provided_items <- length(read_data_list)
+
+  if (provided_items != expected_items) {
+    cli::cli_abort(c(
+      "{.arg read_data_list} length must match {.arg file_list_dt} rows",
+      "x" = "rows in file_list_dt: {expected_items}",
+      "x" = "elements in read_data_list: {provided_items}"
+    ))
+  }
+
   invalid_read_data_index <- purrr::detect_index(
     read_data_list,
     \(x) !is.data.frame(x)
@@ -299,14 +310,14 @@ process_files <- function(file_list_dt, read_data_list, config) {
   progressr::handlers(progressr::handler_txtprogressbar(width = 40, clear = FALSE))
 
   progressr::with_progress({
-    progress <- progressr::progressor(along = seq_len(nrow(file_list_dt)))
+    progress <- progressr::progressor(along = seq_len(expected_items))
 
     purrr::map2(
-      seq_len(nrow(file_list_dt)),
+      seq_len(expected_items),
       read_data_list,
       \(i, df_wide) {
         file_row <- file_list_dt[i, ]
-        progress(sprintf("import pipeline: processing file %d/%d", i, nrow(file_list_dt)))
+        progress(sprintf("import pipeline: processing file %d/%d", i, expected_items))
         transform_single_file(file_row, df_wide, config)
       }
     ) |>

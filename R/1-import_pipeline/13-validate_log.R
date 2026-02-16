@@ -423,22 +423,19 @@ mirror_raw_import_errors <- function(
 #' @description writes row-level validation errors to an excel workbook for
 #' manual review and returns the resolved output path.
 #' @param audit_dt data table containing dirty rows and `error_columns`.
-#' @param output_path character scalar output path for the excel file.
+#' @param output_path character scalar output path for the excel file. the
+#' default is a generic project audit file and should usually be overridden by
+#' `config$paths$data$audit$audit_file_path`.
 #' @return character scalar with the saved excel path.
 #' @importFrom checkmate assert_data_frame assert_string assert_names
-#' @importFrom fs dir_create path_dir
+#' @importFrom fs dir_create path_dir path
 #' @importFrom openxlsx createWorkbook addWorksheet writeData saveWorkbook
 #' @importFrom cli cli_inform
 #' @examples
 #' # export_validation_audit_report(data.table::data.table(error_columns = "year"))
 export_validation_audit_report <- function(
   audit_dt,
-  output_path = here::here(
-    "data",
-    "exports",
-    "audit",
-    "fao_data_raw_audit.xlsx"
-  )
+  output_path = fs::path(here::here("data", "audit"), "audit.xlsx")
 ) {
   checkmate::assert_data_frame(audit_dt)
   checkmate::assert_string(output_path, min.chars = 1)
@@ -466,7 +463,7 @@ export_validation_audit_report <- function(
 #' @param config named list containing dataset-specific audit and raw import
 #' paths under `paths$data`.
 #' @return validated `data.table` with `value` coerced to numeric.
-#' @importFrom checkmate assert_data_frame assert_list assert_string assert_directory_exists
+#' @importFrom checkmate assert_data_frame assert_list assert_directory_exists
 #' @importFrom data.table as.data.table copy
 #' @importFrom readr parse_double
 #' @importFrom cli cli_warn
@@ -484,18 +481,11 @@ export_validation_audit_report <- function(
 #'   yearbook = "yb_2020",
 #'   document = "sample_file.xlsx"
 #' )
-#' validate_data(data_example)
-validate_data <- function(
-  fao_data_raw,
-  output_path = here::here(
-    "data",
-    "exports",
-    "audit",
-    "fao_data_raw_audit.xlsx"
-  )
-) {
-  checkmate::assert_data_frame(fao_data_raw)
-  checkmate::assert_string(output_path, min.chars = 1)
+#' validate_data(data_example, load_pipeline_config("fao_data_raw"))
+validate_data <- function(dataset_dt, config) {
+  checkmate::assert_data_frame(dataset_dt)
+  checkmate::assert_list(config, any.missing = FALSE)
+  checkmate::assert_directory_exists(config$paths$data$imports$raw)
 
   audit_dt <- identify_validation_errors(dataset_dt)
 
@@ -512,7 +502,7 @@ validate_data <- function(
     )
 
     cli::cli_warn(
-      "Data validation failed for {nrow(audit_dt)} row(s). review the audit report at {.file {report_path}} for details."
+      "data validation failed for {nrow(audit_dt)} row(s). review the audit report at {.file {report_path}} for details."
     )
   }
 
