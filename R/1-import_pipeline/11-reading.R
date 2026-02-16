@@ -13,22 +13,23 @@
 #' @return named list with two elements: `data` as a `data.table` and `errors` as
 #' a character vector. `data` includes `variable` with the sheet name and is
 #' filtered to rows where at least one required base column is non-empty.
-#' @importFrom checkmate assert_string assert_list assert_character
+#' @importFrom checkmate check_character check_list check_string
 #' @importFrom readxl read_excel
 #' @importFrom fs path_file
 #' @importFrom data.table data.table as.data.table
 #' @importFrom dplyr filter if_any mutate
 #' @importFrom tidyselect all_of
+#' @importFrom cli format_error
 #' @examples
 #' config_example <- list(column_required = c("country", "year"))
 #' # read_excel_sheet("imports/raw/example.xlsx", "sheet1", config_example)
 read_excel_sheet <- function(file_path, sheet_name, config) {
-  checkmate::assert_string(file_path, min.chars = 1)
-  checkmate::assert_string(sheet_name, min.chars = 1)
-  checkmate::assert_list(config, any.missing = FALSE)
+  assert_or_abort(checkmate::check_string(file_path, min.chars = 1))
+  assert_or_abort(checkmate::check_string(sheet_name, min.chars = 1))
+  assert_or_abort(checkmate::check_list(config, any.missing = FALSE))
 
   base_cols <- config$column_required
-  checkmate::assert_character(base_cols, any.missing = FALSE, min.len = 1)
+  assert_or_abort(checkmate::check_character(base_cols, any.missing = FALSE, min.len = 1))
 
   safe_read_result <- tryCatch(
     readxl::read_excel(
@@ -49,13 +50,9 @@ read_excel_sheet <- function(file_path, sheet_name, config) {
   if (inherits(safe_read_result, "read_error")) {
     return(list(
       data = data.table::data.table(),
-      errors = paste0(
-        "failed to read sheet '",
-        sheet_name,
-        "' in file '",
-        fs::path_file(file_path),
-        "': ",
-        safe_read_result$error_message
+      errors = cli::format_error(c(
+        "failed to read sheet {.val {sheet_name}} in file {.file {fs::path_file(file_path)}}.",
+        "x" = safe_read_result$error_message
       )
     ))
   }
@@ -63,15 +60,10 @@ read_excel_sheet <- function(file_path, sheet_name, config) {
   missing_base <- setdiff(base_cols, colnames(safe_read_result))
 
   missing_base_errors <- if (length(missing_base) > 0) {
-    paste0(
-      "sheet '",
-      sheet_name,
-      "' missing base columns: ",
-      paste(missing_base, collapse = ", "),
-      " in file '",
-      fs::path_file(file_path),
-      "'"
-    )
+    cli::format_error(c(
+      "sheet {.val {sheet_name}} is missing required base columns in file {.file {fs::path_file(file_path)}}.",
+      "i" = paste(missing_base, collapse = ", ")
+    ))
   } else {
     character(0)
   }
@@ -101,23 +93,24 @@ read_excel_sheet <- function(file_path, sheet_name, config) {
 #' vector of required base column names.
 #' @return named list with `data` as a combined `data.table` and `errors` as a
 #' character vector containing read and validation issues.
-#' @importFrom checkmate assert_string assert_list assert_character
+#' @importFrom checkmate check_character check_list check_string
 #' @importFrom readxl excel_sheets
 #' @importFrom fs path_file
 #' @importFrom data.table data.table rbindlist
 #' @importFrom stringi stri_enc_isascii
 #' @importFrom purrr map
+#' @importFrom cli format_error format_warning
 #' @examples
 #' config_example <- list(column_required = c("country", "year"))
 #' # read_file_sheets("imports/raw/example.xlsx", config_example)
 read_file_sheets <- function(file_path, config) {
-  checkmate::assert_string(file_path, min.chars = 1)
-  checkmate::assert_list(config, any.missing = FALSE)
-  checkmate::assert_character(
+  assert_or_abort(checkmate::check_string(file_path, min.chars = 1))
+  assert_or_abort(checkmate::check_list(config, any.missing = FALSE))
+  assert_or_abort(checkmate::check_character(
     config$column_required,
     any.missing = FALSE,
     min.len = 1
-  )
+  ))
 
   sheets <- tryCatch(
     readxl::excel_sheets(file_path),
@@ -132,11 +125,9 @@ read_file_sheets <- function(file_path, config) {
   if (inherits(sheets, "read_error")) {
     return(list(
       data = data.table::data.table(),
-      errors = paste0(
-        "failed to list sheets in file '",
-        fs::path_file(file_path),
-        "': ",
-        sheets$error_message
+      errors = cli::format_error(c(
+        "failed to list sheets in file {.file {fs::path_file(file_path)}}.",
+        "x" = sheets$error_message
       )
     ))
   }
@@ -148,12 +139,10 @@ read_file_sheets <- function(file_path, config) {
   non_ascii <- sheets[!stringi::stri_enc_isascii(sheets)]
 
   errors <- if (length(non_ascii) > 0) {
-    paste0(
-      "non-ascii sheet names in file '",
-      fs::path_file(file_path),
-      "': ",
-      paste(non_ascii, collapse = ", ")
-    )
+    cli::format_warning(c(
+      "found non-ascii sheet names in file {.file {fs::path_file(file_path)}}.",
+      "!" = paste(non_ascii, collapse = ", ")
+    ))
   } else {
     character(0)
   }
@@ -184,30 +173,30 @@ read_file_sheets <- function(file_path, config) {
 #' vector of required base column names.
 #' @return named list with `read_data_list` as a list of `data.table` objects and
 #' `errors` as a character vector.
-#' @importFrom checkmate assert_data_frame assert_names assert_list assert_character
+#' @importFrom checkmate check_character check_data_frame check_list check_names
 #' @importFrom purrr map transpose
 #' @examples
 #' file_list_example <- data.frame(file_path = character())
 #' config_example <- list(column_required = c("country", "year"))
 #' read_pipeline_files(file_list_example, config_example)
 read_pipeline_files <- function(file_list_dt, config) {
-  checkmate::assert_data_frame(file_list_dt, min.cols = 1)
-  checkmate::assert_names(
+  assert_or_abort(checkmate::check_data_frame(file_list_dt, min.cols = 1))
+  assert_or_abort(checkmate::check_names(
     names(file_list_dt),
     must.include = "file_path",
     what = "names(file_list_dt)"
-  )
-  checkmate::assert_character(
+  ))
+  assert_or_abort(checkmate::check_character(
     file_list_dt$file_path,
     any.missing = FALSE,
     null.ok = TRUE
-  )
-  checkmate::assert_list(config, any.missing = FALSE)
-  checkmate::assert_character(
+  ))
+  assert_or_abort(checkmate::check_list(config, any.missing = FALSE))
+  assert_or_abort(checkmate::check_character(
     config$column_required,
     any.missing = FALSE,
     min.len = 1
-  )
+  ))
 
   if (nrow(file_list_dt) == 0) {
     return(list(read_data_list = list(), errors = character(0)))

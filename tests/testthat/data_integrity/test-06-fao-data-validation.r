@@ -41,7 +41,34 @@ testthat::test_that("identify_validation_errors captures multiple invalid column
   testthat::expect_true(all(nzchar(audit_dt$error_columns)))
   testthat::expect_true(any(grepl("value", audit_dt$error_columns)))
   testthat::expect_true(any(grepl("year", audit_dt$error_columns)))
-  testthat::expect_true(any(grepl("; ", audit_dt$error_columns, fixed = TRUE)))
+  testthat::expect_true(any(grepl(", ", audit_dt$error_columns, fixed = TRUE)))
+})
+
+
+
+testthat::test_that("identify_validation_errors computes error_columns per row", {
+  input_dt <- data.table::data.table(
+    continent = c("asia", "asia"),
+    country = c("nepal", "nepal"),
+    product = c("rice", "rice"),
+    variable = c("production", "production"),
+    unit = c("t", "t"),
+    year = c("2020/2021", "2020"),
+    value = c("2", "not_numeric"),
+    notes = c(NA_character_, NA_character_),
+    footnotes = c("none", "none"),
+    yearbook = c("yb_2020", "yb_2020"),
+    document = c("sample_a.xlsx", "sample_b.xlsx")
+  )
+
+  audit_dt <- identify_validation_errors(input_dt)
+
+  testthat::expect_equal(nrow(audit_dt), 2)
+  testthat::expect_type(audit_dt$error_columns, "character")
+
+  audit_by_document <- audit_dt[order(document)]
+  testthat::expect_identical(audit_by_document$error_columns[[1]], "year")
+  testthat::expect_identical(audit_by_document$error_columns[[2]], "value")
 })
 
 testthat::test_that("identify_validation_errors flags duplicated keys", {
@@ -67,7 +94,7 @@ testthat::test_that("identify_validation_errors flags duplicated keys", {
 
 testthat::test_that("export_validation_audit_report writes excel report", {
   audit_dt <- data.table::data.table(
-    error_columns = "year; value",
+    error_columns = "year, value",
     continent = "asia",
     country = "nepal",
     product = "rice",
