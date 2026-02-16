@@ -141,3 +141,14 @@ testthat::test_that("consolidate_validated_dt validates required schema coverage
     consolidate_validated_dt(list(data.table::data.table()), config_missing_required)
   )
 })
+
+
+testthat::test_that("consolidate_validated_dt fails when column_order is undefined", {
+  config_missing_column_order <- test_config
+  config_missing_column_order$column_order <- NULL
+
+  testthat::expect_error(
+    consolidate_validated_dt(list(data.table::data.table()), config_missing_column_order),
+    regexp = "config\\$column_order"
+  )
+})
