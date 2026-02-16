@@ -41,7 +41,7 @@ testthat::test_that("identify_validation_errors captures multiple invalid column
   testthat::expect_true(all(nzchar(audit_dt$error_columns)))
   testthat::expect_true(any(grepl("value", audit_dt$error_columns)))
   testthat::expect_true(any(grepl("year", audit_dt$error_columns)))
-  testthat::expect_true(any(grepl(", ", audit_dt$error_columns, fixed = TRUE)))
+  testthat::expect_true(any(grepl("; ", audit_dt$error_columns, fixed = TRUE)))
 })
 
 
@@ -94,7 +94,7 @@ testthat::test_that("identify_validation_errors flags duplicated keys", {
 
 testthat::test_that("export_validation_audit_report writes excel report", {
   audit_dt <- data.table::data.table(
-    error_columns = "year, value",
+    error_columns = "year; value",
     continent = "asia",
     country = "nepal",
     product = "rice",
@@ -113,6 +113,32 @@ testthat::test_that("export_validation_audit_report writes excel report", {
 
   testthat::expect_true(fs::file_exists(saved_path))
 })
+
+testthat::test_that("export_validation_audit_report sorts audit rows by document", {
+  audit_dt <- data.table::data.table(
+    error_columns = c("year", "value"),
+    continent = c("asia", "asia"),
+    country = c("nepal", "nepal"),
+    product = c("rice", "rice"),
+    variable = c("production", "production"),
+    unit = c("t", "t"),
+    year = c("2020/2021", "2020"),
+    value = c("1", "not_numeric"),
+    notes = c(NA_character_, NA_character_),
+    footnotes = c("none", "none"),
+    yearbook = c("yb_2020", "yb_2020"),
+    document = c("zeta.xlsx", "alpha.xlsx")
+  )
+
+  output_path <- fs::path(withr::local_tempdir(), "audit_sorted.xlsx")
+  export_validation_audit_report(audit_dt, output_path)
+
+  exported_dt <- openxlsx::read.xlsx(output_path) |>
+    data.table::as.data.table()
+
+  testthat::expect_identical(exported_dt$document, c("alpha.xlsx", "zeta.xlsx"))
+})
+
 
 testthat::test_that("validate_data warns and creates report for dirty rows", {
   input_dt <- data.table::data.table(
