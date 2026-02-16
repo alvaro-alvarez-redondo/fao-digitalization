@@ -181,3 +181,39 @@ testthat::test_that("read_excel_sheet validates config base columns", {
     regexp = "column_required|min.len"
   )
 })
+
+testthat::test_that("read_excel_sheet returns standardized error for unreadable sheet", {
+  missing_path <- fs::path(withr::local_tempdir(), "missing.xlsx")
+
+  result <- read_excel_sheet(
+    file_path = missing_path,
+    sheet_name = "sheet1",
+    config = test_config
+  )
+
+  testthat::expect_true(data.table::is.data.table(result$data))
+  testthat::expect_equal(nrow(result$data), 0)
+  testthat::expect_type(result$errors, "character")
+  testthat::expect_true(any(grepl("failed to read sheet", result$errors, ignore.case = TRUE)))
+})
+
+testthat::test_that("read_pipeline_files keeps output length stable on internal read errors", {
+  file_list_dt <- data.table::data.table(file_path = c("file_a.xlsx", "file_b.xlsx"))
+
+  testthat::local_mocked_bindings(
+    read_file_sheets = function(file_path, config) {
+      if (identical(file_path, "file_a.xlsx")) {
+        stop("unexpected read failure")
+      }
+
+      list(data = data.table::data.table(id = 1L), errors = character(0))
+    }
+  )
+
+  result <- read_pipeline_files(file_list_dt, test_config)
+
+  testthat::expect_length(result$read_data_list, 2)
+  testthat::expect_true(data.table::is.data.table(result$read_data_list[[1]]))
+  testthat::expect_equal(nrow(result$read_data_list[[1]]), 0)
+  testthat::expect_true(any(grepl("failed to read pipeline file", result$errors, ignore.case = TRUE)))
+})

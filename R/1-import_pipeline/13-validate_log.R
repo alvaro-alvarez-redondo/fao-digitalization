@@ -227,61 +227,67 @@ identify_validation_errors <- function(fao_data_raw) {
     data.table::copy()
 
   row_count <- nrow(audit_dt)
-  error_flags <- vector("list", length(required_columns))
-  names(error_flags) <- required_columns
 
-  for (column_name in required_columns) {
-    error_flags[[column_name]] <- rep(FALSE, row_count)
-  }
-
-  for (column_name in mandatory_character_columns) {
-    column_values <- audit_dt[[column_name]]
-
+  build_character_flags <- function(column_values, allow_missing = FALSE) {
     if (!is.character(column_values)) {
-      error_flags[[column_name]] <- rep(TRUE, row_count)
-      next
+      return(rep(TRUE, row_count))
     }
 
-    error_flags[[column_name]] <-
-      is.na(column_values) |
-      trimws(column_values) == "" |
-      column_values != trimws(column_values)
-  }
+    trimmed_values <- trimws(column_values)
 
-  for (column_name in optional_character_columns) {
-    column_values <- audit_dt[[column_name]]
-
-    if (!is.character(column_values)) {
-      error_flags[[column_name]] <- rep(TRUE, row_count)
-      next
+    if (allow_missing) {
+      return(!is.na(column_values) & column_values != trimmed_values)
     }
 
-    error_flags[[column_name]] <-
-      (!is.na(column_values) & column_values != trimws(column_values))
+    is.na(column_values) |
+      trimmed_values == "" |
+      column_values != trimmed_values
   }
+
+  mandatory_flags <- setNames(
+    lapply(
+      mandatory_character_columns,
+      \(column_name) {
+        build_character_flags(audit_dt[[column_name]], allow_missing = FALSE)
+      }
+    ),
+    mandatory_character_columns
+  )
+
+  optional_flags <- setNames(
+    lapply(
+      optional_character_columns,
+      \(column_name) {
+        build_character_flags(audit_dt[[column_name]], allow_missing = TRUE)
+      }
+    ),
+    optional_character_columns
+  )
 
   value_raw <- as.character(audit_dt$value)
   value_numeric <- suppressWarnings(
     readr::parse_double(value_raw, na = c("", "na", "nan", "null"))
   )
 
-  value_not_numeric <-
-    !is.na(value_raw) &
-    nzchar(trimws(value_raw)) &
-    is.na(value_numeric)
+  value_flags <-
+    (!is.na(value_raw) & nzchar(trimws(value_raw)) & is.na(value_numeric)) |
+    (!is.na(value_numeric) & value_numeric < 0)
 
-  value_negative <- !is.na(value_numeric) & value_numeric < 0
-
-  error_flags$value <- value_not_numeric | value_negative
-
-  year_values <- audit_dt$year
-
-  if (!is.character(year_values)) {
-    error_flags$year <- error_flags$year | rep(TRUE, row_count)
+  year_flags <- if (is.character(audit_dt$year)) {
+    !stringr::str_detect(audit_dt$year, "^[0-9]{4}(-[0-9]{4})?$")
   } else {
-    invalid_year <- !stringr::str_detect(year_values, "^[0-9]{4}(-[0-9]{4})?$")
-    error_flags$year <- error_flags$year | invalid_year
+    rep(TRUE, row_count)
   }
+
+  error_flags_dt <- data.table::data.table(
+    matrix(FALSE, nrow = row_count, ncol = length(required_columns))
+  )
+  data.table::setnames(error_flags_dt, required_columns)
+
+  error_flags_dt[, (mandatory_character_columns) := mandatory_flags]
+  error_flags_dt[, (optional_character_columns) := optional_flags]
+  error_flags_dt[, value := value_flags]
+  error_flags_dt[, year := year | year_flags]
 
   key_columns <- c(
     "continent",
@@ -303,18 +309,40 @@ identify_validation_errors <- function(fao_data_raw) {
   ]
 
   if (length(duplicate_idx) > 0) {
-    for (column_name in key_columns) {
-      error_flags[[column_name]][duplicate_idx] <- TRUE
-    }
+    error_flags_dt[
+      duplicate_idx,
+      (key_columns) := lapply(.SD, \(column_values) rep(TRUE, .N)),
+      .SDcols = key_columns
+    ]
   }
 
-  flags_dt <- data.table::as.data.table(error_flags)
-  row_has_error <- rowSums(as.matrix(flags_dt)) > 0
+  flagged_long <- data.table::melt(
+    error_flags_dt[, row_id := .I],
+    id.vars = "row_id",
+    variable.name = "column_name",
+    value.name = "has_error",
+    variable.factor = FALSE
+  )[
+    has_error == TRUE,
+    .(error_columns = paste(column_name, collapse = "; ")),
+    by = row_id
+  ]
 
-  output_dt <- audit_dt[row_has_error] |>
-    data.table::copy()
+  output_dt <- data.table::copy(audit_dt)
+  output_dt[, row_id := .I]
+  output_dt[, error_columns := ""]
 
-  data.table::setorderv(output_dt, cols = "document", na.last = TRUE)
+  if (nrow(flagged_long) > 0) {
+    output_dt[flagged_long, on = "row_id", error_columns := i.error_columns]
+  }
+
+  output_dt <- output_dt[nzchar(error_columns)]
+  output_dt[, row_id := NULL]
+
+  data.table::setcolorder(
+    output_dt,
+    c("error_columns", setdiff(colnames(output_dt), "error_columns"))
+  )
 
   output_dt
 }
