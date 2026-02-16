@@ -73,7 +73,7 @@ validate_mandatory_fields_dt <- function(dt, config) {
 #' @param dt data table or data frame containing long-format observations.
 #' @return named list with `errors` as a character vector and `data` as the
 #' unchanged data table.
-#' @importFrom checkmate assert_data_frame assert_string assert_names
+#' @importFrom checkmate assert_data_frame assert_names
 #' @importFrom data.table as.data.table
 #' @examples
 #' dt_example <- data.frame(
@@ -163,12 +163,13 @@ validate_long_dt <- function(long_dt, config) {
 #' @title identify row-level validation errors for consolidated data
 #' @description audits consolidated `fao_data_raw` rows against validation rules
 #' and returns only dirty rows. the function builds a row-level `error_columns`
-#' field listing all failing columns separated by `"; "`.
+#' field listing only the failing columns for each specific row, separated by
+#' `", "`.
 #' @param fao_data_raw data frame or data table containing consolidated raw fao
 #' observations.
 #' @return `data.table` containing only rows with at least one validation error,
 #' with `error_columns` as the first column.
-#' @importFrom checkmate assert_data_frame assert_string assert_names
+#' @importFrom checkmate assert_data_frame assert_names
 #' @importFrom data.table as.data.table copy setcolorder
 #' @importFrom readr parse_double
 #' @importFrom stringr str_detect
@@ -309,24 +310,28 @@ identify_validation_errors <- function(fao_data_raw) {
     }
   }
 
-  flags_dt <- data.table::as.data.table(error_flags)
-  flagged_pairs <- which(as.matrix(flags_dt), arr.ind = TRUE)
+  flags_matrix <- as.matrix(data.table::as.data.table(error_flags))
+  flagged_pairs <- which(flags_matrix, arr.ind = TRUE)
 
   error_columns <- rep("", row_count)
 
   if (nrow(flagged_pairs) > 0) {
-    flagged_names <- colnames(flags_dt)[flagged_pairs[, "col"]]
-    row_groups <- split(flagged_names, flagged_pairs[, "row"])
-
-    error_columns[as.integer(names(row_groups))] <- vapply(
-      row_groups,
-      \(column_names) paste(unique(column_names), collapse = "; "),
-      FUN.VALUE = character(1)
+    flagged_columns_dt <- data.table::data.table(
+      row_id = flagged_pairs[, "row"],
+      column_name = colnames(flags_matrix)[flagged_pairs[, "col"]]
     )
+
+    row_error_columns <- flagged_columns_dt[
+      ,
+      .(error_columns = paste(unique(column_name), collapse = ", ")),
+      by = row_id
+    ]
+
+    error_columns[row_error_columns$row_id] <- row_error_columns$error_columns
   }
 
   output_dt <- data.table::copy(audit_dt)
-  output_dt[, error_columns := error_columns]
+  output_dt[, error_columns := as.character(error_columns)]
   data.table::setcolorder(
     output_dt,
     c("error_columns", setdiff(colnames(output_dt), "error_columns"))
@@ -344,7 +349,7 @@ identify_validation_errors <- function(fao_data_raw) {
 #' @param raw_imports_mirror_dir character scalar target directory used to store
 #' mirrored error-source files.
 #' @return invisible character vector of mirrored file paths.
-#' @importFrom checkmate assert_data_frame assert_string assert_names assert_directory_exists
+#' @importFrom checkmate assert_data_frame assert_names assert_directory_exists
 #' @importFrom fs dir_create dir_ls path_file path_rel path_dir file_copy
 #' @importFrom purrr map
 #' @importFrom cli cli_inform cli_warn
@@ -423,22 +428,19 @@ mirror_raw_import_errors <- function(
 #' @description writes row-level validation errors to an excel workbook for
 #' manual review and returns the resolved output path.
 #' @param audit_dt data table containing dirty rows and `error_columns`.
-#' @param output_path character scalar output path for the excel file.
+#' @param output_path character scalar output path for the excel file. the
+#' default is a generic project audit file and should usually be overridden by
+#' `config$paths$data$audit$audit_file_path`.
 #' @return character scalar with the saved excel path.
-#' @importFrom checkmate assert_data_frame assert_string assert_names
-#' @importFrom fs dir_create path_dir
+#' @importFrom checkmate assert_data_frame assert_names
+#' @importFrom fs dir_create path_dir path
 #' @importFrom openxlsx createWorkbook addWorksheet writeData saveWorkbook
 #' @importFrom cli cli_inform
 #' @examples
 #' # export_validation_audit_report(data.table::data.table(error_columns = "year"))
 export_validation_audit_report <- function(
   audit_dt,
-  output_path = here::here(
-    "data",
-    "exports",
-    "audit",
-    "fao_data_raw_audit.xlsx"
-  )
+  output_path = fs::path(here::here("data", "audit"), "audit.xlsx")
 ) {
   checkmate::assert_data_frame(audit_dt)
   checkmate::assert_string(output_path, min.chars = 1)
@@ -466,7 +468,7 @@ export_validation_audit_report <- function(
 #' @param config named list containing dataset-specific audit and raw import
 #' paths under `paths$data`.
 #' @return validated `data.table` with `value` coerced to numeric.
-#' @importFrom checkmate assert_data_frame assert_list assert_string assert_directory_exists
+#' @importFrom checkmate assert_data_frame assert_list assert_directory_exists
 #' @importFrom data.table as.data.table copy
 #' @importFrom readr parse_double
 #' @importFrom cli cli_warn
@@ -484,18 +486,11 @@ export_validation_audit_report <- function(
 #'   yearbook = "yb_2020",
 #'   document = "sample_file.xlsx"
 #' )
-#' validate_data(data_example)
-validate_data <- function(
-  fao_data_raw,
-  output_path = here::here(
-    "data",
-    "exports",
-    "audit",
-    "fao_data_raw_audit.xlsx"
-  )
-) {
-  checkmate::assert_data_frame(fao_data_raw)
-  checkmate::assert_string(output_path, min.chars = 1)
+#' validate_data(data_example, load_pipeline_config("fao_data_raw"))
+validate_data <- function(dataset_dt, config) {
+  checkmate::assert_data_frame(dataset_dt)
+  checkmate::assert_list(config, any.missing = FALSE)
+  checkmate::assert_directory_exists(config$paths$data$imports$raw)
 
   audit_dt <- identify_validation_errors(dataset_dt)
 
@@ -512,7 +507,7 @@ validate_data <- function(
     )
 
     cli::cli_warn(
-      "Data validation failed for {nrow(audit_dt)} row(s). review the audit report at {.file {report_path}} for details."
+      "data validation failed for {nrow(audit_dt)} row(s). review the audit report at {.file {report_path}} for details."
     )
   }
 

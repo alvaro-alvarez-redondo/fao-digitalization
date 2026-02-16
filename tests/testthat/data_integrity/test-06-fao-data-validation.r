@@ -41,8 +41,35 @@ testthat::test_that("identify_validation_errors captures multiple invalid column
   testthat::expect_true(all(nzchar(audit_dt$error_columns)))
   testthat::expect_true(any(grepl("value", audit_dt$error_columns)))
   testthat::expect_true(any(grepl("year", audit_dt$error_columns)))
-  testthat::expect_true(any(grepl("; ", audit_dt$error_columns, fixed = TRUE)))
+  testthat::expect_true(any(grepl(", ", audit_dt$error_columns, fixed = TRUE)))
 })
+
+
+
+testthat::test_that("identify_validation_errors reports row-specific failing columns", {
+  input_dt <- data.table::data.table(
+    continent = c("asia", "asia"),
+    country = c("nepal", "nepal"),
+    product = c("rice", "rice"),
+    variable = c("production", "production"),
+    unit = c("t", "t"),
+    year = c("2020/2021", "2020"),
+    value = c("-1", "abc"),
+    notes = c(NA_character_, NA_character_),
+    footnotes = c("none", "none"),
+    yearbook = c("yb_2020", "yb_2020"),
+    document = c("sample_a.xlsx", "sample_b.xlsx")
+  )
+
+  audit_dt <- identify_validation_errors(input_dt)
+
+  row_one <- audit_dt[document == "sample_a.xlsx"]
+  row_two <- audit_dt[document == "sample_b.xlsx"]
+
+  testthat::expect_identical(row_one$error_columns[[1]], "year, value")
+  testthat::expect_identical(row_two$error_columns[[1]], "value")
+})
+
 
 testthat::test_that("identify_validation_errors flags duplicated keys", {
   input_dt <- data.table::data.table(
@@ -67,7 +94,7 @@ testthat::test_that("identify_validation_errors flags duplicated keys", {
 
 testthat::test_that("export_validation_audit_report writes excel report", {
   audit_dt <- data.table::data.table(
-    error_columns = "year; value",
+    error_columns = "year, value",
     continent = "asia",
     country = "nepal",
     product = "rice",
@@ -108,9 +135,10 @@ testthat::test_that("validate_data warns and creates report for dirty rows", {
 
   config <- test_config
   config$paths$data$imports$raw <- temp_raw_imports
-  config$paths$data$audit$dataset_dir <- fs::path(withr::local_tempdir(), "audit", "fao_data_raw")
-  config$paths$data$audit$audit_file_path <- fs::path(config$paths$data$audit$dataset_dir, "fao_data_raw_audit.xlsx")
-  config$paths$data$audit$raw_imports_mirror_dir <- fs::path(config$paths$data$audit$dataset_dir, "raw_imports_mirror")
+  config$paths$data$audit$audit_dir <- fs::path(withr::local_tempdir(), "audit", config$dataset_name)
+  config$paths$data$audit$dataset_dir <- config$paths$data$audit$audit_dir
+  config$paths$data$audit$audit_file_path <- fs::path(config$paths$data$audit$audit_dir, paste0(config$dataset_name, "_audit.xlsx"))
+  config$paths$data$audit$raw_imports_mirror_dir <- fs::path(config$paths$data$audit$audit_dir, "raw_imports_mirror")
 
   validated_dt <- testthat::expect_warning(
     validate_data(input_dt, config = config),

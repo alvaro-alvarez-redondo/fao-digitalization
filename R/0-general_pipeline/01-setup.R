@@ -11,26 +11,54 @@ options(
 #' @description builds and returns a deterministic configuration object for the
 #' pipeline, including project-root-relative paths, file names, semantic column
 #' groups, export settings, default values, and dataset-specific audit paths.
+#' audit paths are generated dynamically from `dataset_name` so the auditing
+#' workflow is reusable across multiple datasets.
 #' @param dataset_name character scalar dataset identifier used to build
 #' audit directories and audit workbook names with the
-#' `{dataset_name}_audit.xlsx` convention.
-#' @param ... reserved for future optional configuration overrides.
+#' `{dataset_name}_audit.xlsx` convention. when `null` or empty, the function
+#' attempts to derive a name from `data` attributes in `...` and falls back to
+#' `fao_data_raw`.
+#' @param ... optional values. if a named argument `data` is provided and has a
+#' `dataset_name` attribute, it is used as a fallback source for dataset naming.
 #' @return named list with `project_root`, `dataset_name`, `paths`, `files`,
 #' `columns`, `column_required`, `column_id`, `column_order`, `export_config`,
-#' `defaults`, and `messages`. `paths$data$audit` contains
-#' `dataset_dir`, `audit_file_path`, and `raw_imports_mirror_dir`.
+#' `defaults`, and `messages`. `paths$data$audit` contains `audit_root_dir`,
+#' `audit_dir`, `audit_file_name`, `audit_file_path`, and
+#' `raw_imports_mirror_dir` for easy direct access or recursive unlisting.
 #' @importFrom here here
 #' @importFrom fs dir_create path
 #' @importFrom checkmate assert_string assert_directory_exists
-#' @importFrom cli cli_abort
+#' @importFrom cli cli_abort cli_inform
 #' @importFrom purrr walk
 #' @examples
 #' config <- load_pipeline_config("fao_data_raw")
 #' names(config)
 load_pipeline_config <- function(dataset_name = "fao_data_raw", ...) {
-  checkmate::assert_string(dataset_name, min.chars = 1)
+  optional_args <- list(...)
 
-  normalized_dataset_name <- dataset_name |>
+  inferred_dataset_name <- NULL
+
+  if (!is.null(optional_args$data)) {
+    inferred_dataset_name <- attr(optional_args$data, "dataset_name", exact = TRUE)
+
+    if (is.null(inferred_dataset_name) && !is.null(names(optional_args$data))) {
+      inferred_dataset_name <- attr(optional_args$data, "name", exact = TRUE)
+    }
+  }
+
+  resolved_dataset_name <- dataset_name
+
+  if (is.null(resolved_dataset_name) || !nzchar(trimws(as.character(resolved_dataset_name)))) {
+    resolved_dataset_name <- inferred_dataset_name
+  }
+
+  if (is.null(resolved_dataset_name) || !nzchar(trimws(as.character(resolved_dataset_name)))) {
+    resolved_dataset_name <- "fao_data_raw"
+  }
+
+  checkmate::assert_string(resolved_dataset_name, min.chars = 1)
+
+  normalized_dataset_name <- resolved_dataset_name |>
     as.character() |>
     tolower() |>
     iconv(from = "", to = "ascii//translit")
@@ -56,7 +84,9 @@ load_pipeline_config <- function(dataset_name = "fao_data_raw", ...) {
   purrr::walk(required_base_directories, checkmate::assert_directory_exists)
 
   raw_imports_dir <- build_path("data", "imports", "raw imports")
-  audit_dataset_dir <- build_path("data", "audit", normalized_dataset_name)
+  audit_root_dir <- build_path("data", "audit")
+  audit_dir <- fs::path(audit_root_dir, normalized_dataset_name)
+  audit_file_name <- paste0(normalized_dataset_name, "_audit.xlsx")
 
   paths <- list(
     data = list(
@@ -70,12 +100,12 @@ load_pipeline_config <- function(dataset_name = "fao_data_raw", ...) {
         processed = build_path("data", "exports", "processed data")
       ),
       audit = list(
-        dataset_dir = audit_dataset_dir,
-        audit_file_path = fs::path(
-          audit_dataset_dir,
-          paste0(normalized_dataset_name, "_audit.xlsx")
-        ),
-        raw_imports_mirror_dir = fs::path(audit_dataset_dir, "raw_imports_mirror")
+        audit_root_dir = audit_root_dir,
+        audit_dir = audit_dir,
+        dataset_dir = audit_dir,
+        audit_file_name = audit_file_name,
+        audit_file_path = fs::path(audit_dir, audit_file_name),
+        raw_imports_mirror_dir = fs::path(audit_dir, "raw_imports_mirror")
       )
     )
   )
@@ -127,6 +157,10 @@ load_pipeline_config <- function(dataset_name = "fao_data_raw", ...) {
     lists_workbook_name = "fao_unique_lists_raw"
   )
 
+  cli::cli_inform(
+    "loaded pipeline configuration for dataset {.val {normalized_dataset_name}}"
+  )
+
   list(
     project_root = project_root,
     dataset_name = normalized_dataset_name,
@@ -143,26 +177,40 @@ load_pipeline_config <- function(dataset_name = "fao_data_raw", ...) {
 }
 
 #' @title create required directories
-#' @description validates a nested list of directory paths, flattens it to a
-#' character vector, creates every directory if missing, and returns the
-#' resolved vector invisibly.
+#' @description validates a nested list of paths, flattens it to a
+#' character vector, normalizes file paths to their parent directories, creates
+#' every directory if missing, and returns the resolved directory vector
+#' invisibly.
 #' @param paths named or unnamed list containing character path elements. must
 #' be a non-empty list that resolves to a non-empty character vector with no
 #' missing values.
 #' @return invisible character vector of directories passed to
 #' `fs::dir_create()`.
 #' @importFrom checkmate assert_list assert_character
-#' @importFrom fs dir_create
+#' @importFrom fs dir_create path_file path_dir
+#' @importFrom purrr map_chr
 #' @examples
 #' temp_paths <- list(a = file.path(tempdir(), "a"), b = file.path(tempdir(), "b"))
 #' create_required_directories(temp_paths)
 create_required_directories <- function(paths) {
   checkmate::assert_list(paths, min.len = 1)
 
-  all_directories <- paths |>
+  all_paths <- paths |>
     unlist(recursive = TRUE, use.names = FALSE)
 
-  checkmate::assert_character(all_directories, any.missing = FALSE, min.len = 1)
+  checkmate::assert_character(all_paths, any.missing = FALSE, min.len = 1)
+
+  all_directories <- all_paths |>
+    purrr::map_chr(\(path_value) {
+      path_file_name <- fs::path_file(path_value)
+
+      if (grepl("\\.[a-z0-9]+$", path_file_name)) {
+        return(fs::path_dir(path_value))
+      }
+
+      path_value
+    }) |>
+    unique()
 
   fs::dir_create(all_directories)
 
