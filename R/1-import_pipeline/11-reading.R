@@ -29,7 +29,11 @@ read_excel_sheet <- function(file_path, sheet_name, config) {
   assert_or_abort(checkmate::check_list(config, any.missing = FALSE))
 
   base_cols <- config$column_required
-  assert_or_abort(checkmate::check_character(base_cols, any.missing = FALSE, min.len = 1))
+  assert_or_abort(checkmate::check_character(
+    base_cols,
+    any.missing = FALSE,
+    min.len = 1
+  ))
 
   safe_read_result <- tryCatch(
     readxl::read_excel(
@@ -53,7 +57,7 @@ read_excel_sheet <- function(file_path, sheet_name, config) {
       errors = cli::format_error(c(
         "failed to read sheet {.val {sheet_name}} in file {.file {fs::path_file(file_path)}}.",
         "x" = safe_read_result$error_message
-      )
+      ))
     ))
   }
 
@@ -128,7 +132,7 @@ read_file_sheets <- function(file_path, config) {
       errors = cli::format_error(c(
         "failed to list sheets in file {.file {fs::path_file(file_path)}}.",
         "x" = sheets$error_message
-      )
+      ))
     ))
   }
 

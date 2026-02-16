@@ -320,9 +320,12 @@ identify_validation_errors <- function(fao_data_raw) {
       column_name = colnames(flags_dt)[flagged_pairs[, "col"]]
     )
 
-    error_by_row <- unique(flagged_dt, by = c("row_id", "column_name"))[, .(
-      error_columns = paste(column_name, collapse = ", ")
-    ), by = row_id]
+    error_by_row <- unique(flagged_dt, by = c("row_id", "column_name"))[,
+      .(
+        error_columns = paste(column_name, collapse = ", ")
+      ),
+      by = row_id
+    ]
 
     error_columns[error_by_row$row_id] <- error_by_row$error_columns
   }
@@ -412,12 +415,6 @@ mirror_raw_import_errors <- function(
 
   mirrored_targets <- unlist(mirrored_targets, use.names = FALSE)
 
-  if (length(mirrored_targets) > 0) {
-    cli::cli_inform(
-      "mirrored {length(mirrored_targets)} error source file(s) into {.path {raw_imports_mirror_dir}}"
-    )
-  }
-
   invisible(mirrored_targets)
 }
 
@@ -501,10 +498,6 @@ validate_data <- function(dataset_dt, config) {
       audit_dt = audit_dt,
       raw_imports_dir = config$paths$data$imports$raw,
       raw_imports_mirror_dir = config$paths$data$audit$raw_imports_mirror_dir
-    )
-
-    cli::cli_warn(
-      "data validation failed for {nrow(audit_dt)} row(s). review the audit report at {.file {report_path}} for details."
     )
   }
 

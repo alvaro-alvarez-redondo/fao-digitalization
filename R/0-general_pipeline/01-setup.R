@@ -39,7 +39,11 @@ load_pipeline_config <- function(dataset_name = "fao_data_raw", ...) {
   inferred_dataset_name <- NULL
 
   if (!is.null(optional_args$data)) {
-    inferred_dataset_name <- attr(optional_args$data, "dataset_name", exact = TRUE)
+    inferred_dataset_name <- attr(
+      optional_args$data,
+      "dataset_name",
+      exact = TRUE
+    )
 
     if (is.null(inferred_dataset_name) && !is.null(names(optional_args$data))) {
       inferred_dataset_name <- attr(optional_args$data, "name", exact = TRUE)
@@ -48,11 +52,17 @@ load_pipeline_config <- function(dataset_name = "fao_data_raw", ...) {
 
   resolved_dataset_name <- dataset_name
 
-  if (is.null(resolved_dataset_name) || !nzchar(trimws(as.character(resolved_dataset_name)))) {
+  if (
+    is.null(resolved_dataset_name) ||
+      !nzchar(trimws(as.character(resolved_dataset_name)))
+  ) {
     resolved_dataset_name <- inferred_dataset_name
   }
 
-  if (is.null(resolved_dataset_name) || !nzchar(trimws(as.character(resolved_dataset_name)))) {
+  if (
+    is.null(resolved_dataset_name) ||
+      !nzchar(trimws(as.character(resolved_dataset_name)))
+  ) {
     resolved_dataset_name <- "fao_data_raw"
   }
 
@@ -67,7 +77,9 @@ load_pipeline_config <- function(dataset_name = "fao_data_raw", ...) {
   normalized_dataset_name <- gsub("\\s+", "_", trimws(normalized_dataset_name))
 
   if (is.na(normalized_dataset_name) || normalized_dataset_name == "") {
-    cli::cli_abort("{.arg dataset_name} must resolve to a non-empty normalized value")
+    cli::cli_abort(
+      "{.arg dataset_name} must resolve to a non-empty normalized value"
+    )
   }
 
   project_root <- here::here()
@@ -155,10 +167,6 @@ load_pipeline_config <- function(dataset_name = "fao_data_raw", ...) {
     list_suffix = "_unique.xlsx",
     lists_to_export = fixed_export_columns,
     lists_workbook_name = "fao_unique_lists_raw"
-  )
-
-  cli::cli_inform(
-    "loaded pipeline configuration for dataset {.val {normalized_dataset_name}}"
   )
 
   list(
