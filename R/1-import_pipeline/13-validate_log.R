@@ -163,7 +163,7 @@ validate_long_dt <- function(long_dt, config) {
 #' @title identify row-level validation errors for consolidated data
 #' @description audits consolidated `fao_data_raw` rows against validation rules
 #' and returns only dirty rows. the function builds a row-level `error_columns`
-#' field listing all failing columns as a comma-separated string.
+#' field listing all failing columns separated by `"; "`.
 #' @param fao_data_raw data frame or data table containing consolidated raw fao
 #' observations.
 #' @return `data.table` containing only rows with at least one validation error,
@@ -320,7 +320,7 @@ identify_validation_errors <- function(fao_data_raw) {
 
     error_columns[as.integer(names(row_groups))] <- vapply(
       row_groups,
-      \(column_names) paste(unique(column_names), collapse = ","),
+      \(column_names) paste(unique(column_names), collapse = "; "),
       FUN.VALUE = character(1)
     )
   }
@@ -367,9 +367,9 @@ export_validation_audit_report <- function(
 }
 
 #' @title validate consolidated fao data for analytical readiness
-#' @description validates consolidated `fao_data_raw` and aborts with an excel
-#' audit report when dirty rows are detected. on success, returns a validated
-#' `data.table` with numeric `value`.
+#' @description validates consolidated `fao_data_raw`, exports an excel
+#' audit report when dirty rows are detected, and continues execution with a
+#' validated `data.table` where `value` is numeric.
 #' @param fao_data_raw data frame or data table containing consolidated raw fao
 #' observations.
 #' @param output_path character scalar output path for validation audit excel
@@ -378,7 +378,7 @@ export_validation_audit_report <- function(
 #' @importFrom checkmate assert_data_frame assert_string
 #' @importFrom data.table as.data.table copy
 #' @importFrom readr parse_double
-#' @importFrom cli cli_abort
+#' @importFrom cli cli_warn
 #' @importFrom here here
 #' @examples
 #' data_example <- data.frame(
@@ -410,7 +410,7 @@ validate_data <- function(
       output_path = output_path
     )
 
-    cli::cli_abort(
+    cli::cli_warn(
       "data validation failed for {nrow(audit_dt)} row(s). review the audit report at: {report_path}"
     )
   }
