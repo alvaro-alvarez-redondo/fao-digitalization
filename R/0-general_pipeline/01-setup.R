@@ -53,9 +53,19 @@ load_pipeline_config <- function() {
     system = c("notes", "yearbook", "document")
   )
 
-  column_order <- columns |>
-    unlist(use.names = FALSE) |>
-    unique()
+  column_order <- c(
+    "continent",
+    "country",
+    "product",
+    "variable",
+    "unit",
+    "year",
+    "value",
+    "notes",
+    "footnotes",
+    "yearbook",
+    "document"
+  )
 
   fixed_export_columns <- c(
     "product",

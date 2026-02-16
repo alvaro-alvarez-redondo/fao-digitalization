@@ -88,3 +88,38 @@ testthat::test_that("helper validators fail with cli errors on bad inputs", {
     class = "rlang_error"
   )
 })
+
+
+testthat::test_that("get_config_string validates nested config fields", {
+  config <- list(paths = list(data = list(exports = list(processed = tempfile("processed_")))))
+
+  output_value <- get_config_string(
+    config = config,
+    path = c("paths", "data", "exports", "processed"),
+    field_name = "config$paths$data$exports$processed"
+  )
+
+  testthat::expect_type(output_value, "character")
+  testthat::expect_length(output_value, 1)
+})
+
+testthat::test_that("generate_export_path fails with explicit missing-field errors", {
+  config_missing_paths <- list(
+    export_config = list(data_suffix = "_data.xlsx", list_suffix = "_list.xlsx")
+  )
+
+  config_missing_suffix <- list(
+    paths = list(data = list(exports = list(processed = tempfile("processed_"), lists = tempfile("lists_")))),
+    export_config = list(list_suffix = "_list.xlsx")
+  )
+
+  testthat::expect_error(
+    generate_export_path(config_missing_paths, "dataset", "processed"),
+    "config\$paths\$data\$exports\$processed"
+  )
+
+  testthat::expect_error(
+    generate_export_path(config_missing_suffix, "dataset", "processed"),
+    "config\$export_config\$data_suffix"
+  )
+})

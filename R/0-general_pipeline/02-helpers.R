@@ -175,6 +175,36 @@ validate_export_import <- function(df, base_name) {
   ensure_data_table(df)
 }
 
+#' @title extract and validate string field from nested config list
+#' @description retrieves a nested field from `config` using `purrr::pluck()`,
+#' aborts with a cli error when the field is missing, and validates that the
+#' retrieved value is a non-empty character scalar.
+#' @param config named list containing pipeline settings.
+#' @param path character vector that defines the nested access path.
+#' @param field_name character scalar used in validation error messages.
+#' @return non-empty character scalar extracted from the config list.
+#' @importFrom purrr pluck
+#' @importFrom checkmate check_list check_character check_string
+#' @importFrom cli cli_abort
+#' @examples
+#' config <- list(paths = list(data = list(exports = list(processed = "tmp"))))
+#' get_config_string(config, c("paths", "data", "exports", "processed"), "field")
+get_config_string <- function(config, path, field_name) {
+  assert_or_abort(checkmate::check_list(config, min.len = 1))
+  assert_or_abort(checkmate::check_character(path, min.len = 1, any.missing = FALSE))
+  assert_or_abort(checkmate::check_string(field_name, min.chars = 1))
+
+  field_value <- purrr::pluck(config, !!!path, .default = NULL)
+
+  if (is.null(field_value)) {
+    cli::cli_abort("`{field_name}` must be defined.")
+  }
+
+  assert_or_abort(checkmate::check_string(field_value, min.chars = 1))
+
+  field_value
+}
+
 #' @title build normalized export path from pipeline config
 #' @description constructs an output path for `processed` or `lists` exports
 #' using folder and suffix metadata from the pipeline config.
@@ -190,7 +220,6 @@ validate_export_import <- function(df, base_name) {
 #' @return character scalar path generated with `fs::path()`.
 #' @importFrom checkmate check_list check_string
 #' @importFrom fs dir_create path
-#' @importFrom cli cli_abort
 #' @examples
 #' config <- list(
 #'   paths = list(data = list(exports = list(processed = "tmp", lists = "tmp"))),
@@ -207,24 +236,33 @@ generate_export_path <- function(
 
   type <- match.arg(type)
 
-  if (is.null(config$export_config)) {
-    cli::cli_abort("`config$export_config` must be defined.")
-  }
-
   folder <- switch(
     type,
-    processed = config$paths$data$exports$processed,
-    lists = config$paths$data$exports$lists
+    processed = get_config_string(
+      config = config,
+      path = c("paths", "data", "exports", "processed"),
+      field_name = "config$paths$data$exports$processed"
+    ),
+    lists = get_config_string(
+      config = config,
+      path = c("paths", "data", "exports", "lists"),
+      field_name = "config$paths$data$exports$lists"
+    )
   )
 
   suffix <- switch(
     type,
-    processed = config$export_config$data_suffix,
-    lists = config$export_config$list_suffix
+    processed = get_config_string(
+      config = config,
+      path = c("export_config", "data_suffix"),
+      field_name = "config$export_config$data_suffix"
+    ),
+    lists = get_config_string(
+      config = config,
+      path = c("export_config", "list_suffix"),
+      field_name = "config$export_config$list_suffix"
+    )
   )
-
-  assert_or_abort(checkmate::check_string(folder, min.chars = 1))
-  assert_or_abort(checkmate::check_string(suffix, min.chars = 1))
 
   fs::dir_create(folder)
 
