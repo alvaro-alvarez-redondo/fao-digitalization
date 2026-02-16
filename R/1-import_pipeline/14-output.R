@@ -13,7 +13,7 @@
 #' vector defining preferred output column order.
 #' @return named list with `data` as a consolidated `data.table` and `warnings`
 #' as a character vector.
-#' @importFrom checkmate assert_list assert_character assert_subset
+#' @importFrom checkmate check_list check_character check_subset
 #' @importFrom purrr compact map
 #' @importFrom data.table as.data.table data.table rbindlist
 #' @importFrom dplyr relocate any_of
@@ -26,8 +26,8 @@
 #' config_example <- list(column_order = c("product", "year", "value"))
 #' consolidate_validated_dt(dt_list_example, config_example)
 consolidate_validated_dt <- function(dt_list, config) {
-  checkmate::assert_list(dt_list, any.missing = TRUE)
-  checkmate::assert_list(config, any.missing = FALSE)
+  assert_or_abort(checkmate::check_list(dt_list, any.missing = TRUE))
+  assert_or_abort(checkmate::check_list(config, any.missing = FALSE))
 
   target_schema <- c(
     "continent",
@@ -43,13 +43,17 @@ consolidate_validated_dt <- function(dt_list, config) {
     "document"
   )
 
-  checkmate::assert_character(
+  if (is.null(config$column_order)) {
+    cli::cli_abort("`config$column_order` must be defined.")
+  }
+
+  assert_or_abort(checkmate::check_character(
     config$column_order,
     any.missing = FALSE,
     min.len = 1,
     unique = TRUE
-  )
-  checkmate::assert_subset(target_schema, choices = config$column_order)
+  ))
+  assert_or_abort(checkmate::check_subset(target_schema, choices = config$column_order))
 
   dt_list <- dt_list |>
     purrr::compact() |>

@@ -11,6 +11,22 @@ testthat::test_that("discover_files returns empty tibble for empty folder", {
   testthat::expect_named(empty_result, "file_path")
 })
 
+testthat::test_that("extract_file_metadata validates character inputs", {
+  testthat::expect_error(
+    extract_file_metadata(NULL),
+    class = "rlang_error"
+  )
+})
+
+testthat::test_that("discover_pipeline_files fails fast for missing import path", {
+  config_missing_path <- list(paths = list(data = list(imports = list())))
+
+  testthat::expect_error(
+    discover_pipeline_files(config_missing_path),
+    regexp = "config\\$paths\\$data\\$imports\\$raw"
+  )
+})
+
 testthat::test_that("read_file_sheets handles missing file with error", {
   missing_path <- fs::path(withr::local_tempdir(), "missing.xlsx")
 

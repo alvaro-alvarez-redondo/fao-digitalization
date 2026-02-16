@@ -10,7 +10,7 @@
 #' no missing values.
 #' @return a tibble with columns `file_path`, `file_name`, `product`, `yearbook`,
 #' `is_ascii`, and `error_message`.
-#' @importFrom checkmate assert_character
+#' @importFrom checkmate check_character
 #' @importFrom tibble tibble
 #' @importFrom dplyr mutate if_else select
 #' @importFrom fs path_file
@@ -24,7 +24,11 @@
 #' )
 #' extract_file_metadata(file_paths_example)
 extract_file_metadata <- function(file_paths) {
-  checkmate::assert_character(file_paths, any.missing = FALSE, min.len = 1)
+  assert_or_abort(checkmate::check_character(
+    file_paths,
+    any.missing = FALSE,
+    min.len = 1
+  ))
 
   tibble::tibble(file_path = file_paths) |>
     dplyr::mutate(
@@ -57,7 +61,7 @@ extract_file_metadata <- function(file_paths) {
 #' @param import_folder character scalar path to an existing directory.
 #' @return a tibble with columns `file_path`, `file_name`, `product`, `yearbook`,
 #' `is_ascii`, and `error_message`. returns zero rows when no xlsx files are found.
-#' @importFrom checkmate assert_string assert_directory_exists
+#' @importFrom checkmate check_string check_directory_exists
 #' @importFrom fs dir_ls
 #' @importFrom cli cli_warn
 #' @importFrom tibble tibble
@@ -67,8 +71,8 @@ extract_file_metadata <- function(file_paths) {
 #' fs::file_create(file.path(temp_import_folder, "crops_2020_sample.xlsx"))
 #' discover_files(temp_import_folder)
 discover_files <- function(import_folder) {
-  checkmate::assert_string(import_folder, min.chars = 1)
-  checkmate::assert_directory_exists(import_folder)
+  assert_or_abort(checkmate::check_string(import_folder, min.chars = 1))
+  assert_or_abort(checkmate::check_directory_exists(import_folder))
 
   files_found <- fs::dir_ls(
     path = import_folder,
@@ -103,15 +107,16 @@ discover_files <- function(import_folder) {
 #' @param config named list containing `paths$data$imports$raw` as a character
 #' scalar path to an existing directory.
 #' @return a tibble with discovered file metadata from `discover_files`.
-#' @importFrom checkmate assert_list assert_string assert_directory_exists
+#' @importFrom checkmate check_list check_string check_directory_exists
 #' @importFrom purrr pluck
+#' @importFrom cli cli_abort
 #' @examples
 #' temp_import_folder <- tempfile("imports_")
 #' fs::dir_create(temp_import_folder)
 #' config_example <- list(paths = list(data = list(imports = list(raw = temp_import_folder))))
 #' discover_pipeline_files(config_example)
 discover_pipeline_files <- function(config) {
-  checkmate::assert_list(config, any.missing = FALSE)
+  assert_or_abort(checkmate::check_list(config, any.missing = FALSE))
 
   import_folder <- purrr::pluck(
     config,
@@ -122,8 +127,12 @@ discover_pipeline_files <- function(config) {
     .default = NULL
   )
 
-  checkmate::assert_string(import_folder, min.chars = 1)
-  checkmate::assert_directory_exists(import_folder)
+  if (is.null(import_folder)) {
+    cli::cli_abort("`config$paths$data$imports$raw` must be defined.")
+  }
+
+  assert_or_abort(checkmate::check_string(import_folder, min.chars = 1))
+  assert_or_abort(checkmate::check_directory_exists(import_folder))
 
   discover_files(import_folder)
 }

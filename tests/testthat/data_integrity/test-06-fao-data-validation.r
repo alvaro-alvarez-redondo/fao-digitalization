@@ -41,6 +41,7 @@ testthat::test_that("identify_validation_errors captures multiple invalid column
   testthat::expect_true(all(nzchar(audit_dt$error_columns)))
   testthat::expect_true(any(grepl("value", audit_dt$error_columns)))
   testthat::expect_true(any(grepl("year", audit_dt$error_columns)))
+  testthat::expect_true(any(grepl("; ", audit_dt$error_columns, fixed = TRUE)))
 })
 
 testthat::test_that("identify_validation_errors flags duplicated keys", {
@@ -66,7 +67,7 @@ testthat::test_that("identify_validation_errors flags duplicated keys", {
 
 testthat::test_that("export_validation_audit_report writes excel report", {
   audit_dt <- data.table::data.table(
-    error_columns = "year,value",
+    error_columns = "year; value",
     continent = "asia",
     country = "nepal",
     product = "rice",
@@ -86,7 +87,7 @@ testthat::test_that("export_validation_audit_report writes excel report", {
   testthat::expect_true(fs::file_exists(saved_path))
 })
 
-testthat::test_that("validate_data aborts and creates report for dirty rows", {
+testthat::test_that("validate_data warns and creates report for dirty rows", {
   input_dt <- data.table::data.table(
     continent = "asia",
     country = "nepal",
@@ -103,10 +104,14 @@ testthat::test_that("validate_data aborts and creates report for dirty rows", {
 
   output_path <- fs::path(withr::local_tempdir(), "validation_audit.xlsx")
 
-  testthat::expect_error(
+  validated_dt <- testthat::expect_warning(
     validate_data(input_dt, output_path = output_path),
     regexp = "data validation failed"
   )
+
+  testthat::expect_true(data.table::is.data.table(validated_dt))
+  testthat::expect_type(validated_dt$value, "double")
+  testthat::expect_true(is.na(validated_dt$value[[1]]))
 
   testthat::expect_true(fs::file_exists(output_path))
 })
