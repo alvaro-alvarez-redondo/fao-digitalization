@@ -55,7 +55,7 @@ export_single_column_list <- function(df, col_name, config, overwrite = TRUE) {
 #' @title normalize sheet name
 #' @description normalize column names into excel-safe worksheet names limited to thirty-one characters.
 #' @param col_name atomic vector of column names to normalize; validated with checkmate::assert_atomic_vector.
-#' @return character vector of normalized worksheet names with empty values replaced by sheet.
+#' @return character vector of normalized worksheet names with empty values replaced by unknown.
 #' @importFrom checkmate assert_atomic_vector
 #' @importFrom stringr str_sub
 #' @examples
@@ -67,7 +67,7 @@ normalize_sheet_name <- function(col_name) {
     normalize_filename() |>
     stringr::str_sub(1, 31)
 
-  sheet_name[is.na(sheet_name) | sheet_name == ""] <- "sheet"
+  sheet_name[is.na(sheet_name) | sheet_name == ""] <- "unknown"
 
   sheet_name
 }
