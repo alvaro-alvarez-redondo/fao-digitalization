@@ -13,7 +13,7 @@
 #' vector defining preferred output column order.
 #' @return named list with `data` as a consolidated `data.table` and `warnings`
 #' as a character vector.
-#' @importFrom checkmate assert_list assert_character
+#' @importFrom checkmate assert_list assert_character assert_subset
 #' @importFrom purrr compact map
 #' @importFrom data.table as.data.table data.table rbindlist
 #' @importFrom dplyr relocate any_of
@@ -47,9 +47,9 @@ consolidate_validated_dt <- function(dt_list, config) {
     config$column_order,
     any.missing = FALSE,
     min.len = 1,
-    unique = TRUE,
-    must.include = target_schema
+    unique = TRUE
   )
+  checkmate::assert_subset(target_schema, choices = config$column_order)
 
   dt_list <- dt_list |>
     purrr::compact() |>
