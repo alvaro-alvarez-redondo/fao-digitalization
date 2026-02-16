@@ -100,3 +100,36 @@ testthat::test_that("transform_single_file optionally emits missing product meta
 
   testthat::expect_identical(transformed$wide_raw$product[[1]], "unknown")
 })
+
+
+testthat::test_that("transform_files_list returns empty tables when all transformed files are null", {
+  file_list_dt <- data.table::data.table(
+    file_name = c("a.xlsx", "b.xlsx"),
+    yearbook = c("yb_2020", "yb_2021"),
+    product = c("rice", "wheat")
+  )
+
+  read_data_list <- list(data.table::data.table(), data.table::data.table())
+
+  transformed <- transform_files_list(file_list_dt, read_data_list, test_config)
+
+  testthat::expect_true(data.table::is.data.table(transformed$wide_raw))
+  testthat::expect_true(data.table::is.data.table(transformed$long_raw))
+  testthat::expect_equal(nrow(transformed$wide_raw), 0)
+  testthat::expect_equal(nrow(transformed$long_raw), 0)
+})
+
+testthat::test_that("process_files fails fast when read_data_list contains non-tabular elements", {
+  file_list_dt <- data.table::data.table(
+    file_name = "a.xlsx",
+    yearbook = "yb_2020",
+    product = "rice"
+  )
+
+  invalid_read_data_list <- list(list(invalid = TRUE))
+
+  testthat::expect_error(
+    process_files(file_list_dt, invalid_read_data_list, test_config),
+    regexp = "read_data_list"
+  )
+})

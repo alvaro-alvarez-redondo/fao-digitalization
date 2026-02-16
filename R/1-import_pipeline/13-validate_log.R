@@ -332,24 +332,87 @@ identify_validation_errors <- function(fao_data_raw) {
   output_dt[nzchar(error_columns)]
 }
 
+#' @title mirror raw import errors into dataset audit folder
+#' @description copies only raw import files that produced validation errors
+#' into a dataset-specific mirror directory while preserving their relative path
+#' structure below the configured raw imports root.
+#' @param audit_dt data table containing dirty rows and a `document` column.
+#' @param raw_imports_dir character scalar path to source raw imports.
+#' @param raw_imports_mirror_dir character scalar target directory used to store
+#' mirrored error-source files.
+#' @return invisible character vector of mirrored file paths.
+#' @importFrom checkmate assert_data_frame assert_string assert_names assert_directory_exists
+#' @importFrom fs dir_create dir_ls path_file path_rel path_dir file_copy
+#' @importFrom purrr map
+#' @importFrom cli cli_inform cli_warn
+#' @examples
+#' # mirror_raw_import_errors(audit_dt, "data/imports/raw imports", "data/audit/fao_data_raw/raw_imports_mirror")
+mirror_raw_import_errors <- function(audit_dt, raw_imports_dir, raw_imports_mirror_dir) {
+  checkmate::assert_data_frame(audit_dt)
+  checkmate::assert_names(names(audit_dt), must.include = "document", what = "names(audit_dt)")
+  checkmate::assert_string(raw_imports_dir, min.chars = 1)
+  checkmate::assert_string(raw_imports_mirror_dir, min.chars = 1)
+  checkmate::assert_directory_exists(raw_imports_dir)
+
+  error_documents <- unique(as.character(audit_dt$document))
+  error_documents <- error_documents[!is.na(error_documents) & nzchar(error_documents)]
+
+  if (length(error_documents) == 0) {
+    return(invisible(character(0)))
+  }
+
+  raw_files <- fs::dir_ls(
+    path = raw_imports_dir,
+    type = "file",
+    recurse = TRUE,
+    glob = "*.xlsx"
+  )
+
+  if (length(raw_files) == 0) {
+    cli::cli_warn("no raw import files were found under {.path {raw_imports_dir}} for mirroring")
+    return(invisible(character(0)))
+  }
+
+  raw_file_names <- fs::path_file(raw_files)
+  mirrored_targets <- purrr::map(error_documents, \(document_name) {
+    matched_paths <- raw_files[raw_file_names == document_name]
+
+    if (length(matched_paths) == 0) {
+      cli::cli_warn("unable to mirror {.val {document_name}} because it was not found in raw imports")
+      return(character(0))
+    }
+
+    relative_paths <- fs::path_rel(matched_paths, start = raw_imports_dir)
+    target_paths <- fs::path(raw_imports_mirror_dir, relative_paths)
+
+    fs::dir_create(fs::path_dir(target_paths))
+    fs::file_copy(matched_paths, target_paths, overwrite = TRUE)
+
+    target_paths
+  })
+
+  mirrored_targets <- unlist(mirrored_targets, use.names = FALSE)
+
+  if (length(mirrored_targets) > 0) {
+    cli::cli_inform("mirrored {length(mirrored_targets)} error source file(s) into {.path {raw_imports_mirror_dir}}")
+  }
+
+  invisible(mirrored_targets)
+}
+
 #' @title export validation audit report to excel
 #' @description writes row-level validation errors to an excel workbook for
 #' manual review and returns the resolved output path.
 #' @param audit_dt data table containing dirty rows and `error_columns`.
-#' @param output_path character scalar output path for the excel file. defaults
-#' to a project-relative audit location.
+#' @param output_path character scalar output path for the excel file.
 #' @return character scalar with the saved excel path.
 #' @importFrom checkmate assert_data_frame assert_string assert_names
 #' @importFrom fs dir_create path_dir
 #' @importFrom openxlsx createWorkbook addWorksheet writeData saveWorkbook
 #' @importFrom cli cli_inform
-#' @importFrom here here
 #' @examples
-#' # export_validation_audit_report(data.table::data.table(error_columns = "year"))
-export_validation_audit_report <- function(
-  audit_dt,
-  output_path = here::here("data", "exports", "audit", "fao_data_raw_audit.xlsx")
-) {
+#' # export_validation_audit_report(data.table::data.table(error_columns = "year"), "data/audit/fao_data_raw/fao_data_raw_audit.xlsx")
+export_validation_audit_report <- function(audit_dt, output_path) {
   checkmate::assert_data_frame(audit_dt)
   checkmate::assert_string(output_path, min.chars = 1)
   checkmate::assert_names(names(audit_dt), must.include = "error_columns", what = "names(audit_dt)")
@@ -366,48 +429,42 @@ export_validation_audit_report <- function(
   output_path
 }
 
-#' @title validate consolidated fao data for analytical readiness
-#' @description validates consolidated `fao_data_raw`, exports an excel
-#' audit report when dirty rows are detected, and continues execution with a
-#' validated `data.table` where `value` is numeric.
-#' @param fao_data_raw data frame or data table containing consolidated raw fao
+#' @title validate consolidated data for analytical readiness
+#' @description validates consolidated dataset rows, exports an excel audit
+#' report when dirty rows are detected, mirrors raw error imports into the
+#' dataset-specific audit folder, and continues execution with a validated
+#' `data.table` where `value` is numeric.
+#' @param dataset_dt data frame or data table containing consolidated raw
 #' observations.
-#' @param output_path character scalar output path for validation audit excel
-#' report. defaults to a project-relative audit location.
+#' @param config named list containing dataset-specific audit and raw import
+#' paths under `paths$data`.
 #' @return validated `data.table` with `value` coerced to numeric.
-#' @importFrom checkmate assert_data_frame assert_string
+#' @importFrom checkmate assert_data_frame assert_list assert_string assert_directory_exists
 #' @importFrom data.table as.data.table copy
 #' @importFrom readr parse_double
 #' @importFrom cli cli_warn
-#' @importFrom here here
 #' @examples
-#' data_example <- data.frame(
-#'   continent = "asia",
-#'   country = "nepal",
-#'   product = "rice",
-#'   variable = "production",
-#'   unit = "t",
-#'   year = "2020",
-#'   value = "1.2",
-#'   notes = NA_character_,
-#'   footnotes = "none",
-#'   yearbook = "yb_2020",
-#'   document = "sample_file.xlsx"
-#' )
-#' validate_data(data_example)
-validate_data <- function(
-  fao_data_raw,
-  output_path = here::here("data", "exports", "audit", "fao_data_raw_audit.xlsx")
-) {
-  checkmate::assert_data_frame(fao_data_raw)
-  checkmate::assert_string(output_path, min.chars = 1)
+#' # validate_data(data_example, load_pipeline_config("fao_data_raw"))
+validate_data <- function(dataset_dt, config) {
+  checkmate::assert_data_frame(dataset_dt)
+  checkmate::assert_list(config, any.missing = FALSE)
+  checkmate::assert_string(config$paths$data$audit$audit_file_path, min.chars = 1)
+  checkmate::assert_string(config$paths$data$audit$raw_imports_mirror_dir, min.chars = 1)
+  checkmate::assert_string(config$paths$data$imports$raw, min.chars = 1)
+  checkmate::assert_directory_exists(config$paths$data$imports$raw)
 
-  audit_dt <- identify_validation_errors(fao_data_raw)
+  audit_dt <- identify_validation_errors(dataset_dt)
 
   if (nrow(audit_dt) > 0) {
     report_path <- export_validation_audit_report(
       audit_dt = audit_dt,
-      output_path = output_path
+      output_path = config$paths$data$audit$audit_file_path
+    )
+
+    mirror_raw_import_errors(
+      audit_dt = audit_dt,
+      raw_imports_dir = config$paths$data$imports$raw,
+      raw_imports_mirror_dir = config$paths$data$audit$raw_imports_mirror_dir
     )
 
     cli::cli_warn(
@@ -415,7 +472,7 @@ validate_data <- function(
     )
   }
 
-  validated_dt <- fao_data_raw |>
+  validated_dt <- dataset_dt |>
     data.table::as.data.table() |>
     data.table::copy()
 
