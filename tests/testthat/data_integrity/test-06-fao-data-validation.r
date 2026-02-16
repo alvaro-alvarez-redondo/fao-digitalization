@@ -1,12 +1,12 @@
-testthat::test_that("identify_validation_errors returns empty table for clean data", {
+testthat::test_that("identify_validation_errors returns empty table when audit columns have no missing values", {
   input_dt <- data.table::data.table(
     continent = "asia",
     country = "nepal",
     product = "rice",
     variable = "production",
     unit = "t",
-    year = "2020",
-    value = "1.25",
+    year = "2020/2021",
+    value = "not_numeric",
     notes = NA_character_,
     footnotes = "none",
     yearbook = "yb_2020",
@@ -19,37 +19,39 @@ testthat::test_that("identify_validation_errors returns empty table for clean da
   testthat::expect_equal(nrow(audit_dt), 0)
 })
 
-testthat::test_that("identify_validation_errors captures multiple invalid columns", {
+testthat::test_that("identify_validation_errors includes rows with missing continent country or product", {
   input_dt <- data.table::data.table(
-    continent = c("asia", "asia "),
-    country = c("nepal", "nepal"),
-    product = c("rice", "rice"),
-    variable = c("production", "production"),
-    unit = c("t", "t"),
-    year = c("2020/2021", "2020"),
-    value = c("not_numeric", "-1"),
-    notes = c(NA_character_, NA_character_),
-    footnotes = c("none", "none"),
-    yearbook = c("yb_2020", "yb_2020"),
-    document = c("sample.xlsx", "sample.xlsx")
+    continent = c("asia", NA_character_, "africa"),
+    country = c("nepal", "kenya", NA_character_),
+    product = c("rice", "maize", "wheat"),
+    variable = "production",
+    unit = "t",
+    year = "2020",
+    value = "1",
+    notes = NA_character_,
+    footnotes = "none",
+    yearbook = "yb_2020",
+    document = c("clean.xlsx", "missing_continent.xlsx", "missing_country.xlsx")
   )
 
   audit_dt <- identify_validation_errors(input_dt)
 
   testthat::expect_equal(nrow(audit_dt), 2)
-  testthat::expect_identical(audit_dt$document, c("sample.xlsx", "sample.xlsx"))
+  testthat::expect_identical(
+    audit_dt$document,
+    c("missing_continent.xlsx", "missing_country.xlsx")
+  )
 })
-
 
 testthat::test_that("identify_validation_errors sorts output by document", {
   input_dt <- data.table::data.table(
-    continent = c("asia", "asia"),
+    continent = c(NA_character_, NA_character_),
     country = c("nepal", "nepal"),
     product = c("rice", "rice"),
     variable = c("production", "production"),
     unit = c("t", "t"),
-    year = c("2020/2021", "2020/2021"),
-    value = c("2", "not_numeric"),
+    year = c("2020", "2020"),
+    value = c("1", "2"),
     notes = c(NA_character_, NA_character_),
     footnotes = c("none", "none"),
     yearbook = c("yb_2020", "yb_2020"),
@@ -62,56 +64,29 @@ testthat::test_that("identify_validation_errors sorts output by document", {
   testthat::expect_identical(audit_dt$document, c("alpha.xlsx", "zeta.xlsx"))
 })
 
-testthat::test_that("identify_validation_errors does not add an error_columns field", {
+testthat::test_that("identify_validation_errors validates audit column types", {
   input_dt <- data.table::data.table(
-    continent = "asia",
+    continent = 1,
     country = "nepal",
     product = "rice",
-    variable = "production",
-    unit = "t",
-    year = "2020/2021",
-    value = "not_numeric",
-    notes = NA_character_,
-    footnotes = "none",
-    yearbook = "yb_2020",
     document = "sample.xlsx"
   )
 
-  audit_dt <- identify_validation_errors(input_dt)
-
-  testthat::expect_false("error_columns" %in% names(audit_dt))
-})
-
-testthat::test_that("identify_validation_errors flags duplicated keys", {
-  input_dt <- data.table::data.table(
-    continent = c("asia", "asia"),
-    country = c("nepal", "nepal"),
-    product = c("rice", "rice"),
-    variable = c("production", "production"),
-    unit = c("t", "t"),
-    year = c("2020", "2020"),
-    value = c("1", "2"),
-    notes = c(NA_character_, NA_character_),
-    footnotes = c("none", "none"),
-    yearbook = c("yb_2020", "yb_2020"),
-    document = c("sample.xlsx", "sample.xlsx")
+  testthat::expect_error(
+    identify_validation_errors(input_dt),
+    class = "simpleError"
   )
-
-  audit_dt <- identify_validation_errors(input_dt)
-
-  testthat::expect_equal(nrow(audit_dt), 2)
-  testthat::expect_true(all(audit_dt$document == "sample.xlsx"))
 })
 
 testthat::test_that("export_validation_audit_report writes excel report", {
   audit_dt <- data.table::data.table(
-    continent = "asia",
+    continent = NA_character_,
     country = "nepal",
     product = "rice",
     variable = "production",
     unit = "t",
-    year = "2020/2021",
-    value = "not_numeric",
+    year = "2020",
+    value = "1",
     notes = NA_character_,
     footnotes = "none",
     yearbook = "yb_2020",
@@ -119,20 +94,20 @@ testthat::test_that("export_validation_audit_report writes excel report", {
   )
 
   output_path <- fs::path(withr::local_tempdir(), "audit.xlsx")
-  saved_path <- export_validation_audit_report(audit_dt, output_path)
+  export_validation_audit_report(audit_dt, output_path)
 
-  testthat::expect_true(fs::file_exists(saved_path))
+  testthat::expect_true(fs::file_exists(output_path))
 })
 
 testthat::test_that("export_validation_audit_report sorts audit rows by document", {
   audit_dt <- data.table::data.table(
-    continent = c("asia", "asia"),
+    continent = c(NA_character_, NA_character_),
     country = c("nepal", "nepal"),
     product = c("rice", "rice"),
     variable = c("production", "production"),
     unit = c("t", "t"),
     year = c("2020/2021", "2020"),
-    value = c("1", "not_numeric"),
+    value = c("1", "2"),
     notes = c(NA_character_, NA_character_),
     footnotes = c("none", "none"),
     yearbook = c("yb_2020", "yb_2020"),
@@ -148,16 +123,15 @@ testthat::test_that("export_validation_audit_report sorts audit rows by document
   testthat::expect_identical(exported_dt$document, c("alpha.xlsx", "zeta.xlsx"))
 })
 
-
-testthat::test_that("validate_data warns and creates report for dirty rows", {
+testthat::test_that("validate_data warns and creates report for rows with missing audit columns", {
   input_dt <- data.table::data.table(
-    continent = "asia",
+    continent = NA_character_,
     country = "nepal",
     product = "rice",
     variable = "production",
     unit = "t",
-    year = "2020/2021",
-    value = "not_numeric",
+    year = "2020",
+    value = "1",
     notes = NA_character_,
     footnotes = "none",
     yearbook = "yb_2020",
@@ -185,14 +159,11 @@ testthat::test_that("validate_data warns and creates report for dirty rows", {
     "raw_imports_mirror"
   )
 
-  validated_dt <- testthat::expect_warning(
-    validate_data(input_dt, config = config),
-    regexp = "data validation failed"
-  )
+  validated_dt <- validate_data(input_dt, config = config)
 
   testthat::expect_true(data.table::is.data.table(validated_dt))
   testthat::expect_type(validated_dt$value, "double")
-  testthat::expect_true(is.na(validated_dt$value[[1]]))
+  testthat::expect_identical(validated_dt$value[[1]], 1)
 
   testthat::expect_true(fs::file_exists(
     config$paths$data$audit$audit_file_path

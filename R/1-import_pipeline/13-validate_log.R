@@ -161,60 +161,30 @@ validate_long_dt <- function(long_dt, config) {
 
 
 #' @title identify row-level validation errors for consolidated data
-#' @description audits consolidated `fao_data_raw` rows against validation rules
-#' and returns only rows that fail at least one validation rule.
+#' @description subset consolidated `fao_data_raw` rows that have missing values
+#' in mandatory audit key columns. this simplified audit only checks `continent`,
+#' `country`, and `product` for `na` values.
 #' @param fao_data_raw data frame or data table containing consolidated raw fao
 #' observations.
-#' @return `data.table` containing only rows with at least one validation error,
-#' sorted alphabetically by `document`.
-#' @importFrom checkmate assert_data_frame assert_names
-#' @importFrom data.table as.data.table copy data.table setorderv
-#' @importFrom readr parse_double
-#' @importFrom stringr str_detect
+#' @return `data.table` containing only rows where at least one of
+#' `continent`, `country`, or `product` is `na`, sorted alphabetically by
+#' `document`.
+#' @importFrom checkmate assert_data_frame assert_names assert_character
+#' @importFrom data.table as.data.table copy setorderv
+#' @importFrom purrr walk
 #' @examples
 #' data_example <- data.frame(
-#'   continent = "asia",
-#'   country = "nepal",
-#'   product = "rice",
-#'   variable = "production",
-#'   unit = "t",
-#'   year = "2020",
-#'   value = "1.2",
-#'   notes = NA_character_,
-#'   footnotes = "none",
-#'   yearbook = "yb_2020",
-#'   document = "sample_file.xlsx"
+#'   continent = c("asia", NA_character_),
+#'   country = c("nepal", "nepal"),
+#'   product = c("rice", "rice"),
+#'   document = c("clean_file.xlsx", "dirty_file.xlsx")
 #' )
 #' identify_validation_errors(data_example)
 identify_validation_errors <- function(fao_data_raw) {
   checkmate::assert_data_frame(fao_data_raw)
 
-  required_columns <- c(
-    "continent",
-    "country",
-    "product",
-    "variable",
-    "unit",
-    "year",
-    "value",
-    "notes",
-    "footnotes",
-    "yearbook",
-    "document"
-  )
-
-  mandatory_character_columns <- c(
-    "continent",
-    "country",
-    "unit",
-    "product",
-    "variable",
-    "year",
-    "yearbook",
-    "document"
-  )
-
-  optional_character_columns <- c("footnotes", "notes")
+  required_columns <- c("continent", "country", "product", "document")
+  audit_columns <- c("continent", "country", "product")
 
   checkmate::assert_names(
     names(fao_data_raw),
@@ -222,103 +192,20 @@ identify_validation_errors <- function(fao_data_raw) {
     what = "names(fao_data_raw)"
   )
 
+  purrr::walk(
+    audit_columns,
+    \(column_name) {
+      checkmate::assert_character(fao_data_raw[[column_name]])
+    }
+  )
+
   audit_dt <- fao_data_raw |>
     data.table::as.data.table() |>
     data.table::copy()
 
-  row_count <- nrow(audit_dt)
+  row_has_missing_audit_values <- audit_dt[, rowSums(is.na(.SD)) > 0, .SDcols = audit_columns]
 
-  build_character_flags <- function(column_values, allow_missing = FALSE) {
-    if (!is.character(column_values)) {
-      return(rep(TRUE, row_count))
-    }
-
-    trimmed_values <- trimws(column_values)
-
-    if (allow_missing) {
-      return(!is.na(column_values) & column_values != trimmed_values)
-    }
-
-    is.na(column_values) |
-      trimmed_values == "" |
-      column_values != trimmed_values
-  }
-
-  mandatory_flags <- setNames(
-    lapply(
-      mandatory_character_columns,
-      \(column_name) {
-        build_character_flags(audit_dt[[column_name]], allow_missing = FALSE)
-      }
-    ),
-    mandatory_character_columns
-  )
-
-  optional_flags <- setNames(
-    lapply(
-      optional_character_columns,
-      \(column_name) {
-        build_character_flags(audit_dt[[column_name]], allow_missing = TRUE)
-      }
-    ),
-    optional_character_columns
-  )
-
-  value_raw <- as.character(audit_dt$value)
-  value_numeric <- suppressWarnings(
-    readr::parse_double(value_raw, na = c("", "na", "nan", "null"))
-  )
-
-  value_flags <-
-    (!is.na(value_raw) & nzchar(trimws(value_raw)) & is.na(value_numeric)) |
-    (!is.na(value_numeric) & value_numeric < 0)
-
-  year_flags <- if (is.character(audit_dt$year)) {
-    !stringr::str_detect(audit_dt$year, "^[0-9]{4}(-[0-9]{4})?$")
-  } else {
-    rep(TRUE, row_count)
-  }
-
-  error_flags_dt <- data.table::data.table(
-    matrix(FALSE, nrow = row_count, ncol = length(required_columns))
-  )
-  data.table::setnames(error_flags_dt, required_columns)
-
-  error_flags_dt[, (mandatory_character_columns) := mandatory_flags]
-  error_flags_dt[, (optional_character_columns) := optional_flags]
-  error_flags_dt[, value := value_flags]
-  error_flags_dt[, year := year | year_flags]
-
-  key_columns <- c(
-    "continent",
-    "country",
-    "product",
-    "variable",
-    "unit",
-    "year",
-    "yearbook",
-    "document"
-  )
-
-  key_complete <- audit_dt[, rowSums(is.na(.SD)) == 0, .SDcols = key_columns]
-
-  duplicate_idx <- audit_dt[
-    key_complete,
-    .I[duplicated(.SD) | duplicated(.SD, fromLast = TRUE)],
-    .SDcols = key_columns
-  ]
-
-  if (length(duplicate_idx) > 0) {
-    error_flags_dt[
-      duplicate_idx,
-      (key_columns) := lapply(.SD, \(column_values) rep(TRUE, .N)),
-      .SDcols = key_columns
-    ]
-  }
-
-  row_has_error <- error_flags_dt[, rowSums(.SD) > 0]
-
-  output_dt <- audit_dt[row_has_error]
+  output_dt <- audit_dt[row_has_missing_audit_values]
   data.table::setorderv(output_dt, cols = "document", na.last = TRUE)
 
   output_dt

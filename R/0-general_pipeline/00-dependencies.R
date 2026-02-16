@@ -21,6 +21,26 @@ required_packages <- c(
   "progress"
 )
 
+#' @title abort on failed checkmate checks
+#' @description convert a `checkmate::check_*` result into a cli abort when validation fails.
+#' this keeps user-facing errors consistent and structured.
+#' @param check_result logical true or character scalar returned by a `checkmate::check_*` validator.
+#' @return invisible true when validation passes.
+#' @importFrom checkmate assert check_true check_string
+#' @importFrom cli cli_abort
+abort_on_checkmate_failure <- function(check_result) {
+  checkmate::assert(
+    checkmate::check_true(check_result),
+    checkmate::check_string(check_result, min.chars = 1)
+  )
+
+  if (!isTRUE(check_result)) {
+    cli::cli_abort(check_result)
+  }
+
+  invisible(TRUE)
+}
+
 #' @title check dependencies
 #' @description validates a character vector of package names, identifies missing packages,
 #' and installs any package that is not currently available in the active r library paths.
@@ -29,18 +49,31 @@ required_packages <- c(
 #' one package name.
 #' @return character vector of missing package names. returns an empty character vector when
 #' all dependencies are already installed.
-#' @importFrom checkmate assert_character
-#' @importFrom utils install.packages installed.packages
+#' @importFrom checkmate check_character
+#' @importFrom utils installed.packages
+#' @importFrom cli cli_inform cli_warn
+#' @importFrom renv install
 #' @examples
 #' missing_packages <- check_dependencies(c("stats", "utils"))
 #' missing_packages
 check_dependencies <- function(packages) {
-  checkmate::assert_character(packages, any.missing = FALSE, min.len = 1)
+  abort_on_checkmate_failure(checkmate::check_character(
+    packages,
+    any.missing = FALSE,
+    min.len = 1
+  ))
 
   missing_packages <- setdiff(packages, rownames(utils::installed.packages()))
 
   if (length(missing_packages) > 0) {
-    utils::install.packages(missing_packages)
+    cli::cli_warn(c(
+      "installing missing dependencies with renv",
+      "i" = "missing packages: {toString(missing_packages)}"
+    ))
+
+    renv::install(missing_packages)
+
+    cli::cli_inform("dependency installation completed")
   }
 
   missing_packages
@@ -52,13 +85,17 @@ check_dependencies <- function(packages) {
 #' @param packages character vector. must be non-missing, non-empty, and contain at least
 #' one package name.
 #' @return invisible null. used for side effects by attaching packages to the session.
-#' @importFrom checkmate assert_character
+#' @importFrom checkmate check_character
 #' @importFrom purrr walk
 #' @importFrom base suppressPackageStartupMessages library
 #' @examples
 #' load_dependencies(c("stats", "utils"))
 load_dependencies <- function(packages) {
-  checkmate::assert_character(packages, any.missing = FALSE, min.len = 1)
+  abort_on_checkmate_failure(checkmate::check_character(
+    packages,
+    any.missing = FALSE,
+    min.len = 1
+  ))
 
   packages |>
     purrr::walk(function(package_name) {
