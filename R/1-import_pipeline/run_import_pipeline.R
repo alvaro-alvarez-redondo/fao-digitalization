@@ -68,7 +68,7 @@ run_import_pipeline <- function(config) {
     unlist(use.names = FALSE)
 
   consolidated_result <- consolidate_validated_dt(validated_dt_list, config)
-  fao_data_validated <- validate_data(consolidated_result$data)
+  fao_data_validated <- validate_data(consolidated_result$data, config = config)
 
   list(
     data = fao_data_validated,
