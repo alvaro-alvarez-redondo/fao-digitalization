@@ -1,7 +1,23 @@
 source(here::here("R/3-export_pipeline/32-export_lists.R"), echo = FALSE)
 
+testthat::test_that("get_unique_column returns sorted unique values", {
+  sample_df <- data.frame(country = c("brazil", "argentina", "brazil"))
+
+  unique_country <- get_unique_column(sample_df, "country")
+
+  testthat::expect_identical(unique_country, c("argentina", "brazil"))
+})
+
 testthat::test_that("normalize_sheet_name is resilient to missing and empty labels", {
   normalized <- normalize_sheet_name(c(NA_character_, "***", "country"))
 
   testthat::expect_identical(normalized, c("unknown", "unknown", "country"))
+})
+
+testthat::test_that("normalize_sheet_name truncates labels to excel length limit", {
+  long_name <- "abcdefghijklmnopqrstuvwxyz_123456"
+
+  normalized <- normalize_sheet_name(long_name)
+
+  testthat::expect_identical(nchar(normalized), 31L)
 })

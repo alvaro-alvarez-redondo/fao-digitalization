@@ -62,6 +62,26 @@ testthat::test_that("identify_validation_errors sorts output by document", {
   testthat::expect_identical(audit_dt$document, c("alpha.xlsx", "zeta.xlsx"))
 })
 
+testthat::test_that("identify_validation_errors does not add an error_columns field", {
+  input_dt <- data.table::data.table(
+    continent = "asia",
+    country = "nepal",
+    product = "rice",
+    variable = "production",
+    unit = "t",
+    year = "2020/2021",
+    value = "not_numeric",
+    notes = NA_character_,
+    footnotes = "none",
+    yearbook = "yb_2020",
+    document = "sample.xlsx"
+  )
+
+  audit_dt <- identify_validation_errors(input_dt)
+
+  testthat::expect_false("error_columns" %in% names(audit_dt))
+})
+
 testthat::test_that("identify_validation_errors flags duplicated keys", {
   input_dt <- data.table::data.table(
     continent = c("asia", "asia"),

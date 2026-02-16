@@ -73,7 +73,7 @@ validate_mandatory_fields_dt <- function(dt, config) {
 #' @param dt data table or data frame containing long-format observations.
 #' @return named list with `errors` as a character vector and `data` as the
 #' unchanged data table.
-#' @importFrom checkmate assert_data_frame assert_string assert_names
+#' @importFrom checkmate assert_data_frame assert_names
 #' @importFrom data.table as.data.table
 #' @examples
 #' dt_example <- data.frame(
@@ -167,7 +167,7 @@ validate_long_dt <- function(long_dt, config) {
 #' observations.
 #' @return `data.table` containing only rows with at least one validation error,
 #' sorted alphabetically by `document`.
-#' @importFrom checkmate assert_data_frame assert_string assert_names
+#' @importFrom checkmate assert_data_frame assert_names
 #' @importFrom data.table as.data.table copy data.table setorderv
 #' @importFrom readr parse_double
 #' @importFrom stringr str_detect
@@ -316,33 +316,10 @@ identify_validation_errors <- function(fao_data_raw) {
     ]
   }
 
-  flagged_long <- data.table::melt(
-    error_flags_dt[, row_id := .I],
-    id.vars = "row_id",
-    variable.name = "column_name",
-    value.name = "has_error",
-    variable.factor = FALSE
-  )[
-    has_error == TRUE,
-    .(error_columns = paste(column_name, collapse = "; ")),
-    by = row_id
-  ]
+  row_has_error <- error_flags_dt[, rowSums(.SD) > 0]
 
-  output_dt <- data.table::copy(audit_dt)
-  output_dt[, row_id := .I]
-  output_dt[, error_columns := ""]
-
-  if (nrow(flagged_long) > 0) {
-    output_dt[flagged_long, on = "row_id", error_columns := i.error_columns]
-  }
-
-  output_dt <- output_dt[nzchar(error_columns)]
-  output_dt[, row_id := NULL]
-
-  data.table::setcolorder(
-    output_dt,
-    c("error_columns", setdiff(colnames(output_dt), "error_columns"))
-  )
+  output_dt <- audit_dt[row_has_error]
+  data.table::setorderv(output_dt, cols = "document", na.last = TRUE)
 
   output_dt
 }
