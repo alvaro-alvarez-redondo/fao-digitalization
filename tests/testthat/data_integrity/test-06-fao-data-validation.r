@@ -37,38 +37,29 @@ testthat::test_that("identify_validation_errors captures multiple invalid column
   audit_dt <- identify_validation_errors(input_dt)
 
   testthat::expect_equal(nrow(audit_dt), 2)
-  testthat::expect_identical(colnames(audit_dt)[1], "error_columns")
-  testthat::expect_true(all(nzchar(audit_dt$error_columns)))
-  testthat::expect_true(any(grepl("value", audit_dt$error_columns)))
-  testthat::expect_true(any(grepl("year", audit_dt$error_columns)))
-  testthat::expect_true(any(grepl("; ", audit_dt$error_columns, fixed = TRUE)))
+  testthat::expect_identical(audit_dt$document, c("sample.xlsx", "sample.xlsx"))
 })
 
 
-
-testthat::test_that("identify_validation_errors computes error_columns per row", {
+testthat::test_that("identify_validation_errors sorts output by document", {
   input_dt <- data.table::data.table(
     continent = c("asia", "asia"),
     country = c("nepal", "nepal"),
     product = c("rice", "rice"),
     variable = c("production", "production"),
     unit = c("t", "t"),
-    year = c("2020/2021", "2020"),
+    year = c("2020/2021", "2020/2021"),
     value = c("2", "not_numeric"),
     notes = c(NA_character_, NA_character_),
     footnotes = c("none", "none"),
     yearbook = c("yb_2020", "yb_2020"),
-    document = c("sample_a.xlsx", "sample_b.xlsx")
+    document = c("zeta.xlsx", "alpha.xlsx")
   )
 
   audit_dt <- identify_validation_errors(input_dt)
 
   testthat::expect_equal(nrow(audit_dt), 2)
-  testthat::expect_type(audit_dt$error_columns, "character")
-
-  audit_by_document <- audit_dt[order(document)]
-  testthat::expect_identical(audit_by_document$error_columns[[1]], "year")
-  testthat::expect_identical(audit_by_document$error_columns[[2]], "value")
+  testthat::expect_identical(audit_dt$document, c("alpha.xlsx", "zeta.xlsx"))
 })
 
 testthat::test_that("identify_validation_errors flags duplicated keys", {
@@ -89,12 +80,11 @@ testthat::test_that("identify_validation_errors flags duplicated keys", {
   audit_dt <- identify_validation_errors(input_dt)
 
   testthat::expect_equal(nrow(audit_dt), 2)
-  testthat::expect_true(all(grepl("document", audit_dt$error_columns)))
+  testthat::expect_true(all(audit_dt$document == "sample.xlsx"))
 })
 
 testthat::test_that("export_validation_audit_report writes excel report", {
   audit_dt <- data.table::data.table(
-    error_columns = "year; value",
     continent = "asia",
     country = "nepal",
     product = "rice",
@@ -116,7 +106,6 @@ testthat::test_that("export_validation_audit_report writes excel report", {
 
 testthat::test_that("export_validation_audit_report sorts audit rows by document", {
   audit_dt <- data.table::data.table(
-    error_columns = c("year", "value"),
     continent = c("asia", "asia"),
     country = c("nepal", "nepal"),
     product = c("rice", "rice"),
@@ -161,10 +150,20 @@ testthat::test_that("validate_data warns and creates report for dirty rows", {
 
   config <- test_config
   config$paths$data$imports$raw <- temp_raw_imports
-  config$paths$data$audit$audit_dir <- fs::path(withr::local_tempdir(), "audit", config$dataset_name)
+  config$paths$data$audit$audit_dir <- fs::path(
+    withr::local_tempdir(),
+    "audit",
+    config$dataset_name
+  )
   config$paths$data$audit$dataset_dir <- config$paths$data$audit$audit_dir
-  config$paths$data$audit$audit_file_path <- fs::path(config$paths$data$audit$audit_dir, paste0(config$dataset_name, "_audit.xlsx"))
-  config$paths$data$audit$raw_imports_mirror_dir <- fs::path(config$paths$data$audit$audit_dir, "raw_imports_mirror")
+  config$paths$data$audit$audit_file_path <- fs::path(
+    config$paths$data$audit$audit_dir,
+    paste0(config$dataset_name, "_audit.xlsx")
+  )
+  config$paths$data$audit$raw_imports_mirror_dir <- fs::path(
+    config$paths$data$audit$audit_dir,
+    "raw_imports_mirror"
+  )
 
   validated_dt <- testthat::expect_warning(
     validate_data(input_dt, config = config),
@@ -175,9 +174,14 @@ testthat::test_that("validate_data warns and creates report for dirty rows", {
   testthat::expect_type(validated_dt$value, "double")
   testthat::expect_true(is.na(validated_dt$value[[1]]))
 
-  testthat::expect_true(fs::file_exists(config$paths$data$audit$audit_file_path))
+  testthat::expect_true(fs::file_exists(
+    config$paths$data$audit$audit_file_path
+  ))
   testthat::expect_true(
-    fs::file_exists(fs::path(config$paths$data$audit$raw_imports_mirror_dir, "sample.xlsx"))
+    fs::file_exists(fs::path(
+      config$paths$data$audit$raw_imports_mirror_dir,
+      "sample.xlsx"
+    ))
   )
 })
 
