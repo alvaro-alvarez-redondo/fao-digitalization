@@ -163,13 +163,13 @@ validate_long_dt <- function(long_dt, config) {
 #' @title identify row-level validation errors for consolidated data
 #' @description audits consolidated `fao_data_raw` rows against validation rules
 #' and returns only dirty rows. the function builds a row-level `error_columns`
-#' field listing only columns that fail in each specific row, separated by `", "`.
+#' field listing only columns that fail in each specific row, separated by `"; "`.
 #' @param fao_data_raw data frame or data table containing consolidated raw fao
 #' observations.
 #' @return `data.table` containing only rows with at least one validation error,
 #' with `error_columns` as the first column.
 #' @importFrom checkmate assert_data_frame assert_string assert_names
-#' @importFrom data.table as.data.table copy data.table setcolorder
+#' @importFrom data.table as.data.table copy data.table setcolorder setorderv
 #' @importFrom readr parse_double
 #' @importFrom stringr str_detect
 #' @examples
@@ -322,7 +322,7 @@ identify_validation_errors <- function(fao_data_raw) {
 
     error_by_row <- unique(flagged_dt, by = c("row_id", "column_name"))[,
       .(
-        error_columns = paste(column_name, collapse = ", ")
+        error_columns = paste(column_name, collapse = "; ")
       ),
       by = row_id
     ]
@@ -420,7 +420,8 @@ mirror_raw_import_errors <- function(
 
 #' @title export validation audit report to excel
 #' @description writes row-level validation errors to an excel workbook for
-#' manual review and returns the resolved output path.
+#' manual review and returns the resolved output path. before export, rows are
+#' sorted alphabetically by `document`.
 #' @param audit_dt data table containing dirty rows and `error_columns`.
 #' @param output_path character scalar output path for the excel file. the
 #' default is a generic project audit file and should usually be overridden by
@@ -440,15 +441,21 @@ export_validation_audit_report <- function(
   checkmate::assert_string(output_path, min.chars = 1)
   checkmate::assert_names(
     names(audit_dt),
-    must.include = "error_columns",
+    must.include = c("error_columns", "document"),
     what = "names(audit_dt)"
   )
+
+  export_dt <- audit_dt |>
+    data.table::as.data.table() |>
+    data.table::copy()
+
+  data.table::setorderv(export_dt, cols = "document", na.last = TRUE)
 
   fs::dir_create(fs::path_dir(output_path))
 
   workbook <- openxlsx::createWorkbook()
   openxlsx::addWorksheet(workbook, "audit_report")
-  openxlsx::writeData(workbook, "audit_report", audit_dt)
+  openxlsx::writeData(workbook, "audit_report", export_dt)
   openxlsx::saveWorkbook(workbook, output_path, overwrite = TRUE)
 }
 
