@@ -200,3 +200,27 @@ testthat::test_that("create_required_directories normalizes file targets to pare
   testthat::expect_false(fs::dir_exists(fs::path(temp_root, "audit", "dataset_a", "dataset_a_audit.xlsx")))
   testthat::expect_true(fs::path(temp_root, "audit", "dataset_a") %in% created_dirs)
 })
+
+testthat::test_that("resolve_product_name applies unknown fallback for missing product", {
+  file_row <- data.frame(
+    file_name = "sample_file.xlsx",
+    yearbook = "yb_2020",
+    product = NA_character_
+  )
+
+  resolved_product <- resolve_product_name(file_row, test_config)
+
+  testthat::expect_identical(resolved_product, "unknown")
+})
+
+testthat::test_that("resolve_product_name trims whitespace from product names", {
+  file_row <- data.frame(
+    file_name = "sample_file.xlsx",
+    yearbook = "yb_2020",
+    product = "  rice  "
+  )
+
+  resolved_product <- resolve_product_name(file_row, test_config)
+
+  testthat::expect_identical(resolved_product, "rice")
+})
