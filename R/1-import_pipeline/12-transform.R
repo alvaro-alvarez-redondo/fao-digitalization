@@ -219,11 +219,46 @@ transform_file_dt <- function(df, file_name, yearbook, product_name, config) {
 #' `null` when the input table has zero rows.
 #' @param file_row single-row data frame or data table with `file_name`,
 #' `yearbook`, and `product` columns.
+#' @param config named list with transform configuration.
+#' @return character scalar product name resolved from metadata.
+#' @importFrom checkmate assert_data_frame assert_list
+#' @importFrom cli cli_warn
+#' @examples
+#' # resolve_product_name(file_row_example, config_example)
+resolve_product_name <- function(file_row, config) {
+  checkmate::assert_data_frame(file_row, min.rows = 1)
+  checkmate::assert_list(config, any.missing = FALSE)
+
+  show_missing_product_metadata_warning <-
+    !is.null(config$messages$show_missing_product_metadata_warning) &&
+    isTRUE(config$messages$show_missing_product_metadata_warning)
+
+  product_name <- as.character(file_row$product[[1]])
+  product_name <- trimws(product_name)
+
+  if (is.na(product_name) || product_name == "") {
+    if (show_missing_product_metadata_warning) {
+      cli::cli_warn(c(
+        "missing product metadata detected; using fallback value 'unknown'",
+        "i" = "file: {file_row$file_name[[1]]}"
+      ))
+    }
+
+    return("unknown")
+  }
+
+  product_name
+}
+
+#' @title transform single file
+#' @description transform one discovered file row and its wide data table. returns
+#' `null` when the input table has zero rows.
+#' @param file_row single-row data frame or data table with `file_name`,
+#' `yearbook`, and `product` columns.
 #' @param df_wide data frame or data table for one file.
 #' @param config named list with transform configuration.
 #' @return named list from `transform_file_dt` or `null` when `df_wide` is empty.
 #' @importFrom checkmate assert_data_frame assert_list assert_names
-#' @importFrom cli cli_warn
 #' @examples
 #' # transform_single_file(file_row_example, df_wide_example, config_example)
 transform_single_file <- function(file_row, df_wide, config) {
@@ -240,22 +275,7 @@ transform_single_file <- function(file_row, df_wide, config) {
     return(NULL)
   }
 
-  show_missing_product_metadata_warning <-
-    !is.null(config$messages$show_missing_product_metadata_warning) &&
-    isTRUE(config$messages$show_missing_product_metadata_warning)
-
-  product_name <- file_row$product[[1]]
-
-  if (is.na(product_name) || product_name == "") {
-    if (show_missing_product_metadata_warning) {
-      cli::cli_warn(c(
-        "missing product metadata detected; using fallback value 'unknown'",
-        "i" = "file: {file_row$file_name[[1]]}"
-      ))
-    }
-
-    product_name <- "unknown"
-  }
+  product_name <- resolve_product_name(file_row, config)
 
   transform_file_dt(
     df = df_wide,
