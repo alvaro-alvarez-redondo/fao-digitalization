@@ -217,9 +217,12 @@ get_config_string <- function(config, path, field_name) {
 #' normalization and suffix append. validated with
 #' `checkmate::check_string(min.chars = 1)`.
 #' @param type character scalar. one of `"processed"` or `"lists"`.
+#' @param use_here logical scalar. when `true`, resolve export directories
+#' with `here::here()` to guarantee project-root-relative output paths.
 #' @return character scalar path generated with `fs::path()`.
-#' @importFrom checkmate check_list check_string
+#' @importFrom checkmate check_flag check_list check_string
 #' @importFrom fs dir_create path
+#' @importFrom here here
 #' @examples
 #' config <- list(
 #'   paths = list(data = list(exports = list(processed = "tmp", lists = "tmp"))),
@@ -229,10 +232,12 @@ get_config_string <- function(config, path, field_name) {
 generate_export_path <- function(
   config,
   base_name,
-  type = c("processed", "lists")
+  type = c("processed", "lists"),
+  use_here = TRUE
 ) {
   assert_or_abort(checkmate::check_list(config, min.len = 1))
   assert_or_abort(checkmate::check_string(base_name, min.chars = 1))
+  assert_or_abort(checkmate::check_flag(use_here))
 
   type <- match.arg(type)
 
@@ -264,7 +269,13 @@ generate_export_path <- function(
     )
   )
 
-  fs::dir_create(folder)
+  output_folder <- if (use_here) {
+    here::here(folder)
+  } else {
+    folder
+  }
 
-  fs::path(folder, paste0(normalize_filename(base_name), suffix))
+  fs::dir_create(output_folder)
+
+  fs::path(output_folder, paste0(normalize_filename(base_name), suffix))
 }

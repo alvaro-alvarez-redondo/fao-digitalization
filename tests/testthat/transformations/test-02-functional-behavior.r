@@ -128,3 +128,16 @@ testthat::test_that("consolidate_validated_dt reorders columns without dropping 
   )
   testthat::expect_true("extra_metric" %in% colnames(consolidated$data))
 })
+
+
+testthat::test_that("consolidate_validated_dt validates required schema coverage", {
+  config_missing_required <- test_config
+  config_missing_required$column_order <- setdiff(
+    config_missing_required$column_order,
+    "document"
+  )
+
+  testthat::expect_error(
+    consolidate_validated_dt(list(data.table::data.table()), config_missing_required)
+  )
+})
