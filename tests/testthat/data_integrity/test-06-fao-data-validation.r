@@ -102,10 +102,18 @@ testthat::test_that("validate_data warns and creates report for dirty rows", {
     document = "sample.xlsx"
   )
 
-  output_path <- fs::path(withr::local_tempdir(), "validation_audit.xlsx")
+  temp_raw_imports <- fs::path(withr::local_tempdir(), "raw imports")
+  fs::dir_create(temp_raw_imports)
+  fs::file_create(fs::path(temp_raw_imports, "sample.xlsx"))
+
+  config <- test_config
+  config$paths$data$imports$raw <- temp_raw_imports
+  config$paths$data$audit$dataset_dir <- fs::path(withr::local_tempdir(), "audit", "fao_data_raw")
+  config$paths$data$audit$audit_file_path <- fs::path(config$paths$data$audit$dataset_dir, "fao_data_raw_audit.xlsx")
+  config$paths$data$audit$raw_imports_mirror_dir <- fs::path(config$paths$data$audit$dataset_dir, "raw_imports_mirror")
 
   validated_dt <- testthat::expect_warning(
-    validate_data(input_dt, output_path = output_path),
+    validate_data(input_dt, config = config),
     regexp = "data validation failed"
   )
 
@@ -113,7 +121,10 @@ testthat::test_that("validate_data warns and creates report for dirty rows", {
   testthat::expect_type(validated_dt$value, "double")
   testthat::expect_true(is.na(validated_dt$value[[1]]))
 
-  testthat::expect_true(fs::file_exists(output_path))
+  testthat::expect_true(fs::file_exists(config$paths$data$audit$audit_file_path))
+  testthat::expect_true(
+    fs::file_exists(fs::path(config$paths$data$audit$raw_imports_mirror_dir, "sample.xlsx"))
+  )
 })
 
 testthat::test_that("validate_data returns numeric value for clean rows", {
@@ -131,7 +142,7 @@ testthat::test_that("validate_data returns numeric value for clean rows", {
     document = "sample.xlsx"
   )
 
-  validated_dt <- validate_data(input_dt)
+  validated_dt <- validate_data(input_dt, test_config)
 
   testthat::expect_true(data.table::is.data.table(validated_dt))
   testthat::expect_type(validated_dt$value, "double")

@@ -9,4 +9,4 @@ source(here::here("R/1-import_pipeline/14-output.R"), echo = FALSE)
 
 load_dependencies(required_packages)
 
-test_config <- load_pipeline_config()
+test_config <- load_pipeline_config("fao_data_raw")
