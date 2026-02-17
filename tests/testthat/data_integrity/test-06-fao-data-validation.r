@@ -200,11 +200,11 @@ testthat::test_that("audit_data_output returns numeric value for clean rows", {
   testthat::expect_identical(audited_dt$value[[1]], 1.25)
 })
 
-testthat::test_that("validate_audit_config rejects missing required fields", {
+testthat::test_that("load_audit_config rejects missing required fields", {
   invalid_config <- list(column_order = "document")
 
   testthat::expect_error(
-    validate_audit_config(invalid_config),
+    load_audit_config(invalid_config),
     class = "rlang_error"
   )
 })
