@@ -179,7 +179,7 @@ load_pipeline_config <- function(dataset_name = "fao_data_raw", ...) {
     lists_workbook_name = "fao_unique_lists_raw"
   )
 
-  list(
+  config <- list(
     project_root = project_root,
     dataset_name = normalized_dataset_name,
     paths = paths,
@@ -193,6 +193,47 @@ load_pipeline_config <- function(dataset_name = "fao_data_raw", ...) {
     defaults = list(notes_value = NA_character_),
     messages = list(show_missing_product_metadata_warning = FALSE)
   )
+
+  checkmate::assert_character(
+    config$column_order,
+    min.len = 1,
+    any.missing = FALSE
+  )
+  checkmate::assert_character(
+    config$audit_columns,
+    min.len = 1,
+    any.missing = FALSE
+  )
+
+  if (!is.null(config$audit_columns_by_type)) {
+    checkmate::assert_list(
+      config$audit_columns_by_type,
+      min.len = 1,
+      any.missing = FALSE
+    )
+    for (audit_columns in config$audit_columns_by_type) {
+      checkmate::assert_character(
+        audit_columns,
+        min.len = 1,
+        any.missing = FALSE
+      )
+    }
+  }
+
+  checkmate::assert_string(
+    config$paths$data$imports$raw,
+    min.chars = 1
+  )
+  checkmate::assert_string(
+    config$paths$data$audit$audit_file_path,
+    min.chars = 1
+  )
+  checkmate::assert_string(
+    config$paths$data$audit$raw_imports_mirror_dir,
+    min.chars = 1
+  )
+
+  config
 }
 
 #' @title create required directories
