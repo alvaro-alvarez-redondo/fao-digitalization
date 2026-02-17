@@ -101,3 +101,42 @@ test_that("run_audit_by_type supports config-driven audit column types", {
       audit_result$findings$audit_type
   ))
 })
+
+test_that("run_master_validation supports selected_validations filtering", {
+  dataset_dt <- data.frame(
+    document = c("ok.xlsx", ""),
+    value = c("10", "10a"),
+    stringsAsFactors = FALSE
+  )
+
+  audit_map <- list(
+    character_non_empty = "document",
+    numeric_string = "value"
+  )
+
+  output_list <- run_master_validation(
+    dataset_dt = dataset_dt,
+    audit_columns_by_type = audit_map,
+    selected_validations = "numeric_string"
+  )
+
+  expect_equal(output_list$findings$audit_type, "numeric_string")
+  expect_equal(output_list$invalid_row_index, 2L)
+})
+
+test_that("run_master_validation skips unsupported validators without failing", {
+  dataset_dt <- data.frame(document = c("ok.xlsx", ""), stringsAsFactors = FALSE)
+
+  audit_map <- list(
+    unsupported_rule = "document",
+    character_non_empty = "document"
+  )
+
+  expect_warning(
+    output_list <- run_master_validation(dataset_dt, audit_map),
+    "unsupported audit types were skipped"
+  )
+
+  expect_true("character_non_empty" %in% output_list$findings$audit_type)
+  expect_false("unsupported_rule" %in% output_list$findings$audit_type)
+})

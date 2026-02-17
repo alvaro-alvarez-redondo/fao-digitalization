@@ -35,13 +35,13 @@ load_audit_config <- function(config) {
       min.len = 1,
       any.missing = FALSE
     ))
-    for (audit_columns in config$audit_columns_by_type) {
+    purrr::walk(config$audit_columns_by_type, function(audit_columns) {
       assert_or_abort(checkmate::check_character(
         audit_columns,
         min.len = 1,
         any.missing = FALSE
       ))
-    }
+    })
   }
 
   assert_or_abort(checkmate::check_string(
@@ -222,26 +222,39 @@ run_master_validation <- function(
   )
 
   if (!is.null(selected_validations)) {
+    assert_or_abort(checkmate::check_character(
+      selected_validations,
+      min.len = 1,
+      any.missing = FALSE,
+      unique = TRUE
+    ))
     audit_columns_by_type <- audit_columns_by_type[
       names(audit_columns_by_type) %in% selected_validations
     ]
   }
 
-  findings_list <- list()
-  for (audit_type in names(audit_columns_by_type)) {
-    if (is.null(validator_registry[[audit_type]])) {
-      cli::cli_warn("unsupported audit type {.val {audit_type}} was skipped")
-      next
-    }
-    for (column_name in audit_columns_by_type[[audit_type]]) {
-      findings_list[[length(findings_list) + 1]] <- validator_registry[[
-        audit_type
-      ]](
-        dataset_dt = dataset_dt,
-        column_name = column_name
-      )
-    }
+  audit_types <- names(audit_columns_by_type)
+  unsupported_audit_types <- setdiff(audit_types, names(validator_registry))
+  if (length(unsupported_audit_types) > 0) {
+    cli::cli_warn(c(
+      "unsupported audit types were skipped",
+      "i" = "audit types: {toString(unsupported_audit_types)}"
+    ))
   }
+
+  supported_audit_types <- intersect(audit_types, names(validator_registry))
+  findings_list <- purrr::map(supported_audit_types, function(audit_type) {
+    column_names <- audit_columns_by_type[[audit_type]]
+    purrr::map(
+      column_names,
+      function(column_name) {
+        validator_registry[[audit_type]](
+          dataset_dt = dataset_dt,
+          column_name = column_name
+        )
+      }
+    )
+  }) |> purrr::flatten()
 
   findings_dt <- data.table::rbindlist(findings_list, fill = TRUE)
   if (nrow(findings_dt) == 0) {
