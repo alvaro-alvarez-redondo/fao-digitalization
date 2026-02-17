@@ -48,10 +48,10 @@ testthat::test_that("ensure_data_table and validate_export_import are type stabl
   input_df <- data.frame(x = 1:2)
 
   output_dt <- ensure_data_table(input_df)
-  validated_dt <- validate_export_import(input_df, "dataset")
+  audited_dt <- validate_export_import(input_df, "dataset")
 
   testthat::expect_true(data.table::is.data.table(output_dt))
-  testthat::expect_true(data.table::is.data.table(validated_dt))
+  testthat::expect_true(data.table::is.data.table(audited_dt))
 })
 
 testthat::test_that("generate_export_path builds a normalized export target", {
@@ -121,7 +121,11 @@ testthat::test_that("helper validators fail with cli errors on bad inputs", {
 
 
 testthat::test_that("get_config_string validates nested config fields", {
-  config <- list(paths = list(data = list(exports = list(processed = tempfile("processed_")))))
+  config <- list(
+    paths = list(
+      data = list(exports = list(processed = tempfile("processed_")))
+    )
+  )
 
   output_value <- get_config_string(
     config = config,
@@ -139,7 +143,14 @@ testthat::test_that("generate_export_path fails with explicit missing-field erro
   )
 
   config_missing_suffix <- list(
-    paths = list(data = list(exports = list(processed = tempfile("processed_"), lists = tempfile("lists_")))),
+    paths = list(
+      data = list(
+        exports = list(
+          processed = tempfile("processed_"),
+          lists = tempfile("lists_")
+        )
+      )
+    ),
     export_config = list(list_suffix = "_list.xlsx")
   )
 

@@ -23,8 +23,14 @@ testthat::test_that("load_pipeline_config returns expected core fields", {
   testthat::expect_equal(config$files$long_raw_data, "fao_data_long_raw.xlsx")
 
   testthat::expect_identical(config$dataset_name, "fao_data_raw")
-  testthat::expect_match(config$paths$data$audit$audit_file_path, "fao_data_raw_audit\\.xlsx$")
-  testthat::expect_match(config$paths$data$audit$raw_imports_mirror_dir, "raw_imports_mirror$")
+  testthat::expect_match(
+    config$paths$data$audit$audit_file_path,
+    "fao_data_raw_audit\\.xlsx$"
+  )
+  testthat::expect_match(
+    config$paths$data$audit$raw_imports_mirror_dir,
+    "raw_imports_mirror$"
+  )
 })
 
 testthat::test_that("transform_file_dt returns expected class and dimensions", {
@@ -49,7 +55,10 @@ testthat::test_that("transform_file_dt returns expected class and dimensions", {
   testthat::expect_true(data.table::is.data.table(transformed$wide_raw))
   testthat::expect_true(data.table::is.data.table(transformed$long_raw))
   testthat::expect_equal(nrow(transformed$long_raw), 2)
-  testthat::expect_equal(ncol(transformed$long_raw), length(test_config$column_order))
+  testthat::expect_equal(
+    ncol(transformed$long_raw),
+    length(test_config$column_order)
+  )
 })
 
 testthat::test_that("add_metadata preserves na notes defaults", {
@@ -94,7 +103,7 @@ testthat::test_that("load_pipeline_config sets analytical target column order", 
   testthat::expect_identical(config$column_order, expected_order)
 })
 
-testthat::test_that("consolidate_validated_dt reorders columns without dropping extras", {
+testthat::test_that("consolidate_audited_dt reorders columns without dropping extras", {
   dt_list <- list(
     data.table::data.table(
       country = "nepal",
@@ -112,7 +121,7 @@ testthat::test_that("consolidate_validated_dt reorders columns without dropping 
     )
   )
 
-  consolidated <- consolidate_validated_dt(dt_list, test_config)
+  consolidated <- consolidate_audited_dt(dt_list, test_config)
 
   expected_prefix <- c(
     "continent",
@@ -136,7 +145,7 @@ testthat::test_that("consolidate_validated_dt reorders columns without dropping 
 })
 
 
-testthat::test_that("consolidate_validated_dt validates required schema coverage", {
+testthat::test_that("consolidate_audited_dt validates required schema coverage", {
   config_missing_required <- test_config
   config_missing_required$column_order <- setdiff(
     config_missing_required$column_order,
@@ -144,17 +153,23 @@ testthat::test_that("consolidate_validated_dt validates required schema coverage
   )
 
   testthat::expect_error(
-    consolidate_validated_dt(list(data.table::data.table()), config_missing_required)
+    consolidate_audited_dt(
+      list(data.table::data.table()),
+      config_missing_required
+    )
   )
 })
 
 
-testthat::test_that("consolidate_validated_dt fails when column_order is undefined", {
+testthat::test_that("consolidate_audited_dt fails when column_order is undefined", {
   config_missing_column_order <- test_config
   config_missing_column_order$column_order <- NULL
 
   testthat::expect_error(
-    consolidate_validated_dt(list(data.table::data.table()), config_missing_column_order),
+    consolidate_audited_dt(
+      list(data.table::data.table()),
+      config_missing_column_order
+    ),
     regexp = "config\\$column_order"
   )
 })
@@ -164,8 +179,14 @@ testthat::test_that("load_pipeline_config builds dataset-scoped audit paths", {
   config <- load_pipeline_config("my dataset")
 
   testthat::expect_identical(config$dataset_name, "my_dataset")
-  testthat::expect_match(config$paths$data$audit$audit_dir, "data[/\\]audit[/\\]my_dataset$")
-  testthat::expect_match(config$paths$data$audit$audit_file_path, "my_dataset_audit\\.xlsx$")
+  testthat::expect_match(
+    config$paths$data$audit$audit_dir,
+    "data[/\\]audit[/\\]my_dataset$"
+  )
+  testthat::expect_match(
+    config$paths$data$audit$audit_file_path,
+    "my_dataset_audit\\.xlsx$"
+  )
   testthat::expect_match(
     config$paths$data$audit$raw_imports_mirror_dir,
     "data[/\\]audit[/\\]my_dataset[/\\]raw_imports_mirror$"
@@ -179,7 +200,10 @@ testthat::test_that("load_pipeline_config can infer dataset name from data attri
   config <- load_pipeline_config(dataset_name = "", data = sample_dt)
 
   testthat::expect_identical(config$dataset_name, "survey_results")
-  testthat::expect_match(config$paths$data$audit$audit_file_path, "survey_results_audit\\.xlsx$")
+  testthat::expect_match(
+    config$paths$data$audit$audit_file_path,
+    "survey_results_audit\\.xlsx$"
+  )
 })
 
 testthat::test_that("create_required_directories normalizes file targets to parent folders", {
@@ -189,16 +213,32 @@ testthat::test_that("create_required_directories normalizes file targets to pare
     data = list(
       audit = list(
         audit_dir = fs::path(temp_root, "audit", "dataset_a"),
-        audit_file_path = fs::path(temp_root, "audit", "dataset_a", "dataset_a_audit.xlsx")
+        audit_file_path = fs::path(
+          temp_root,
+          "audit",
+          "dataset_a",
+          "dataset_a_audit.xlsx"
+        )
       )
     )
   )
 
   created_dirs <- create_required_directories(paths)
 
-  testthat::expect_true(fs::dir_exists(fs::path(temp_root, "audit", "dataset_a")))
-  testthat::expect_false(fs::dir_exists(fs::path(temp_root, "audit", "dataset_a", "dataset_a_audit.xlsx")))
-  testthat::expect_true(fs::path(temp_root, "audit", "dataset_a") %in% created_dirs)
+  testthat::expect_true(fs::dir_exists(fs::path(
+    temp_root,
+    "audit",
+    "dataset_a"
+  )))
+  testthat::expect_false(fs::dir_exists(fs::path(
+    temp_root,
+    "audit",
+    "dataset_a",
+    "dataset_a_audit.xlsx"
+  )))
+  testthat::expect_true(
+    fs::path(temp_root, "audit", "dataset_a") %in% created_dirs
+  )
 })
 
 testthat::test_that("resolve_product_name applies unknown fallback for missing product", {

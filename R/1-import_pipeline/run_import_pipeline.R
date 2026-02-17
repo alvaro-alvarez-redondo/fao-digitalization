@@ -6,7 +6,8 @@ import_scripts <- c(
   "11-reading.R",
   "12-transform.R",
   "13-validate_log.R",
-  "14-output.R"
+  "14-data_audit.R",
+  "15-output.R"
 )
 
 purrr::walk(
@@ -62,16 +63,16 @@ run_import_pipeline <- function(config) {
     \(document_dt) validate_long_dt(document_dt, config)
   )
 
-  validated_dt_list <- purrr::map(validation_results, "data")
+  audited_dt_list <- purrr::map(validation_results, "data")
 
   validation_errors <- purrr::map(validation_results, "errors") |>
     unlist(use.names = FALSE)
 
-  consolidated_result <- consolidate_validated_dt(validated_dt_list, config)
-  fao_data_validated <- validate_data(consolidated_result$data, config)
+  consolidated_result <- consolidate_audited_dt(audited_dt_list, config)
+  fao_data_audited <- audit_data_output(consolidated_result$data, config)
 
   list(
-    data = fao_data_validated,
+    data = fao_data_audited,
     wide_raw = transformed$wide_raw,
     diagnostics = list(
       reading_errors = read_pipeline_result$errors,

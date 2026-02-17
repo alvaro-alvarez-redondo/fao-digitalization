@@ -24,8 +24,8 @@
 #'   data.frame(product = "b", year = "2021", value = "2")
 #' )
 #' config_example <- list(column_order = c("product", "year", "value"))
-#' consolidate_validated_dt(dt_list_example, config_example)
-consolidate_validated_dt <- function(dt_list, config) {
+#' consolidate_audited_dt(dt_list_example, config_example)
+consolidate_audited_dt <- function(dt_list, config) {
   assert_or_abort(checkmate::check_list(dt_list, any.missing = TRUE))
   assert_or_abort(checkmate::check_list(config, any.missing = FALSE))
 
@@ -53,7 +53,10 @@ consolidate_validated_dt <- function(dt_list, config) {
     min.len = 1,
     unique = TRUE
   ))
-  assert_or_abort(checkmate::check_subset(target_schema, choices = config$column_order))
+  assert_or_abort(checkmate::check_subset(
+    target_schema,
+    choices = config$column_order
+  ))
 
   dt_list <- dt_list |>
     purrr::compact() |>

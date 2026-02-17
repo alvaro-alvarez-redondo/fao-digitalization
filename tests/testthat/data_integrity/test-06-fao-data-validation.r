@@ -1,4 +1,4 @@
-testthat::test_that("identify_validation_errors returns empty table when audit columns have no missing values", {
+testthat::test_that("identify_audit_errors returns empty table when audit columns have no missing values", {
   input_dt <- data.table::data.table(
     continent = "asia",
     country = "nepal",
@@ -13,13 +13,13 @@ testthat::test_that("identify_validation_errors returns empty table when audit c
     document = "sample.xlsx"
   )
 
-  audit_dt <- identify_validation_errors(input_dt)
+  audit_dt <- identify_audit_errors(input_dt)
 
   testthat::expect_true(data.table::is.data.table(audit_dt))
   testthat::expect_equal(nrow(audit_dt), 0)
 })
 
-testthat::test_that("identify_validation_errors includes rows with missing continent country or product", {
+testthat::test_that("identify_audit_errors includes rows with missing continent country or product", {
   input_dt <- data.table::data.table(
     continent = c("asia", NA_character_, "africa"),
     country = c("nepal", "kenya", NA_character_),
@@ -34,7 +34,7 @@ testthat::test_that("identify_validation_errors includes rows with missing conti
     document = c("clean.xlsx", "missing_continent.xlsx", "missing_country.xlsx")
   )
 
-  audit_dt <- identify_validation_errors(input_dt)
+  audit_dt <- identify_audit_errors(input_dt)
 
   testthat::expect_equal(nrow(audit_dt), 2)
   testthat::expect_identical(
@@ -43,7 +43,7 @@ testthat::test_that("identify_validation_errors includes rows with missing conti
   )
 })
 
-testthat::test_that("identify_validation_errors sorts output by document", {
+testthat::test_that("identify_audit_errors sorts output by document", {
   input_dt <- data.table::data.table(
     continent = c(NA_character_, NA_character_),
     country = c("nepal", "nepal"),
@@ -58,13 +58,13 @@ testthat::test_that("identify_validation_errors sorts output by document", {
     document = c("zeta.xlsx", "alpha.xlsx")
   )
 
-  audit_dt <- identify_validation_errors(input_dt)
+  audit_dt <- identify_audit_errors(input_dt)
 
   testthat::expect_equal(nrow(audit_dt), 2)
   testthat::expect_identical(audit_dt$document, c("alpha.xlsx", "zeta.xlsx"))
 })
 
-testthat::test_that("identify_validation_errors validates audit column types", {
+testthat::test_that("identify_audit_errors validates audit column types", {
   input_dt <- data.table::data.table(
     continent = 1,
     country = "nepal",
@@ -73,7 +73,7 @@ testthat::test_that("identify_validation_errors validates audit column types", {
   )
 
   testthat::expect_error(
-    identify_validation_errors(input_dt),
+    identify_audit_errors(input_dt),
     class = "simpleError"
   )
 })
@@ -123,7 +123,7 @@ testthat::test_that("export_validation_audit_report sorts audit rows by document
   testthat::expect_identical(exported_dt$document, c("alpha.xlsx", "zeta.xlsx"))
 })
 
-testthat::test_that("validate_data warns and creates report for rows with missing audit columns", {
+testthat::test_that("audit_data_output warns and creates report for rows with missing audit columns", {
   input_dt <- data.table::data.table(
     continent = NA_character_,
     country = "nepal",
@@ -159,11 +159,11 @@ testthat::test_that("validate_data warns and creates report for rows with missin
     "raw_imports_mirror"
   )
 
-  validated_dt <- validate_data(input_dt, config = config)
+  audited_dt <- audit_data_output(input_dt, config = config)
 
-  testthat::expect_true(data.table::is.data.table(validated_dt))
-  testthat::expect_type(validated_dt$value, "double")
-  testthat::expect_identical(validated_dt$value[[1]], 1)
+  testthat::expect_true(data.table::is.data.table(audited_dt))
+  testthat::expect_type(audited_dt$value, "double")
+  testthat::expect_identical(audited_dt$value[[1]], 1)
 
   testthat::expect_true(fs::file_exists(
     config$paths$data$audit$audit_file_path
@@ -176,7 +176,7 @@ testthat::test_that("validate_data warns and creates report for rows with missin
   )
 })
 
-testthat::test_that("validate_data returns numeric value for clean rows", {
+testthat::test_that("audit_data_output returns numeric value for clean rows", {
   input_dt <- data.table::data.table(
     continent = "asia",
     country = "nepal",
@@ -191,9 +191,9 @@ testthat::test_that("validate_data returns numeric value for clean rows", {
     document = "sample.xlsx"
   )
 
-  validated_dt <- validate_data(input_dt, test_config)
+  audited_dt <- audit_data_output(input_dt, test_config)
 
-  testthat::expect_true(data.table::is.data.table(validated_dt))
-  testthat::expect_type(validated_dt$value, "double")
-  testthat::expect_identical(validated_dt$value[[1]], 1.25)
+  testthat::expect_true(data.table::is.data.table(audited_dt))
+  testthat::expect_type(audited_dt$value, "double")
+  testthat::expect_identical(audited_dt$value[[1]], 1.25)
 })

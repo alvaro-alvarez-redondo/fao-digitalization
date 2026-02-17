@@ -150,14 +150,24 @@ load_pipeline_config <- function(dataset_name = "fao_data_raw", ...) {
   )
 
   fixed_export_columns <- c(
+    "continent",
+    "country",
     "product",
     "variable",
     "unit",
-    "continent",
-    "country",
-    "footnotes",
     "year",
     "notes",
+    "footnotes",
+    "yearbook",
+    "document"
+  )
+
+  audit_columns <- c(
+    "continent",
+    "country",
+    "product",
+    "variable",
+    "unit",
     "yearbook",
     "document"
   )
@@ -179,6 +189,7 @@ load_pipeline_config <- function(dataset_name = "fao_data_raw", ...) {
     column_id = columns$id,
     column_order = column_order,
     export_config = export_config,
+    audit_columns = audit_columns,
     defaults = list(notes_value = NA_character_),
     messages = list(show_missing_product_metadata_warning = FALSE)
   )
