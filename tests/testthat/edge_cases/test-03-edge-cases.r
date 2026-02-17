@@ -217,3 +217,51 @@ testthat::test_that("read_pipeline_files keeps output length stable on internal 
   testthat::expect_equal(nrow(result$read_data_list[[1]]), 0)
   testthat::expect_true(any(grepl("failed to read pipeline file", result$errors, ignore.case = TRUE)))
 })
+
+testthat::test_that("safe_execute_read returns result and no errors on successful operation", {
+  result <- safe_execute_read(
+    operation = function() 42L,
+    context_message = "failed operation",
+    file_path = "file.xlsx"
+  )
+
+  testthat::expect_identical(result$result, 42L)
+  testthat::expect_identical(result$errors, character(0))
+})
+
+testthat::test_that("safe_execute_read captures operation failures with standardized context", {
+  result <- safe_execute_read(
+    operation = function() stop("internal failure"),
+    context_message = "failed operation",
+    file_path = "file.xlsx"
+  )
+
+  testthat::expect_null(result$result)
+  testthat::expect_type(result$errors, "character")
+  testthat::expect_length(result$errors, 1)
+  testthat::expect_true(any(grepl("failed operation", result$errors, ignore.case = TRUE)))
+})
+
+testthat::test_that("safe_execute_read validates operation input", {
+  testthat::expect_error(
+    safe_execute_read(
+      operation = 1L,
+      context_message = "failed operation",
+      file_path = "file.xlsx"
+    ),
+    class = "rlang_error"
+  )
+})
+
+testthat::test_that("build_read_error keeps stable output structure", {
+  formatted_error <- build_read_error(
+    context_message = "failed to read",
+    file_path = "folder/file.xlsx",
+    details = "sheet not found"
+  )
+
+  testthat::expect_type(formatted_error, "character")
+  testthat::expect_length(formatted_error, 1)
+  testthat::expect_true(any(grepl("file\\.xlsx", formatted_error, ignore.case = TRUE)))
+  testthat::expect_true(any(grepl("sheet not found", formatted_error, ignore.case = TRUE)))
+})

@@ -9,15 +9,15 @@
 #' @param file_path character scalar file path used for formatting.
 #' @param details character scalar with low-level error details.
 #' @return character vector formatted with `cli::format_error()`.
-#' @importFrom checkmate assert_string
+#' @importFrom checkmate check_string
 #' @importFrom cli format_error
 #' @importFrom fs path_file
 #' @examples
-#' # build_read_error("failed to read", "file.xlsx", "sheet not found")
+#' build_read_error("failed to read", "file.xlsx", "sheet not found")
 build_read_error <- function(context_message, file_path, details) {
-  checkmate::assert_string(context_message, min.chars = 1)
-  checkmate::assert_string(file_path, min.chars = 1)
-  checkmate::assert_string(details, min.chars = 1)
+  assert_or_abort(checkmate::check_string(context_message, min.chars = 1))
+  assert_or_abort(checkmate::check_string(file_path, min.chars = 1))
+  assert_or_abort(checkmate::check_string(details, min.chars = 1))
 
   cli::format_error(c(
     "{context_message} {.file {fs::path_file(file_path)}}.",
@@ -32,13 +32,17 @@ build_read_error <- function(context_message, file_path, details) {
 #' @param context_message character scalar describing the read context.
 #' @param file_path character scalar file path used in formatted errors.
 #' @return named list with `result` and `errors`.
-#' @importFrom checkmate assert_function assert_string
+#' @importFrom checkmate check_function check_string
 #' @examples
-#' # safe_execute_read(function() readxl::excel_sheets("file.xlsx"), "failed to list sheets in file", "file.xlsx")
+#' safe_execute_read(
+#'   operation = function() 1L,
+#'   context_message = "failed to execute operation",
+#'   file_path = "file.xlsx"
+#' )
 safe_execute_read <- function(operation, context_message, file_path) {
-  checkmate::assert_function(operation)
-  checkmate::assert_string(context_message, min.chars = 1)
-  checkmate::assert_string(file_path, min.chars = 1)
+  assert_or_abort(checkmate::check_function(operation))
+  assert_or_abort(checkmate::check_string(context_message, min.chars = 1))
+  assert_or_abort(checkmate::check_string(file_path, min.chars = 1))
 
   tryCatch(
     list(result = operation(), errors = character(0)),
