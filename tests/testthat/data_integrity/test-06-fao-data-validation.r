@@ -1,3 +1,5 @@
+source(here::here("R/1-import_pipeline/14-data_audit.R"), echo = FALSE)
+
 testthat::test_that("identify_audit_errors returns empty table when audit columns have no missing values", {
   input_dt <- data.table::data.table(
     continent = "asia",
@@ -13,7 +15,7 @@ testthat::test_that("identify_audit_errors returns empty table when audit column
     document = "sample.xlsx"
   )
 
-  audit_dt <- identify_audit_errors(input_dt)
+  audit_dt <- identify_audit_errors(input_dt, test_config)
 
   testthat::expect_true(data.table::is.data.table(audit_dt))
   testthat::expect_equal(nrow(audit_dt), 0)
@@ -34,7 +36,7 @@ testthat::test_that("identify_audit_errors includes rows with missing continent 
     document = c("clean.xlsx", "missing_continent.xlsx", "missing_country.xlsx")
   )
 
-  audit_dt <- identify_audit_errors(input_dt)
+  audit_dt <- identify_audit_errors(input_dt, test_config)
 
   testthat::expect_equal(nrow(audit_dt), 2)
   testthat::expect_identical(
@@ -58,7 +60,7 @@ testthat::test_that("identify_audit_errors sorts output by document", {
     document = c("zeta.xlsx", "alpha.xlsx")
   )
 
-  audit_dt <- identify_audit_errors(input_dt)
+  audit_dt <- identify_audit_errors(input_dt, test_config)
 
   testthat::expect_equal(nrow(audit_dt), 2)
   testthat::expect_identical(audit_dt$document, c("alpha.xlsx", "zeta.xlsx"))
@@ -73,8 +75,8 @@ testthat::test_that("identify_audit_errors validates audit column types", {
   )
 
   testthat::expect_error(
-    identify_audit_errors(input_dt),
-    class = "simpleError"
+    identify_audit_errors(input_dt, test_config),
+    class = "rlang_error"
   )
 })
 
@@ -196,4 +198,39 @@ testthat::test_that("audit_data_output returns numeric value for clean rows", {
   testthat::expect_true(data.table::is.data.table(audited_dt))
   testthat::expect_type(audited_dt$value, "double")
   testthat::expect_identical(audited_dt$value[[1]], 1.25)
+})
+
+testthat::test_that("validate_audit_config rejects missing required fields", {
+  invalid_config <- list(column_order = "document")
+
+  testthat::expect_error(
+    validate_audit_config(invalid_config),
+    class = "rlang_error"
+  )
+})
+
+testthat::test_that("export_validation_audit_report returns output path", {
+  audit_dt <- data.table::data.table(document = "sample.xlsx")
+  output_path <- fs::path(withr::local_tempdir(), "audit_path.xlsx")
+
+  saved_path <- export_validation_audit_report(audit_dt, output_path)
+
+  testthat::expect_identical(saved_path, output_path)
+})
+
+testthat::test_that("mirror_raw_import_errors returns empty when no document matches", {
+  audit_dt <- data.table::data.table(document = "unknown.xlsx")
+  raw_imports_dir <- fs::path(withr::local_tempdir(), "raw_imports")
+  raw_imports_mirror_dir <- fs::path(withr::local_tempdir(), "mirror")
+
+  fs::dir_create(raw_imports_dir)
+  fs::file_create(fs::path(raw_imports_dir, "known.xlsx"))
+
+  mirrored_paths <- mirror_raw_import_errors(
+    audit_dt = audit_dt,
+    raw_imports_dir = raw_imports_dir,
+    raw_imports_mirror_dir = raw_imports_mirror_dir
+  )
+
+  testthat::expect_identical(mirrored_paths, character(0))
 })
