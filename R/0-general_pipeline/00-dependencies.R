@@ -80,14 +80,15 @@ check_dependencies <- function(packages) {
 }
 
 #' @title load dependencies
-#' @description validates a character vector of package names and loads each package with
+#' @description validates a character vector of package names and attaches each package with
 #' startup messages suppressed to keep project logs clean and deterministic.
 #' @param packages character vector. must be non-missing, non-empty, and contain at least
 #' one package name.
 #' @return invisible null. used for side effects by attaching packages to the session.
 #' @importFrom checkmate check_character
 #' @importFrom purrr walk
-#' @importFrom base suppressPackageStartupMessages library
+#' @importFrom cli cli_abort
+#' @importFrom base require
 #' @examples
 #' load_dependencies(c("stats", "utils"))
 load_dependencies <- function(packages) {
@@ -99,9 +100,13 @@ load_dependencies <- function(packages) {
 
   packages |>
     purrr::walk(function(package_name) {
-      suppressPackageStartupMessages(
-        library(package_name, character.only = TRUE)
+      package_loaded <- suppressPackageStartupMessages(
+        require(package_name, character.only = TRUE, quietly = TRUE)
       )
+
+      if (!isTRUE(package_loaded)) {
+        cli::cli_abort("failed to attach package `{package_name}`.")
+      }
     })
 
   invisible(NULL)
