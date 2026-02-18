@@ -176,8 +176,14 @@ audit_character_non_empty <- function(dataset_dt, column_name) {
 audit_numeric_string <- function(dataset_dt, column_name = "value") {
   assert_or_abort(checkmate::check_data_frame(dataset_dt, min.rows = 0))
   assert_or_abort(checkmate::check_string(column_name, min.chars = 1))
-  assert_or_abort(checkmate::check_names(names(dataset_dt), must.include = column_name))
-  assert_or_abort(checkmate::check_atomic(dataset_dt[[column_name]], any.missing = TRUE))
+  assert_or_abort(checkmate::check_names(
+    names(dataset_dt),
+    must.include = column_name
+  ))
+  assert_or_abort(checkmate::check_atomic(
+    dataset_dt[[column_name]],
+    any.missing = TRUE
+  ))
 
   column_values <- as.character(dataset_dt[[column_name]])
   invalid_rows <- which(
@@ -266,7 +272,8 @@ run_master_validation <- function(
         )
       }
     )
-  }) |> purrr::flatten()
+  }) |>
+    purrr::flatten()
 
   findings_dt <- data.table::rbindlist(findings_list, fill = TRUE)
   if (nrow(findings_dt) == 0) {
@@ -319,7 +326,11 @@ run_audit_by_type <- function(dataset_dt, config) {
 #' per-cell findings and `findings_dt`.
 #' @examples
 #' # identify_audit_errors(fao_data_raw, config)
-identify_audit_errors <- function(fao_data_raw, config, include_findings = FALSE) {
+identify_audit_errors <- function(
+  fao_data_raw,
+  config,
+  include_findings = FALSE
+) {
   assert_or_abort(checkmate::check_data_frame(fao_data_raw, min.rows = 0))
   assert_or_abort(checkmate::check_list(
     config,
@@ -340,7 +351,10 @@ identify_audit_errors <- function(fao_data_raw, config, include_findings = FALSE
     output_dt <- data.table::as.data.table(fao_data_raw)[0]
 
     if (include_findings) {
-      return(list(audit_dt = output_dt, findings_dt = empty_audit_findings_dt()))
+      return(list(
+        audit_dt = output_dt,
+        findings_dt = empty_audit_findings_dt()
+      ))
     }
 
     return(output_dt)
@@ -359,7 +373,11 @@ identify_audit_errors <- function(fao_data_raw, config, include_findings = FALSE
       na.last = TRUE
     )
   } else {
-    data.table::setorderv(detailed_output_dt, cols = "row_index", na.last = TRUE)
+    data.table::setorderv(
+      detailed_output_dt,
+      cols = "row_index",
+      na.last = TRUE
+    )
   }
 
   if (include_findings) {
@@ -463,6 +481,10 @@ mirror_raw_import_errors <- function(
 #' @return character scalar with written output path.
 #' @examples
 #' # export_validation_audit_report(audit_dt, config)
+#' @title export validation audit report
+#' @description write audit results to an excel workbook at `output_path`.
+#' output is sorted by `document` and written to sheet `audit_report` with
+#' specific cells highlighted based on config styles.
 export_validation_audit_report <- function(
   audit_dt,
   config,
@@ -470,23 +492,15 @@ export_validation_audit_report <- function(
   output_path = config$paths$data$audit$audit_file_path
 ) {
   assert_or_abort(checkmate::check_data_frame(audit_dt, min.rows = 0))
-  assert_or_abort(checkmate::check_list(config, min.len = 1, any.missing = FALSE))
-  load_audit_config(config)
-  assert_or_abort(checkmate::check_string(output_path, min.chars = 1))
-  assert_or_abort(checkmate::check_names(
-    names(audit_dt),
-    must.include = "document"
+  assert_or_abort(checkmate::check_list(
+    config,
+    min.len = 1,
+    any.missing = FALSE
   ))
+  load_audit_config(config) # Valida que existan los estilos
 
-  if (!is.null(findings_dt)) {
-    assert_or_abort(checkmate::check_data_frame(findings_dt, min.rows = 0))
-    assert_or_abort(checkmate::check_names(
-      names(findings_dt),
-      must.include = c("row_index", "audit_column")
-    ))
-  }
-
-  export_dt <- data.table::copy(data.table::as.data.table(audit_dt))
+  # 1. Preparar datos de exportación (Sin borrar columnas aún)
+  export_dt <- data.table::as.data.table(data.table::copy(audit_dt))
 
   if ("row_index" %in% names(export_dt)) {
     export_dt[, source_row_index := row_index]
@@ -494,72 +508,94 @@ export_validation_audit_report <- function(
     export_dt[, source_row_index := seq_len(.N)]
   }
 
+  # Ordenar por documento ANTES de calcular la posición de Excel
   data.table::setorderv(export_dt, cols = "document", na.last = TRUE)
 
-  effective_findings_dt <- findings_dt
-  if (is.null(effective_findings_dt)) {
-    if (all(c("row_index", "audit_column") %in% names(export_dt))) {
-      effective_findings_dt <- unique(export_dt[, .(row_index, audit_column)])
-    } else {
-      effective_findings_dt <- empty_audit_findings_dt()[, .(row_index, audit_column)]
-    }
-  }
-
-  style_config <- config$export_config$styles$error_highlight
-  highlight_style <- openxlsx::createStyle(
-    fgFill = style_config$fgFill,
-    fontColour = style_config$fontColour,
-    textDecoration = style_config$textDecoration
+  # 2. Definir columnas técnicas a excluir del Excel final
+  technical_cols <- c(
+    "source_row_index",
+    "row_index",
+    "audit_column",
+    "audit_type",
+    "audit_message"
   )
+  cols_to_show <- setdiff(names(export_dt), technical_cols)
 
+  # 3. Calcular el mapeo de filas (Excel empieza en 2 por el header)
+  row_lookup_dt <- export_dt[, .(excel_row = .I + 1L), by = .(source_row_index)]
+
+  # 3. CREAR WORKBOOK Y ESCRIBIR DATOS
   fs::dir_create(fs::path_dir(output_path))
   workbook <- openxlsx::createWorkbook()
   openxlsx::addWorksheet(workbook, "audit_report")
-  openxlsx::writeData(workbook, "audit_report", export_dt[, source_row_index := NULL])
 
-  if (nrow(export_dt) > 0 && nrow(effective_findings_dt) > 0) {
-    row_lookup_dt <- export_dt[, .(excel_row = .I + 1L), by = .(source_row_index)]
+  # Escribimos solo las columnas de datos (sin las técnicas)
+  openxlsx::writeData(workbook, "audit_report", export_dt[, ..cols_to_show])
 
+  # 4. LÓGICA DE RESALTADO (Highlighting)
+  effective_findings_dt <- findings_dt
+  if (
+    is.null(effective_findings_dt) &&
+      all(c("row_index", "audit_column") %in% names(export_dt))
+  ) {
+    effective_findings_dt <- unique(export_dt[, .(row_index, audit_column)])
+  }
+
+  if (
+    !is.null(effective_findings_dt) &&
+      nrow(export_dt) > 0 &&
+      nrow(effective_findings_dt) > 0
+  ) {
+    style_config <- config$export_config$styles$error_highlight
+    highlight_style <- openxlsx::createStyle(
+      fgFill = style_config$fgFill,
+      fontColour = style_config$fontColour,
+      textDecoration = style_config$textDecoration
+    )
+
+    # Unir hallazgos con el número de fila real en Excel
     findings_to_style <- data.table::as.data.table(effective_findings_dt)
     findings_to_style <- findings_to_style[
-      !is.na(row_index) & !is.na(audit_column) & nzchar(audit_column)
+      !is.na(row_index) & nzchar(audit_column)
     ]
 
     if (nrow(findings_to_style) > 0) {
-      findings_to_style <- findings_to_style[
-        , .(source_row_index = as.integer(row_index), audit_column)
-      ]
+      findings_to_style[, source_row_index := as.integer(row_index)]
+
+      # Merge con el lookup que calculamos al principio
       findings_to_style <- merge(
         findings_to_style,
         row_lookup_dt,
         by = "source_row_index",
-        all.x = FALSE,
-        all.y = FALSE,
-        allow.cartesian = TRUE
+        all.x = FALSE
       )
 
-      sheet_columns <- names(export_dt)[names(export_dt) != "source_row_index"]
-      column_index_map <- setNames(seq_along(sheet_columns), sheet_columns)
-      findings_to_style <- findings_to_style[audit_column %in% names(column_index_map)]
+      # Mapear nombres de columnas a su posición actual en el Excel (1, 2, 3...)
+      column_index_map <- setNames(seq_along(cols_to_show), cols_to_show)
+
+      # Filtrar hallazgos que correspondan a columnas que realmente estamos mostrando
+      findings_to_style <- findings_to_style[audit_column %in% cols_to_show]
 
       if (nrow(findings_to_style) > 0) {
         findings_to_style[, excel_col := unname(column_index_map[audit_column])]
-        findings_to_style <- unique(findings_to_style[, .(excel_row, excel_col)])
 
-        style_groups <- split(findings_to_style$excel_row, findings_to_style$excel_col)
+        # Aplicar estilos agrupados por columna para mejorar performance
+        style_groups <- split(
+          findings_to_style$excel_row,
+          findings_to_style$excel_col
+        )
 
-        purrr::walk(names(style_groups), function(column_index_chr) {
-          column_index <- as.integer(column_index_chr)
-          target_rows <- style_groups[[column_index_chr]]
+        purrr::walk(names(style_groups), function(col_idx_chr) {
+          col_idx <- as.integer(col_idx_chr)
+          rows_to_paint <- style_groups[[col_idx_chr]]
 
           openxlsx::addStyle(
             workbook,
             sheet = "audit_report",
             style = highlight_style,
-            rows = target_rows,
-            cols = rep(column_index, length(target_rows)),
-            gridExpand = FALSE,
-            stack = TRUE
+            rows = rows_to_paint,
+            cols = rep(col_idx, length(rows_to_paint)),
+            gridExpand = FALSE
           )
         })
       }
@@ -567,8 +603,7 @@ export_validation_audit_report <- function(
   }
 
   openxlsx::saveWorkbook(workbook, output_path, overwrite = TRUE)
-
-  output_path
+  return(output_path)
 }
 
 #' @title create audited data output

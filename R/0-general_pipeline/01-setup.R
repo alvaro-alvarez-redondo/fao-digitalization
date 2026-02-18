@@ -180,7 +180,7 @@ load_pipeline_config <- function(dataset_name = "fao_data_raw", ...) {
     lists_workbook_name = "fao_unique_lists_raw",
     styles = list(
       error_highlight = list(
-        fgFill = "#ffff00",
+        fgFill = "#FFA726",
         fontColour = "#000000",
         textDecoration = "bold"
       )
