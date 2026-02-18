@@ -265,3 +265,22 @@ testthat::test_that("build_read_error keeps stable output structure", {
   testthat::expect_true(any(grepl("file\\.xlsx", formatted_error, ignore.case = TRUE)))
   testthat::expect_true(any(grepl("sheet not found", formatted_error, ignore.case = TRUE)))
 })
+
+testthat::test_that("read_pipeline_files uses map_with_progress wrapper", {
+  file_list_dt <- data.table::data.table(file_path = "file_a.xlsx")
+
+  testthat::local_mocked_bindings(
+    map_with_progress = function(x, .f, ..., message_template = NULL, message_fn = NULL, enable_progress = getOption("fao.progress.enabled", TRUE)) {
+      testthat::expect_match(message_template, "reading file")
+      purrr::map(x, .f, ...)
+    },
+    read_file_sheets = function(file_path, config) {
+      list(data = data.table::data.table(id = 1L), errors = character(0))
+    }
+  )
+
+  result <- read_pipeline_files(file_list_dt, test_config)
+
+  testthat::expect_length(result$read_data_list, 1)
+  testthat::expect_equal(nrow(result$read_data_list[[1]]), 1)
+})

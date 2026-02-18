@@ -95,12 +95,21 @@ read_excel_sheet <- function(file_path, sheet_name, config) {
         .name_repair = "unique_quiet"
       )
     },
-    context_message = paste0("failed to read sheet {.val ", sheet_name, "} in file"),
+    context_message = paste0(
+      "failed to read sheet {.val ",
+      sheet_name,
+      "} in file"
+    ),
     file_path = file_path
   )
 
-  if (!is.null(safe_read_result$errors) && length(safe_read_result$errors) > 0) {
-    return(list(data = data.table::data.table(), errors = safe_read_result$errors))
+  if (
+    !is.null(safe_read_result$errors) && length(safe_read_result$errors) > 0
+  ) {
+    return(list(
+      data = data.table::data.table(),
+      errors = safe_read_result$errors
+    ))
   }
 
   read_dt <- data.table::as.data.table(safe_read_result$result)
@@ -120,8 +129,7 @@ read_excel_sheet <- function(file_path, sheet_name, config) {
     read_dt[, (missing_base) := NA_character_]
   }
 
-  keep_row <- read_dt[
-    ,
+  keep_row <- read_dt[,
     rowSums(!is.na(as.matrix(.SD)) & trimws(as.matrix(.SD)) != "") > 0,
     .SDcols = base_cols
   ]
@@ -166,8 +174,13 @@ read_file_sheets <- function(file_path, config) {
     file_path = file_path
   )
 
-  if (!is.null(safe_sheet_result$errors) && length(safe_sheet_result$errors) > 0) {
-    return(list(data = data.table::data.table(), errors = safe_sheet_result$errors))
+  if (
+    !is.null(safe_sheet_result$errors) && length(safe_sheet_result$errors) > 0
+  ) {
+    return(list(
+      data = data.table::data.table(),
+      errors = safe_sheet_result$errors
+    ))
   }
 
   sheets <- safe_sheet_result$result
@@ -242,13 +255,17 @@ read_pipeline_files <- function(file_list_dt, config) {
     return(list(read_data_list = list(), errors = character(0)))
   }
 
-  read_results <- purrr::map(file_list_dt$file_path, \(file_path) {
-    safe_execute_read(
-      operation = \() read_file_sheets(file_path, config),
-      context_message = "failed to read pipeline file",
-      file_path = file_path
-    )
-  })
+  read_results <- map_with_progress(
+    x = file_list_dt$file_path,
+    .f = \(file_path) {
+      safe_execute_read(
+        operation = \() read_file_sheets(file_path, config),
+        context_message = "failed to read pipeline file",
+        file_path = file_path
+      )
+    },
+    message_template = "import pipeline: reading file %s/%s"
+  )
 
   parsed_results <- purrr::transpose(read_results)
 
