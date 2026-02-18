@@ -76,4 +76,6 @@ if (!exists("config")) {
   )
 }
 
-export_paths <- run_export_pipeline(fao_data_raw, config, overwrite = TRUE)
+if (isTRUE(getOption("fao.run_export_pipeline.auto", TRUE))) {
+  export_paths <- run_export_pipeline(fao_data_raw, config, overwrite = TRUE)
+}
