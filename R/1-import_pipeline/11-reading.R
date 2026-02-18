@@ -264,7 +264,7 @@ read_pipeline_files <- function(file_list_dt, config) {
         file_path = file_path
       )
     },
-    message_template = "import pipeline: reading file %s/%s"
+    message_template = "Import pipeline: reading file %s/%s"
   )
 
   parsed_results <- purrr::transpose(read_results)

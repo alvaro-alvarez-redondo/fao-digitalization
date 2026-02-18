@@ -35,11 +35,14 @@ run_pipeline <- function(
   purrr::walk(pipeline_files, function(pipeline_file) {
     if (!file.exists(pipeline_file)) {
       cli::cli_abort(
-        "required pipeline script is missing: {.path {pipeline_file}}"
+        "{.strong required pipeline script is missing: {.val {basename(pipeline_file)}}}"
       )
     }
 
-    cli::cli_alert_info("running pipeline script: {.path {pipeline_file}}")
+    pipeline_name <- basename(pipeline_file)
+    cli::cli_alert_info(
+      "{.strong running pipeline script: {.val {pipeline_name}}}"
+    )
     source(pipeline_file, echo = FALSE)
   })
 
