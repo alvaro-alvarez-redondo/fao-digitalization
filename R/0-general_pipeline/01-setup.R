@@ -9,10 +9,12 @@ options(
 
 #' @title load pipeline config
 #' @description builds and returns a deterministic configuration object for the
+#'
 #' pipeline, including project-root-relative paths, file names, semantic column
 #' groups, export settings, default values, and dataset-specific audit paths.
 #' audit paths are generated dynamically from `dataset_name` so the auditing
 #' workflow is reusable across multiple datasets.
+#'
 #' @param dataset_name character scalar dataset identifier used to build
 #' audit directories and audit workbook names with the
 #' `{dataset_name}_audit.xlsx` convention. when `null` or empty, the function
@@ -23,7 +25,8 @@ options(
 #' @return named list with `project_root`, `dataset_name`, `paths`, `files`,
 #' `columns`, `column_required`, `column_id`, `column_order`, `export_config`,
 #' `defaults`, and `messages`. `export_config$styles$error_highlight` defines
-#' centralized workbook styling for invalid audit cells. `paths$data$audit` contains `audit_root_dir`,
+#' centralized workbook styling for invalid audit cells. `paths$data$audit` contains
+#' `audit_root_dir`,
 #' `audit_dir`, `audit_file_name`, `audit_file_path`, and
 #' `raw_imports_mirror_dir` for easy direct access or recursive unlisting.
 #' @importFrom here here
@@ -268,9 +271,11 @@ load_pipeline_config <- function(dataset_name = "fao_data_raw", ...) {
 
 #' @title create required directories
 #' @description validates a nested list of paths, flattens it to a
+#'
 #' character vector, normalizes file paths to their parent directories, creates
 #' every directory if missing, and returns the resolved directory vector
 #' invisibly.
+#'
 #' @param paths named or unnamed list containing character path elements. must
 #' be a non-empty list that resolves to a non-empty character vector with no
 #' missing values.

@@ -4,7 +4,9 @@
 
 #' @title build standardized read error
 #' @description formats a consistent error message for read operations across
+#'
 #' the import pipeline.
+#'
 #' @param context_message character scalar describing the read context.
 #' @param file_path character scalar file path used for formatting.
 #' @param details character scalar with low-level error details.
@@ -27,7 +29,9 @@ build_read_error <- function(context_message, file_path, details) {
 
 #' @title safely execute read operation
 #' @description executes a read operation with consistent error capture and
+#'
 #' standardized error formatting.
+#'
 #' @param operation function with no arguments that performs the read step.
 #' @param context_message character scalar describing the read context.
 #' @param file_path character scalar file path used in formatted errors.
@@ -58,7 +62,9 @@ safe_execute_read <- function(operation, context_message, file_path) {
 
 #' @title create empty read result
 #' @description build a standardized read result object with empty data and
+#'
 #' optional error messages.
+#'
 #' @param errors character vector of error messages.
 #' @return named list with `data` as empty data.table and `errors`.
 #' @importFrom checkmate check_character
@@ -72,6 +78,7 @@ create_empty_read_result <- function(errors = character(0)) {
 
 #' @title check read result errors
 #' @description return `TRUE` when a read result contains at least one error.
+#'
 #' @param read_result named list returned by `safe_execute_read()`.
 #' @return logical scalar.
 #' @importFrom checkmate check_list
@@ -85,8 +92,10 @@ has_read_errors <- function(read_result) {
 
 #' @title read excel sheet
 #' @description read one excel sheet as text columns, validate required inputs,
+#'
 #' enforce required base columns, and return a standardized list containing a
 #' `data.table` plus any validation or read errors.
+#'
 #' @param file_path character scalar path to an existing xlsx file.
 #' @param sheet_name character scalar with sheet name to read.
 #' @param config named list containing `column_required` as a non-empty character
@@ -165,8 +174,10 @@ read_excel_sheet <- function(file_path, sheet_name, config) {
 
 #' @title read file sheets
 #' @description list all sheets in an excel file, detect non-ascii sheet names,
+#'
 #' read each sheet through `read_excel_sheet`, and combine data and errors into a
 #' single standardized result.
+#'
 #' @param file_path character scalar path to an xlsx file.
 #' @param config named list containing `column_required` as a non-empty character
 #' vector of required base column names.
@@ -236,8 +247,10 @@ read_file_sheets <- function(file_path, config) {
 
 #' @title read pipeline files
 #' @description iterate through discovered file metadata and read each file using
+#'
 #' `read_file_sheets`, returning a list of per-file data tables and a flattened
 #' error vector.
+#'
 #' @param file_list_dt data frame or data table with a `file_path` character
 #' column. can be empty.
 #' @param config named list containing `column_required` as a non-empty character

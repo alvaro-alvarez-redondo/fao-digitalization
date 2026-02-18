@@ -2,11 +2,17 @@
 # description: export processed fao data to an excel workbook and return the output path.
 
 #' @title export processed data
-#' @description export a processed data frame to an excel workbook in the processed export path generated from configuration values.
-#' @param fao_data_raw data frame containing processed fao records; validated with checkmate::assert_data_frame.
-#' @param config named list with export configuration values required by generate_export_path; validated with checkmate::assert_list.
-#' @param base_name single character string used as the export file base name; validated with checkmate::assert_string.
-#' @param overwrite logical flag indicating whether an existing file should be replaced; validated with checkmate::assert_flag.
+#' @description export a processed data frame to an excel workbook in the processed export path
+#' generated from configuration values.
+#'
+#' @param fao_data_raw data frame containing processed fao records; validated with
+#' `checkmate::assert_data_frame`.
+#' @param config named list with export configuration values required by generate_export_path;
+#' validated with `checkmate::assert_list`.
+#' @param base_name single character string used as the export file base name; validated with
+#' `checkmate::assert_string`.
+#' @param overwrite logical flag indicating whether an existing file should be replaced;
+#' validated with `checkmate::assert_flag`.
 #' @return character scalar containing the generated file path for the exported excel workbook.
 #' @importFrom checkmate assert_data_frame assert_list assert_string assert_flag
 #' @importFrom openxlsx createWorkbook addWorksheet writeData saveWorkbook
