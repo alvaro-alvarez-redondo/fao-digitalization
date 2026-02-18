@@ -211,13 +211,13 @@ load_pipeline_config <- function(dataset_name = "fao_data_raw", ...) {
       min.len = 1,
       any.missing = FALSE
     )
-    for (audit_columns in config$audit_columns_by_type) {
+    purrr::walk(config$audit_columns_by_type, \(audit_columns) {
       checkmate::assert_character(
         audit_columns,
         min.len = 1,
         any.missing = FALSE
       )
-    }
+    })
   }
 
   checkmate::assert_string(

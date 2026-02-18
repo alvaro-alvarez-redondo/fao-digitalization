@@ -129,12 +129,7 @@ audit_character_non_empty <- function(dataset_dt, column_name) {
   invalid_rows <- which(is.na(column_values) | !nzchar(trimws(column_values)))
 
   if (length(invalid_rows) == 0) {
-    return(data.table::data.table(
-      row_index = integer(),
-      audit_column = character(),
-      audit_type = character(),
-      audit_message = character()
-    ))
+    return(empty_audit_findings_dt())
   }
 
   data.table::data.table(
@@ -157,10 +152,10 @@ audit_character_non_empty <- function(dataset_dt, column_name) {
 #' dataset_example <- data.frame(value = c("10", "1.5", "x"))
 #' audit_numeric_string(dataset_example)
 audit_numeric_string <- function(dataset_dt, column_name = "value") {
-  checkmate::assert_data_frame(dataset_dt, min.rows = 0)
-  checkmate::assert_string(column_name, min.chars = 1)
-  checkmate::assert_names(names(dataset_dt), must.include = column_name)
-  checkmate::assert_atomic(dataset_dt[[column_name]], any.missing = TRUE)
+  assert_or_abort(checkmate::check_data_frame(dataset_dt, min.rows = 0))
+  assert_or_abort(checkmate::check_string(column_name, min.chars = 1))
+  assert_or_abort(checkmate::check_names(names(dataset_dt), must.include = column_name))
+  assert_or_abort(checkmate::check_atomic(dataset_dt[[column_name]], any.missing = TRUE))
 
   column_values <- as.character(dataset_dt[[column_name]])
   invalid_rows <- which(
@@ -168,12 +163,7 @@ audit_numeric_string <- function(dataset_dt, column_name = "value") {
   )
 
   if (length(invalid_rows) == 0) {
-    return(data.table::data.table(
-      row_index = integer(),
-      audit_column = character(),
-      audit_type = character(),
-      audit_message = character()
-    ))
+    return(empty_audit_findings_dt())
   }
 
   data.table::data.table(
@@ -258,12 +248,7 @@ run_master_validation <- function(
 
   findings_dt <- data.table::rbindlist(findings_list, fill = TRUE)
   if (nrow(findings_dt) == 0) {
-    findings_dt <- data.table::data.table(
-      row_index = integer(),
-      audit_column = character(),
-      audit_type = character(),
-      audit_message = character()
-    )
+    findings_dt <- empty_audit_findings_dt()
   }
 
   list(

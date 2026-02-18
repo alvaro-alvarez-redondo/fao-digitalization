@@ -284,3 +284,12 @@ testthat::test_that("read_pipeline_files uses map_with_progress wrapper", {
   testthat::expect_length(result$read_data_list, 1)
   testthat::expect_equal(nrow(result$read_data_list[[1]]), 1)
 })
+
+testthat::test_that("read helpers return standardized empty structures", {
+  output <- create_empty_read_result(c("error a"))
+
+  testthat::expect_true(data.table::is.data.table(output$data))
+  testthat::expect_identical(output$errors, c("error a"))
+  testthat::expect_true(has_read_errors(list(result = NULL, errors = "x")))
+  testthat::expect_false(has_read_errors(list(result = 1L, errors = character(0))))
+})

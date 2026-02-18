@@ -264,3 +264,19 @@ testthat::test_that("resolve_product_name trims whitespace from product names", 
 
   testthat::expect_identical(resolved_product, "rice")
 })
+
+testthat::test_that("validate_output_column_order returns configured order", {
+  column_order <- validate_output_column_order(test_config)
+
+  testthat::expect_identical(column_order, test_config$column_order)
+})
+
+testthat::test_that("validate_output_column_order rejects incomplete schema", {
+  invalid_config <- test_config
+  invalid_config$column_order <- setdiff(invalid_config$column_order, "year")
+
+  testthat::expect_error(
+    validate_output_column_order(invalid_config),
+    class = "rlang_error"
+  )
+})

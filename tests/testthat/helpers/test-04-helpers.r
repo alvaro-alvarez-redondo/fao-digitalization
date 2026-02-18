@@ -187,3 +187,24 @@ testthat::test_that("map_with_progress supports custom message builder", {
 
   testthat::expect_identical(output, list("a_ok", "b_ok"))
 })
+
+testthat::test_that("empty_audit_findings_dt returns stable typed schema", {
+  output_dt <- empty_audit_findings_dt()
+
+  testthat::expect_true(data.table::is.data.table(output_dt))
+  testthat::expect_identical(
+    names(output_dt),
+    c("row_index", "audit_column", "audit_type", "audit_message")
+  )
+  testthat::expect_type(output_dt$row_index, "integer")
+})
+
+testthat::test_that("coerce_to_data_table validates minimum rows", {
+  testthat::expect_error(
+    coerce_to_data_table(data.frame(x = integer()), min_rows = 1L),
+    class = "rlang_error"
+  )
+
+  output_dt <- coerce_to_data_table(data.frame(x = 1:2), min_rows = 1L)
+  testthat::expect_true(data.table::is.data.table(output_dt))
+})

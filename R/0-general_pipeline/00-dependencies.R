@@ -43,14 +43,14 @@ abort_on_checkmate_failure <- function(check_result) {
 
 #' @title check dependencies
 #' @description validates a character vector of package names, identifies missing packages,
-#' and installs any package that is not currently available in the active r library paths.
+#' and installs any package that is not currently available via namespace lookup.
 #' this function is defensive and installs packages silently when required.
 #' @param packages character vector. must be non-missing, non-empty, and contain at least
 #' one package name.
 #' @return character vector of missing package names. returns an empty character vector when
 #' all dependencies are already installed.
 #' @importFrom checkmate check_character
-#' @importFrom utils installed.packages
+#' @importFrom base requireNamespace
 #' @importFrom cli cli_inform cli_warn
 #' @importFrom renv install
 #' @examples
@@ -63,7 +63,14 @@ check_dependencies <- function(packages) {
     min.len = 1
   ))
 
-  missing_packages <- setdiff(packages, rownames(utils::installed.packages()))
+  package_availability <- vapply(
+    packages,
+    FUN = requireNamespace,
+    FUN.VALUE = logical(1),
+    quietly = TRUE
+  )
+
+  missing_packages <- unique(packages[!package_availability])
 
   if (length(missing_packages) > 0) {
     cli::cli_warn(c(

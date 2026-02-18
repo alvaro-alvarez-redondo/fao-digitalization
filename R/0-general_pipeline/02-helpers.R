@@ -350,3 +350,35 @@ map_with_progress <- function(
     })
   })
 }
+
+#' @title create empty audit findings table
+#' @description create a typed empty `data.table` used as the canonical return
+#' object for audit validators with no findings.
+#' @return empty `data.table` with `row_index`, `audit_column`, `audit_type`,
+#' and `audit_message` columns.
+#' @examples
+#' empty_audit_findings_dt()
+empty_audit_findings_dt <- function() {
+  data.table::data.table(
+    row_index = integer(),
+    audit_column = character(),
+    audit_type = character(),
+    audit_message = character()
+  )
+}
+
+#' @title coerce to data.table
+#' @description validate a data.frame-compatible object and return a
+#' `data.table`, preserving `data.table` inputs.
+#' @param x data.frame or data.table object.
+#' @param min_rows non-negative integer scalar for minimum row requirement.
+#' @return data.table.
+#' @importFrom checkmate check_data_frame check_int
+#' @examples
+#' coerce_to_data_table(data.frame(x = 1:2))
+coerce_to_data_table <- function(x, min_rows = 0L) {
+  assert_or_abort(checkmate::check_int(min_rows, lower = 0))
+  assert_or_abort(checkmate::check_data_frame(x, min.rows = min_rows))
+
+  ensure_data_table(x)
+}

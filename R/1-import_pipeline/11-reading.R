@@ -55,6 +55,34 @@ safe_execute_read <- function(operation, context_message, file_path) {
   )
 }
 
+
+#' @title create empty read result
+#' @description build a standardized read result object with empty data and
+#' optional error messages.
+#' @param errors character vector of error messages.
+#' @return named list with `data` as empty data.table and `errors`.
+#' @importFrom checkmate check_character
+#' @examples
+#' create_empty_read_result(character())
+create_empty_read_result <- function(errors = character(0)) {
+  assert_or_abort(checkmate::check_character(errors, any.missing = FALSE))
+
+  list(data = data.table::data.table(), errors = errors)
+}
+
+#' @title check read result errors
+#' @description return `TRUE` when a read result contains at least one error.
+#' @param read_result named list returned by `safe_execute_read()`.
+#' @return logical scalar.
+#' @importFrom checkmate check_list
+#' @examples
+#' has_read_errors(list(result = NULL, errors = "x"))
+has_read_errors <- function(read_result) {
+  assert_or_abort(checkmate::check_list(read_result, min.len = 1))
+
+  !is.null(read_result$errors) && length(read_result$errors) > 0
+}
+
 #' @title read excel sheet
 #' @description read one excel sheet as text columns, validate required inputs,
 #' enforce required base columns, and return a standardized list containing a
@@ -103,13 +131,8 @@ read_excel_sheet <- function(file_path, sheet_name, config) {
     file_path = file_path
   )
 
-  if (
-    !is.null(safe_read_result$errors) && length(safe_read_result$errors) > 0
-  ) {
-    return(list(
-      data = data.table::data.table(),
-      errors = safe_read_result$errors
-    ))
+  if (has_read_errors(safe_read_result)) {
+    return(create_empty_read_result(safe_read_result$errors))
   }
 
   read_dt <- data.table::as.data.table(safe_read_result$result)
@@ -174,19 +197,14 @@ read_file_sheets <- function(file_path, config) {
     file_path = file_path
   )
 
-  if (
-    !is.null(safe_sheet_result$errors) && length(safe_sheet_result$errors) > 0
-  ) {
-    return(list(
-      data = data.table::data.table(),
-      errors = safe_sheet_result$errors
-    ))
+  if (has_read_errors(safe_sheet_result)) {
+    return(create_empty_read_result(safe_sheet_result$errors))
   }
 
   sheets <- safe_sheet_result$result
 
   if (length(sheets) == 0) {
-    return(list(data = data.table::data.table(), errors = character(0)))
+    return(create_empty_read_result())
   }
 
   non_ascii <- sheets[!stringi::stri_enc_isascii(sheets)]
@@ -274,7 +292,7 @@ read_pipeline_files <- function(file_list_dt, config) {
 
   per_file_results <- purrr::map(parsed_results$result, \(result_item) {
     if (is.null(result_item)) {
-      return(list(data = data.table::data.table(), errors = character(0)))
+      return(create_empty_read_result())
     }
 
     result_item
