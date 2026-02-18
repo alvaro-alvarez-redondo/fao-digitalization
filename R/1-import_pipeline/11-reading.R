@@ -242,13 +242,17 @@ read_pipeline_files <- function(file_list_dt, config) {
     return(list(read_data_list = list(), errors = character(0)))
   }
 
-  read_results <- purrr::map(file_list_dt$file_path, \(file_path) {
-    safe_execute_read(
-      operation = \() read_file_sheets(file_path, config),
-      context_message = "failed to read pipeline file",
-      file_path = file_path
-    )
-  })
+  read_results <- map_with_progress(
+    x = file_list_dt$file_path,
+    .f = \(file_path) {
+      safe_execute_read(
+        operation = \() read_file_sheets(file_path, config),
+        context_message = "failed to read pipeline file",
+        file_path = file_path
+      )
+    },
+    message_template = "import pipeline: reading file %d/%d"
+  )
 
   parsed_results <- purrr::transpose(read_results)
 

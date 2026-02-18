@@ -295,8 +295,7 @@ transform_single_file <- function(file_row, df_wide, config) {
 #' @param config named list with transform configuration.
 #' @return list of transformed per-file results.
 #' @importFrom checkmate assert_data_frame assert_list
-#' @importFrom progressr handlers handler_txtprogressbar with_progress progressor
-#' @importFrom purrr compact detect_index map2
+#' @importFrom purrr compact detect_index
 #' @examples
 #' # process_files(file_list_dt_example, read_data_list_example, config_example)
 process_files <- function(file_list_dt, read_data_list, config) {
@@ -327,22 +326,16 @@ process_files <- function(file_list_dt, read_data_list, config) {
     ))
   }
 
-  progressr::handlers(progressr::handler_txtprogressbar(width = 40, clear = FALSE))
-
-  progressr::with_progress({
-    progress <- progressr::progressor(along = seq_len(expected_items))
-
-    purrr::map2(
-      seq_len(expected_items),
-      read_data_list,
-      \(i, df_wide) {
-        file_row <- file_list_dt[i, ]
-        progress(sprintf("import pipeline: processing file %d/%d", i, expected_items))
-        transform_single_file(file_row, df_wide, config)
-      }
-    ) |>
-      purrr::compact()
-  })
+  map_with_progress(
+    x = seq_len(expected_items),
+    .f = \(index) {
+      file_row <- file_list_dt[index, ]
+      df_wide <- read_data_list[[index]]
+      transform_single_file(file_row, df_wide, config)
+    },
+    message_template = "import pipeline: processing file %d/%d"
+  ) |>
+    purrr::compact()
 }
 
 #' @title transform files list

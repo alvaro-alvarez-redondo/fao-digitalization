@@ -164,3 +164,26 @@ testthat::test_that("generate_export_path fails with explicit missing-field erro
     "config\$export_config\$data_suffix"
   )
 })
+
+testthat::test_that("map_with_progress applies mapping when progress is disabled", {
+  output <- map_with_progress(
+    x = list(1L, 2L, 3L),
+    .f = \(item) item + 1L,
+    enable_progress = FALSE
+  )
+
+  testthat::expect_identical(output, list(2L, 3L, 4L))
+})
+
+testthat::test_that("map_with_progress supports custom message builder", {
+  output <- map_with_progress(
+    x = c("a", "b"),
+    .f = \(item) paste0(item, "_ok"),
+    message_fn = \(item, index, total_steps) {
+      sprintf("processing file %d of %d: %s", index, total_steps, item)
+    },
+    enable_progress = FALSE
+  )
+
+  testthat::expect_identical(output, list("a_ok", "b_ok"))
+})
