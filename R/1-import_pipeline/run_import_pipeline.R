@@ -82,12 +82,14 @@ run_import_pipeline <- function(config) {
   )
 }
 
-import_pipeline_result <- run_import_pipeline(config)
-fao_data_raw <- import_pipeline_result$data
-fao_data_wide_raw <- import_pipeline_result$wide_raw
-collected_reading_errors <- import_pipeline_result$diagnostics$reading_errors
-collected_errors <- import_pipeline_result$diagnostics$validation_errors
-collected_warnings <- import_pipeline_result$diagnostics$warnings
+if (isTRUE(getOption("fao.run_import_pipeline.auto", TRUE))) {
+  import_pipeline_result <- run_import_pipeline(config)
+  fao_data_raw <- import_pipeline_result$data
+  fao_data_wide_raw <- import_pipeline_result$wide_raw
+  collected_reading_errors <- import_pipeline_result$diagnostics$reading_errors
+  collected_errors <- import_pipeline_result$diagnostics$validation_errors
+  collected_warnings <- import_pipeline_result$diagnostics$warnings
 
-rm(import_pipeline_result)
-gc()
+  rm(import_pipeline_result)
+  gc()
+}

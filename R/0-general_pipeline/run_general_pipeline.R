@@ -83,4 +83,6 @@ run_general_pipeline <- function(dataset_name = "fao_data_raw") {
   })
 }
 
-config <- run_general_pipeline()
+if (isTRUE(getOption("fao.run_general_pipeline.auto", TRUE))) {
+  config <- run_general_pipeline()
+}
