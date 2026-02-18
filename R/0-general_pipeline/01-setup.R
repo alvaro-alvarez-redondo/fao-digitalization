@@ -22,7 +22,8 @@ options(
 #' `dataset_name` attribute, it is used as a fallback source for dataset naming.
 #' @return named list with `project_root`, `dataset_name`, `paths`, `files`,
 #' `columns`, `column_required`, `column_id`, `column_order`, `export_config`,
-#' `defaults`, and `messages`. `paths$data$audit` contains `audit_root_dir`,
+#' `defaults`, and `messages`. `export_config$styles$error_highlight` defines
+#' centralized workbook styling for invalid audit cells. `paths$data$audit` contains `audit_root_dir`,
 #' `audit_dir`, `audit_file_name`, `audit_file_path`, and
 #' `raw_imports_mirror_dir` for easy direct access or recursive unlisting.
 #' @importFrom here here
@@ -176,7 +177,14 @@ load_pipeline_config <- function(dataset_name = "fao_data_raw", ...) {
     data_suffix = ".xlsx",
     list_suffix = "_unique.xlsx",
     lists_to_export = fixed_export_columns,
-    lists_workbook_name = "fao_unique_lists_raw"
+    lists_workbook_name = "fao_unique_lists_raw",
+    styles = list(
+      error_highlight = list(
+        fgFill = "#ffff00",
+        fontColour = "#000000",
+        textDecoration = "bold"
+      )
+    )
   )
 
   config <- list(
@@ -230,6 +238,28 @@ load_pipeline_config <- function(dataset_name = "fao_data_raw", ...) {
   )
   checkmate::assert_string(
     config$paths$data$audit$raw_imports_mirror_dir,
+    min.chars = 1
+  )
+  checkmate::assert_list(
+    config$export_config$styles,
+    min.len = 1,
+    any.missing = FALSE
+  )
+  checkmate::assert_list(
+    config$export_config$styles$error_highlight,
+    min.len = 1,
+    any.missing = FALSE
+  )
+  checkmate::assert_string(
+    config$export_config$styles$error_highlight$fgFill,
+    min.chars = 1
+  )
+  checkmate::assert_string(
+    config$export_config$styles$error_highlight$fontColour,
+    min.chars = 1
+  )
+  checkmate::assert_string(
+    config$export_config$styles$error_highlight$textDecoration,
     min.chars = 1
   )
 

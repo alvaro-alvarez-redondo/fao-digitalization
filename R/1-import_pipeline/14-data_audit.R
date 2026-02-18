@@ -56,6 +56,28 @@ load_audit_config <- function(config) {
     config$paths$data$audit$raw_imports_mirror_dir,
     min.chars = 1
   ))
+  assert_or_abort(checkmate::check_list(
+    config$export_config$styles,
+    min.len = 1,
+    any.missing = FALSE
+  ))
+  assert_or_abort(checkmate::check_list(
+    config$export_config$styles$error_highlight,
+    min.len = 1,
+    any.missing = FALSE
+  ))
+  assert_or_abort(checkmate::check_string(
+    config$export_config$styles$error_highlight$fgFill,
+    min.chars = 1
+  ))
+  assert_or_abort(checkmate::check_string(
+    config$export_config$styles$error_highlight$fontColour,
+    min.chars = 1
+  ))
+  assert_or_abort(checkmate::check_string(
+    config$export_config$styles$error_highlight$textDecoration,
+    min.chars = 1
+  ))
 
   invisible(TRUE)
 }
@@ -290,16 +312,21 @@ run_audit_by_type <- function(dataset_dt, config) {
 #' @param fao_data_raw data frame or data table with consolidated raw import
 #' data.
 #' @param config named audit configuration list.
-#' @return data table containing only invalid rows.
+#' @param include_findings logical scalar. when `true`, return a named list with
+#' `audit_dt` and `findings_dt`.
+#' @return data table containing unique invalid rows when
+#' `include_findings = false`; otherwise a named list with `audit_dt` joined to
+#' per-cell findings and `findings_dt`.
 #' @examples
 #' # identify_audit_errors(fao_data_raw, config)
-identify_audit_errors <- function(fao_data_raw, config) {
+identify_audit_errors <- function(fao_data_raw, config, include_findings = FALSE) {
   assert_or_abort(checkmate::check_data_frame(fao_data_raw, min.rows = 0))
   assert_or_abort(checkmate::check_list(
     config,
     any.missing = FALSE,
     min.len = 1
   ))
+  assert_or_abort(checkmate::check_flag(include_findings))
   load_audit_config(config)
   assert_or_abort(checkmate::check_names(
     names(fao_data_raw),
@@ -307,10 +334,40 @@ identify_audit_errors <- function(fao_data_raw, config) {
   ))
 
   audit_result <- run_audit_by_type(dataset_dt = fao_data_raw, config = config)
+  findings_dt <- data.table::as.data.table(audit_result$findings)
 
-  audit_dt <- data.table::as.data.table(fao_data_raw)
-  output_dt <- data.table::copy(audit_dt[audit_result$invalid_row_index])
-  if (nrow(output_dt) > 0) {
+  if (nrow(findings_dt) == 0) {
+    output_dt <- data.table::as.data.table(fao_data_raw)[0]
+
+    if (include_findings) {
+      return(list(audit_dt = output_dt, findings_dt = empty_audit_findings_dt()))
+    }
+
+    return(output_dt)
+  }
+
+  source_dt <- data.table::as.data.table(fao_data_raw)
+  detailed_output_dt <- cbind(
+    data.table::copy(findings_dt),
+    data.table::copy(source_dt[findings_dt$row_index])
+  )
+
+  if ("document" %in% names(detailed_output_dt)) {
+    data.table::setorderv(
+      detailed_output_dt,
+      cols = c("document", "row_index"),
+      na.last = TRUE
+    )
+  } else {
+    data.table::setorderv(detailed_output_dt, cols = "row_index", na.last = TRUE)
+  }
+
+  if (include_findings) {
+    return(list(audit_dt = detailed_output_dt, findings_dt = findings_dt))
+  }
+
+  output_dt <- data.table::copy(source_dt[audit_result$invalid_row_index])
+  if ("document" %in% names(output_dt)) {
     data.table::setorderv(output_dt, cols = "document", na.last = TRUE)
   }
 
@@ -398,28 +455,117 @@ mirror_raw_import_errors <- function(
 #' @description write audit results to an excel workbook at `output_path`.
 #' output is sorted by `document` and written to sheet `audit_report`.
 #' @param audit_dt data frame or data table containing at least `document`.
+#' @param config named audit configuration list containing
+#' `export_config$styles$error_highlight`.
+#' @param findings_dt data table with at least `row_index` and `audit_column`.
+#' if `null`, findings are inferred from `audit_dt` when available.
 #' @param output_path character scalar destination path for the excel file.
 #' @return character scalar with written output path.
 #' @examples
-#' # export_validation_audit_report(audit_dt)
+#' # export_validation_audit_report(audit_dt, config)
 export_validation_audit_report <- function(
   audit_dt,
-  output_path = fs::path(here::here("data", "audit"), "audit.xlsx")
+  config,
+  findings_dt = NULL,
+  output_path = config$paths$data$audit$audit_file_path
 ) {
   assert_or_abort(checkmate::check_data_frame(audit_dt, min.rows = 0))
+  assert_or_abort(checkmate::check_list(config, min.len = 1, any.missing = FALSE))
+  load_audit_config(config)
   assert_or_abort(checkmate::check_string(output_path, min.chars = 1))
   assert_or_abort(checkmate::check_names(
     names(audit_dt),
     must.include = "document"
   ))
 
+  if (!is.null(findings_dt)) {
+    assert_or_abort(checkmate::check_data_frame(findings_dt, min.rows = 0))
+    assert_or_abort(checkmate::check_names(
+      names(findings_dt),
+      must.include = c("row_index", "audit_column")
+    ))
+  }
+
   export_dt <- data.table::copy(data.table::as.data.table(audit_dt))
+
+  if ("row_index" %in% names(export_dt)) {
+    export_dt[, source_row_index := row_index]
+  } else {
+    export_dt[, source_row_index := seq_len(.N)]
+  }
+
   data.table::setorderv(export_dt, cols = "document", na.last = TRUE)
+
+  effective_findings_dt <- findings_dt
+  if (is.null(effective_findings_dt)) {
+    if (all(c("row_index", "audit_column") %in% names(export_dt))) {
+      effective_findings_dt <- unique(export_dt[, .(row_index, audit_column)])
+    } else {
+      effective_findings_dt <- empty_audit_findings_dt()[, .(row_index, audit_column)]
+    }
+  }
+
+  style_config <- config$export_config$styles$error_highlight
+  highlight_style <- openxlsx::createStyle(
+    fgFill = style_config$fgFill,
+    fontColour = style_config$fontColour,
+    textDecoration = style_config$textDecoration
+  )
 
   fs::dir_create(fs::path_dir(output_path))
   workbook <- openxlsx::createWorkbook()
   openxlsx::addWorksheet(workbook, "audit_report")
-  openxlsx::writeData(workbook, "audit_report", export_dt)
+  openxlsx::writeData(workbook, "audit_report", export_dt[, source_row_index := NULL])
+
+  if (nrow(export_dt) > 0 && nrow(effective_findings_dt) > 0) {
+    row_lookup_dt <- export_dt[, .(excel_row = .I + 1L), by = .(source_row_index)]
+
+    findings_to_style <- data.table::as.data.table(effective_findings_dt)
+    findings_to_style <- findings_to_style[
+      !is.na(row_index) & !is.na(audit_column) & nzchar(audit_column)
+    ]
+
+    if (nrow(findings_to_style) > 0) {
+      findings_to_style <- findings_to_style[
+        , .(source_row_index = as.integer(row_index), audit_column)
+      ]
+      findings_to_style <- merge(
+        findings_to_style,
+        row_lookup_dt,
+        by = "source_row_index",
+        all.x = FALSE,
+        all.y = FALSE,
+        allow.cartesian = TRUE
+      )
+
+      sheet_columns <- names(export_dt)[names(export_dt) != "source_row_index"]
+      column_index_map <- setNames(seq_along(sheet_columns), sheet_columns)
+      findings_to_style <- findings_to_style[audit_column %in% names(column_index_map)]
+
+      if (nrow(findings_to_style) > 0) {
+        findings_to_style[, excel_col := unname(column_index_map[audit_column])]
+        findings_to_style <- unique(findings_to_style[, .(excel_row, excel_col)])
+
+        style_groups <- split(findings_to_style$excel_row, findings_to_style$excel_col)
+
+        purrr::walk(names(style_groups), function(column_index_chr) {
+          column_index <- as.integer(column_index_chr)
+          target_rows <- style_groups[[column_index_chr]]
+
+          openxlsx::addStyle(
+            workbook,
+            sheet = "audit_report",
+            style = highlight_style,
+            rows = target_rows,
+            cols = rep(column_index, length(target_rows)),
+            gridExpand = FALSE,
+            stack = TRUE
+          )
+        })
+      }
+    }
+  }
+
   openxlsx::saveWorkbook(workbook, output_path, overwrite = TRUE)
 
   output_path
@@ -447,11 +593,19 @@ audit_data_output <- function(dataset_dt, config) {
     config$paths$data$imports$raw
   ))
 
-  audit_dt <- identify_audit_errors(dataset_dt, config)
+  audit_result <- identify_audit_errors(
+    dataset_dt,
+    config,
+    include_findings = TRUE
+  )
+  audit_dt <- audit_result$audit_dt
+
   if (nrow(audit_dt) > 0) {
     export_validation_audit_report(
-      audit_dt,
-      config$paths$data$audit$audit_file_path
+      audit_dt = audit_dt,
+      config = config,
+      findings_dt = audit_result$findings_dt,
+      output_path = config$paths$data$audit$audit_file_path
     )
     mirror_raw_import_errors(
       audit_dt = audit_dt,

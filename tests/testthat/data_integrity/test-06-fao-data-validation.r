@@ -36,13 +36,22 @@ testthat::test_that("identify_audit_errors includes rows with missing continent 
     document = c("clean.xlsx", "missing_continent.xlsx", "missing_country.xlsx")
   )
 
-  audit_dt <- identify_audit_errors(input_dt, test_config)
+  audit_result <- identify_audit_errors(
+    input_dt,
+    test_config,
+    include_findings = TRUE
+  )
 
-  testthat::expect_equal(nrow(audit_dt), 2)
+  testthat::expect_equal(nrow(audit_result$audit_dt), 2)
   testthat::expect_identical(
-    audit_dt$document,
+    audit_result$audit_dt$document,
     c("missing_continent.xlsx", "missing_country.xlsx")
   )
+  testthat::expect_identical(
+    audit_result$findings_dt$audit_column,
+    c("continent", "country")
+  )
+  testthat::expect_identical(audit_result$findings_dt$row_index, c(2L, 3L))
 })
 
 testthat::test_that("identify_audit_errors sorts output by document", {
@@ -96,7 +105,11 @@ testthat::test_that("export_validation_audit_report writes excel report", {
   )
 
   output_path <- fs::path(withr::local_tempdir(), "audit.xlsx")
-  export_validation_audit_report(audit_dt, output_path)
+  export_validation_audit_report(
+    audit_dt = audit_dt,
+    config = test_config,
+    output_path = output_path
+  )
 
   testthat::expect_true(fs::file_exists(output_path))
 })
@@ -117,7 +130,11 @@ testthat::test_that("export_validation_audit_report sorts audit rows by document
   )
 
   output_path <- fs::path(withr::local_tempdir(), "audit_sorted.xlsx")
-  export_validation_audit_report(audit_dt, output_path)
+  export_validation_audit_report(
+    audit_dt = audit_dt,
+    config = test_config,
+    output_path = output_path
+  )
 
   exported_dt <- openxlsx::read.xlsx(output_path) |>
     data.table::as.data.table()
@@ -213,7 +230,11 @@ testthat::test_that("export_validation_audit_report returns output path", {
   audit_dt <- data.table::data.table(document = "sample.xlsx")
   output_path <- fs::path(withr::local_tempdir(), "audit_path.xlsx")
 
-  saved_path <- export_validation_audit_report(audit_dt, output_path)
+  saved_path <- export_validation_audit_report(
+    audit_dt = audit_dt,
+    config = test_config,
+    output_path = output_path
+  )
 
   testthat::expect_identical(saved_path, output_path)
 })
@@ -233,4 +254,36 @@ testthat::test_that("mirror_raw_import_errors returns empty when no document mat
   )
 
   testthat::expect_identical(mirrored_paths, character(0))
+})
+
+
+testthat::test_that("load_pipeline_config includes centralized error highlight style", {
+  config <- load_pipeline_config("fao_data_raw")
+
+  testthat::expect_identical(config$export_config$styles$error_highlight$fgFill, "#ffff00")
+  testthat::expect_identical(config$export_config$styles$error_highlight$fontColour, "#000000")
+  testthat::expect_identical(config$export_config$styles$error_highlight$textDecoration, "bold")
+})
+
+testthat::test_that("identify_audit_errors can return detailed findings object", {
+  input_dt <- data.table::data.table(
+    continent = c(NA_character_, "asia"),
+    country = c("nepal", "india"),
+    product = c("rice", "wheat"),
+    variable = c("production", "production"),
+    unit = c("t", "t"),
+    year = c("2020", "2021"),
+    value = c("1", "2"),
+    notes = c(NA_character_, NA_character_),
+    footnotes = c("none", "none"),
+    yearbook = c("yb_2020", "yb_2021"),
+    document = c("a.xlsx", "b.xlsx")
+  )
+
+  audit_result <- identify_audit_errors(input_dt, test_config, include_findings = TRUE)
+
+  testthat::expect_named(audit_result, c("audit_dt", "findings_dt"))
+  testthat::expect_true(data.table::is.data.table(audit_result$audit_dt))
+  testthat::expect_true(data.table::is.data.table(audit_result$findings_dt))
+  testthat::expect_true(all(c("row_index", "audit_column") %in% names(audit_result$findings_dt)))
 })
