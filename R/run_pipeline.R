@@ -15,8 +15,11 @@
 #' }
 #'
 #' @export
-run_pipeline <- function(show_view = interactive(), pipeline_root = here::here("R")) {
-  checkmate::assert_flag(show_view, any.missing = FALSE)
+run_pipeline <- function(
+  show_view = interactive(),
+  pipeline_root = here::here("R")
+) {
+  checkmate::assert_flag(show_view)
   checkmate::assert_string(pipeline_root, na.ok = FALSE, min.chars = 1)
 
   if (!dir.exists(pipeline_root)) {
@@ -31,7 +34,9 @@ run_pipeline <- function(show_view = interactive(), pipeline_root = here::here("
 
   purrr::walk(pipeline_files, function(pipeline_file) {
     if (!file.exists(pipeline_file)) {
-      cli::cli_abort("required pipeline script is missing: {.path {pipeline_file}}")
+      cli::cli_abort(
+        "required pipeline script is missing: {.path {pipeline_file}}"
+      )
     }
 
     cli::cli_alert_info("running pipeline script: {.path {pipeline_file}}")

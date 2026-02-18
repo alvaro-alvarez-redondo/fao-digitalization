@@ -333,7 +333,7 @@ process_files <- function(file_list_dt, read_data_list, config) {
       df_wide <- read_data_list[[index]]
       transform_single_file(file_row, df_wide, config)
     },
-    message_template = "import pipeline: processing file %d/%d"
+    message_template = "import pipeline: processing file %s/%s"
   ) |>
     purrr::compact()
 }
