@@ -8,6 +8,15 @@ testthat::test_that("get_unique_column returns sorted unique values", {
   testthat::expect_identical(unique_country, c("argentina", "brazil"))
 })
 
+testthat::test_that("get_unique_column aborts when requested column is not present", {
+  sample_df <- data.frame(country = c("brazil", "argentina"))
+
+  testthat::expect_error(
+    get_unique_column(sample_df, "product"),
+    "must be one of"
+  )
+})
+
 testthat::test_that("normalize_sheet_name is resilient to missing and empty labels", {
   normalized <- normalize_sheet_name(c(NA_character_, "***", "country"))
 
@@ -20,4 +29,17 @@ testthat::test_that("normalize_sheet_name truncates labels to excel length limit
   normalized <- normalize_sheet_name(long_name)
 
   testthat::expect_identical(nchar(normalized), 31L)
+})
+
+testthat::test_that("export function signatures remain backward compatible", {
+  testthat::expect_identical(
+    names(formals(export_single_column_list)),
+    c("df", "col_name", "config", "overwrite")
+  )
+  testthat::expect_identical(
+    names(formals(export_selected_unique_lists)),
+    c("df", "config", "overwrite")
+  )
+  testthat::expect_identical(formals(export_single_column_list)$overwrite, TRUE)
+  testthat::expect_identical(formals(export_selected_unique_lists)$overwrite, TRUE)
 })

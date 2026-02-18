@@ -4,7 +4,9 @@
 
 #' @title validate output column order
 #' @description validate that `config$column_order` exists, is unique, and
+#'
 #' covers the target export schema used by the import pipeline.
+#'
 #' @param config named list containing `column_order`.
 #' @return character vector with validated output column order.
 #' @importFrom checkmate check_list check_character check_subset
@@ -49,8 +51,10 @@ validate_output_column_order <- function(config) {
 
 #' @title consolidate validated data tables
 #' @description consolidate multiple validated long-format tables into one
+#'
 #' `data.table`, enforce configured schema coverage, and return standardized
 #' output with warning messages.
+#'
 #' @param dt_list list of data frames, data tables, or `null` elements. each
 #' non-null element must be coercible to a data table.
 #' @param config named list containing `column_order` as a non-empty character

@@ -19,8 +19,10 @@ purrr::walk(
 
 #' @title run import pipeline
 #' @description run the complete import pipeline by discovering source files,
+#'
 #' reading sheets, transforming to wide and long outputs, validating each
 #' document group, and consolidating validated long tables with diagnostics.
+#'
 #' @param config named list containing at least `paths$data$imports$raw` as a
 #' character scalar existing directory.
 #' @return named list with `data` as consolidated long `data.table`, `wide_raw`

@@ -12,10 +12,15 @@ purrr::walk(
 )
 
 #' @title run export pipeline
-#' @description run the export pipeline by writing the processed dataset and configured unique-value lists, then return both output paths.
-#' @param fao_data_raw data frame containing records to export; validated with checkmate::assert_data_frame.
-#' @param config named list containing export configuration values consumed by downstream export functions; validated with checkmate::assert_list.
-#' @param overwrite logical flag indicating whether existing files should be replaced; validated with checkmate::assert_flag.
+#' @description run the export pipeline by writing the processed dataset and configured
+#' unique-value lists, then return both output paths.
+#'
+#' @param fao_data_raw data frame containing records to export; validated with
+#' `checkmate::assert_data_frame`.
+#' @param config named list containing export configuration values consumed by downstream
+#' export functions; validated with `checkmate::assert_list`.
+#' @param overwrite logical flag indicating whether existing files should be replaced;
+#' validated with `checkmate::assert_flag`.
 #' @return named list with two character scalars: processed_path and lists_path.
 #' @importFrom checkmate assert_data_frame assert_list assert_flag
 #' @importFrom progressr handlers handler_txtprogressbar with_progress progressor

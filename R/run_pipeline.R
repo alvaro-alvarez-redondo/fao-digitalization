@@ -1,6 +1,7 @@
-#' run full project pipeline
+#' @title run full project pipeline
+#' @description run the general, import, and export pipelines in sequence.
 #'
-#' run the general, import, and export pipelines in sequence.
+#'
 #'
 #' @param show_view logical flag. if `TRUE`, show `fao_data_raw` in the rstudio
 #'   viewer when it exists in the current environment.

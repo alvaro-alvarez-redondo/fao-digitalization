@@ -4,8 +4,10 @@
 
 #' @title assert checkmate validation results with cli errors
 #' @description validates the output of a `checkmate::check_*` call, requiring a
+#'
 #' `true` logical scalar or a non-empty error string. when validation fails, the
 #' function aborts with a structured cli error message.
+#'
 #' @param check_result logical true scalar or non-empty character scalar returned
 #' by a `checkmate::check_*` function.
 #' @return invisible logical true scalar when validation succeeds.
@@ -28,7 +30,9 @@ assert_or_abort <- function(check_result) {
 
 #' @title normalize free text into lowercase ascii
 #' @description converts input text to lowercase ascii, removes non-alphanumeric
+#'
 #' characters except spaces, and squishes repeated spaces to one separator.
+#'
 #' @param string atomic vector with length greater than or equal to one.
 #' validated with `checkmate::check_atomic(min.len = 1, any.missing = true)`.
 #' @return character vector with normalized lowercase ascii text.
@@ -36,7 +40,7 @@ assert_or_abort <- function(check_result) {
 #' @importFrom stringr str_replace_all str_squish str_to_lower
 #' @importFrom stringi stri_trans_general
 #' @examples
-#' normalize_string("árvore! data 2024")
+#' normalize_string("forest! data 2024")
 normalize_string <- function(string) {
   assert_or_abort(checkmate::check_atomic(
     string,
@@ -54,8 +58,10 @@ normalize_string <- function(string) {
 
 #' @title normalize file-friendly names
 #' @description normalizes text and replaces spaces with underscores for
+#'
 #' deterministic filename stems. missing and empty outputs are replaced by
 #' `"unknown"`.
+#'
 #' @param filename atomic vector with length greater than or equal to one.
 #' validated with `checkmate::check_atomic(min.len = 1, any.missing = true)`.
 #' @return character vector containing lowercase ascii filename stems.
@@ -83,7 +89,9 @@ normalize_filename <- function(filename) {
 
 #' @title extract yearbook token from parsed name parts
 #' @description extracts tokens in positions two through four from a parsed
+#'
 #' filename token vector and joins them with underscores.
+#'
 #' @param parts character vector with no missing values and length greater than
 #' or equal to one. validated with
 #' `checkmate::check_character(min.len = 1, any.missing = false)`.
@@ -108,7 +116,9 @@ extract_yearbook <- function(parts) {
 
 #' @title extract product token suffix from parsed name parts
 #' @description extracts tokens from index seven onward, removes the file
+#'
 #' extension from the final token, and joins the result with underscores.
+#'
 #' @param parts character vector with no missing values and length greater than
 #' or equal to one. validated with
 #' `checkmate::check_character(min.len = 1, any.missing = false)`.
@@ -139,7 +149,9 @@ extract_product <- function(parts) {
 
 #' @title ensure data.frame input is a data.table
 #' @description validates a data.frame-compatible input and returns a
+#'
 #' `data.table`, preserving existing `data.table` inputs unchanged.
+#'
 #' @param df data.frame or data.table with zero or more rows. validated with
 #' `checkmate::check_data_frame(min.rows = 0)`.
 #' @return data.table object.
@@ -159,7 +171,9 @@ ensure_data_table <- function(df) {
 
 #' @title validate export-ready import data
 #' @description validates export inputs and returns a data.table for stable
+#'
 #' downstream export operations.
+#'
 #' @param df data.frame or data.table with at least one row. validated with
 #' `checkmate::check_data_frame(min.rows = 1)`.
 #' @param base_name non-empty character scalar. validated with
@@ -177,8 +191,10 @@ validate_export_import <- function(df, base_name) {
 
 #' @title extract and validate string field from nested config list
 #' @description retrieves a nested field from `config` using `purrr::pluck()`,
+#'
 #' aborts with a cli error when the field is missing, and validates that the
 #' retrieved value is a non-empty character scalar.
+#'
 #' @param config named list containing pipeline settings.
 #' @param path character vector that defines the nested access path.
 #' @param field_name character scalar used in validation error messages.
@@ -207,7 +223,9 @@ get_config_string <- function(config, path, field_name) {
 
 #' @title build normalized export path from pipeline config
 #' @description constructs an output path for `processed` or `lists` exports
+#'
 #' using folder and suffix metadata from the pipeline config.
+#'
 #' @param config named list with non-empty structure. validated with
 #' `checkmate::check_list(min.len = 1)`. must contain
 #' `paths$data$exports$processed`, `paths$data$exports$lists`,
@@ -283,8 +301,10 @@ generate_export_path <- function(
 
 #' @title map with optional progressr reporting
 #' @description applies a function over an input vector with optional progress
+#'
 #' updates powered by `progressr`. the helper respects global progressr
 #' configuration and can be disabled via argument or option.
+#'
 #' @param x vector or list to iterate over.
 #' @param .f function applied to each element of `x`.
 #' @param ... additional arguments passed to `.f`.
@@ -294,7 +314,7 @@ generate_export_path <- function(
 #' `function(item, index, total_steps)` returning a character scalar progress
 #' message.
 #' @param enable_progress logical scalar indicating whether progress updates are
-#' emitted. defaults to `getOption("fao.progress.enabled", TRUE)`.
+#' emitted. defaults to `getOption("fao.progress.enabled", `TRUE`)`.
 #' @return list with one element per input item, matching `purrr::map()`
 #' semantics.
 #' @importFrom checkmate check_flag check_function check_list check_string
@@ -369,7 +389,9 @@ empty_audit_findings_dt <- function() {
 
 #' @title coerce to data.table
 #' @description validate a data.frame-compatible object and return a
+#'
 #' `data.table`, preserving `data.table` inputs.
+#'
 #' @param x data.frame or data.table object.
 #' @param min_rows non-negative integer scalar for minimum row requirement.
 #' @return data.table.

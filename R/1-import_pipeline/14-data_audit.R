@@ -4,8 +4,10 @@
 
 #' @title load audit configuration
 #' @description validate required audit configuration fields used by the import
+#'
 #' audit pipeline. this function validates required columns, optional
 #' `audit_columns_by_type`, and required input/output paths.
+#'
 #' @param config named list containing at minimum `column_order`,
 #' `audit_columns`, and required path fields under `paths$data`.
 #' @return invisible `TRUE` when validation succeeds.
@@ -84,9 +86,11 @@ load_audit_config <- function(config) {
 
 #' @title resolve audit columns by validation type
 #' @description return audit columns grouped by validator type. if
+#'
 #' `config$audit_columns_by_type` is present, it is returned. otherwise,
 #' a default mapping is created from `config$audit_columns` and
 #' `config$column_order`.
+#'
 #' @param config named list with audit configuration.
 #' @return named list where each name is an audit type and each value is a
 #' character vector of column names.
@@ -126,7 +130,9 @@ resolve_audit_columns_by_type <- function(config) {
 
 #' @title audit non-empty character values
 #' @description validate that all values in `column_name` are non-missing and
+#'
 #' non-empty after trimming whitespace.
+#'
 #' @param dataset_dt data frame or data table to validate.
 #' @param column_name character scalar naming the target column.
 #' @return data table with standardized audit findings columns:
@@ -164,7 +170,9 @@ audit_character_non_empty <- function(dataset_dt, column_name) {
 
 #' @title audit numeric string values
 #' @description validate that all non-missing values in `column_name` match
+#'
 #' a numeric string pattern with optional decimal point.
+#'
 #' @param dataset_dt data frame or data table to validate.
 #' @param column_name character scalar naming the target column. defaults to
 #' `"value"`.
@@ -204,7 +212,9 @@ audit_numeric_string <- function(dataset_dt, column_name = "value") {
 
 #' @title run master validation
 #' @description execute all configured validators over selected columns and
+#'
 #' return combined audit findings with unique invalid row indexes.
+#'
 #' @param dataset_dt data frame or data table to validate.
 #' @param audit_columns_by_type named list mapping audit types to character
 #' vectors of column names.
@@ -288,7 +298,9 @@ run_master_validation <- function(
 
 #' @title run audit by type
 #' @description backward-compatible wrapper that resolves validation map from
+#'
 #' configuration and delegates execution to `run_master_validation()`.
+#'
 #' @param dataset_dt data frame or data table to validate.
 #' @param config named audit configuration list.
 #' @return named list returned by `run_master_validation()`.
@@ -315,7 +327,9 @@ run_audit_by_type <- function(dataset_dt, config) {
 
 #' @title identify audit errors
 #' @description run configured audits against `fao_data_raw` and return only
+#'
 #' invalid records sorted by `document`.
+#'
 #' @param fao_data_raw data frame or data table with consolidated raw import
 #' data.
 #' @param config named audit configuration list.
@@ -394,7 +408,9 @@ identify_audit_errors <- function(
 
 #' @title mirror raw import errors
 #' @description copy raw import files associated with invalid audit records into
+#'
 #' a mirror directory while preserving relative folder structure.
+#'
 #' @param audit_dt data frame or data table containing at least `document`.
 #' @param raw_imports_dir character scalar path to raw import files.
 #' @param raw_imports_mirror_dir character scalar path to mirror destination.
@@ -471,7 +487,9 @@ mirror_raw_import_errors <- function(
 
 #' @title export validation audit report
 #' @description write audit results to an excel workbook at `output_path`.
+#'
 #' output is sorted by `document` and written to sheet `audit_report`.
+#'
 #' @param audit_dt data frame or data table containing at least `document`.
 #' @param config named audit configuration list containing
 #' `export_config$styles$error_highlight`.
@@ -608,8 +626,10 @@ export_validation_audit_report <- function(
 
 #' @title create audited data output
 #' @description identify invalid rows, export audit artifacts when findings are
+#'
 #' present, mirror related raw files, and return a typed output where `value` is
 #' parsed as numeric.
+#'
 #' @param dataset_dt data frame or data table to audit.
 #' @param config named audit configuration list.
 #' @return data table with the same rows as `dataset_dt` and numeric-parsed
