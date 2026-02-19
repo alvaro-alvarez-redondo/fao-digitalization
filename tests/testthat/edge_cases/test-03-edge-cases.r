@@ -294,17 +294,34 @@ testthat::test_that("read helpers return standardized empty structures", {
   testthat::expect_false(has_read_errors(list(result = 1L, errors = character(0))))
 })
 
-testthat::test_that("run_import_pipeline deletes stale audit root before file discovery", {
-  withr::local_options(list(fao.run_import_pipeline.auto = FALSE))
-  source(here::here("R/1-import_pipeline/run_import_pipeline.R"), echo = FALSE)
+testthat::test_that("run_export_pipeline deletes stale audit root before exporting", {
+  withr::local_options(list(
+    fao.run_export_pipeline.auto = FALSE,
+    fao.run_import_pipeline.auto = FALSE
+  ))
+  source(here::here("R/3-export_pipeline/run_export_pipeline.R"), echo = FALSE)
 
   temp_root <- withr::local_tempdir()
-  raw_imports_dir <- fs::path(temp_root, "raw_imports")
+  raw_imports_dir <- fs::path(temp_root, "raw imports")
   audit_root_dir <- fs::path(temp_root, "audit")
 
   fs::dir_create(raw_imports_dir, recurse = TRUE)
   fs::dir_create(fs::path(audit_root_dir, "old_dataset"), recurse = TRUE)
   fs::file_create(fs::path(audit_root_dir, "old_dataset", "stale.xlsx"))
+
+  input_dt <- data.table::data.table(
+    continent = "asia",
+    country = "nepal",
+    product = "rice",
+    variable = "production",
+    unit = "t",
+    year = "2020",
+    value = "1",
+    notes = NA_character_,
+    footnotes = "none",
+    yearbook = "yb_2020",
+    document = "sample.xlsx"
+  )
 
   config <- test_config
   config$paths$data$imports$raw <- raw_imports_dir
@@ -320,10 +337,10 @@ testthat::test_that("run_import_pipeline deletes stale audit root before file di
     "raw_imports_mirror"
   )
 
-  testthat::expect_error(
-    run_import_pipeline(config),
-    regexp = "no excel files were found"
-  )
+  fs::file_create(fs::path(raw_imports_dir, "sample.xlsx"))
 
-  testthat::expect_false(fs::dir_exists(audit_root_dir))
+  output <- run_export_pipeline(input_dt, config, overwrite = TRUE)
+
+  testthat::expect_true(fs::file_exists(output$processed_path))
+  testthat::expect_false(fs::dir_exists(fs::path(audit_root_dir, "old_dataset")))
 })

@@ -8,19 +8,19 @@
 #' @param df data frame or data table with source columns.
 #' @param config named list containing `column_order` as a character vector.
 #' @return character vector of detected year column names.
-#' @importFrom checkmate assert_data_frame assert_list assert_character
+#' @importFrom checkmate check_character check_data_frame check_list
 #' @examples
 #' df_example <- data.frame(country = "x", `2020` = "1", `2020-2021` = "2")
 #' config_example <- list(column_order = c("country", "year", "value"))
 #' identify_year_columns(df_example, config_example)
 identify_year_columns <- function(df, config) {
-  checkmate::assert_data_frame(df)
-  checkmate::assert_list(config, any.missing = FALSE)
-  checkmate::assert_character(
+  assert_or_abort(checkmate::check_data_frame(df))
+  assert_or_abort(checkmate::check_list(config, any.missing = FALSE))
+  assert_or_abort(checkmate::check_character(
     config$column_order,
     any.missing = FALSE,
     min.len = 1
-  )
+  ))
 
   candidate_cols <- setdiff(
     colnames(df),
@@ -39,21 +39,21 @@ identify_year_columns <- function(df, config) {
 #' @param config named list containing `column_required` as a non-empty character
 #' vector.
 #' @return data frame with required columns present and normalized key text fields.
-#' @importFrom checkmate assert_data_frame assert_string assert_list assert_character
+#' @importFrom checkmate check_character check_data_frame check_list check_string
 #' @importFrom dplyr mutate
 #' @examples
 #' df_example <- data.frame(variable = "yield", continent = "asia", country = "india")
 #' config_example <- list(column_required = c("product", "variable", "continent", "country"))
 #' normalize_key_fields(df_example, "crops", config_example)
 normalize_key_fields <- function(df, product_name, config) {
-  checkmate::assert_data_frame(df)
-  checkmate::assert_string(product_name, min.chars = 1)
-  checkmate::assert_list(config, any.missing = FALSE)
-  checkmate::assert_character(
+  assert_or_abort(checkmate::check_data_frame(df))
+  assert_or_abort(checkmate::check_string(product_name, min.chars = 1))
+  assert_or_abort(checkmate::check_list(config, any.missing = FALSE))
+  assert_or_abort(checkmate::check_character(
     config$column_required,
     any.missing = FALSE,
     min.len = 1
-  )
+  ))
 
   base_cols <- config$column_required
   df[, setdiff(base_cols, colnames(df))] <- NA_character_
@@ -74,20 +74,20 @@ normalize_key_fields <- function(df, product_name, config) {
 #' @param df data table or data frame with potential year columns.
 #' @param config named list containing `column_order` as a character vector.
 #' @return input table with cleaned names and year columns converted to character.
-#' @importFrom checkmate assert_data_frame assert_list assert_character
+#' @importFrom checkmate check_character check_data_frame check_list
 #' @importFrom data.table setnames
 #' @examples
 #' df_example <- data.frame(country = "x", `2020.0` = 1)
 #' config_example <- list(column_order = c("country", "year", "value"))
 #' convert_year_columns(df_example, config_example)
 convert_year_columns <- function(df, config) {
-  checkmate::assert_data_frame(df)
-  checkmate::assert_list(config, any.missing = FALSE)
-  checkmate::assert_character(
+  assert_or_abort(checkmate::check_data_frame(df))
+  assert_or_abort(checkmate::check_list(config, any.missing = FALSE))
+  assert_or_abort(checkmate::check_character(
     config$column_order,
     any.missing = FALSE,
     min.len = 1
-  )
+  ))
 
   clean_names <- gsub("\\.0$", "", colnames(df))
 
@@ -111,7 +111,7 @@ convert_year_columns <- function(df, config) {
 #' @param config named list containing `column_id` as a character vector and
 #' `column_order` for year detection.
 #' @return data table with `year` and `value` columns created by melting.
-#' @importFrom checkmate assert_data_frame assert_list assert_character
+#' @importFrom checkmate check_character check_data_frame check_list
 #' @importFrom data.table melt
 #' @importFrom cli cli_abort
 #' @examples
@@ -119,18 +119,18 @@ convert_year_columns <- function(df, config) {
 #' config_example <- list(column_id = "country", column_order = c("country", "year", "value"))
 #' reshape_to_long(df_example, config_example)
 reshape_to_long <- function(df, config) {
-  checkmate::assert_data_frame(df)
-  checkmate::assert_list(config, any.missing = FALSE)
-  checkmate::assert_character(
+  assert_or_abort(checkmate::check_data_frame(df))
+  assert_or_abort(checkmate::check_list(config, any.missing = FALSE))
+  assert_or_abort(checkmate::check_character(
     config$column_id,
     any.missing = FALSE,
     min.len = 1
-  )
-  checkmate::assert_character(
+  ))
+  assert_or_abort(checkmate::check_character(
     config$column_order,
     any.missing = FALSE,
     min.len = 1
-  )
+  ))
 
   column_id <- config$column_id
   year_cols <- identify_year_columns(df, config)
@@ -158,7 +158,7 @@ reshape_to_long <- function(df, config) {
 #' @param config named list containing `defaults$notes_value` as a character
 #' scalar and may be `na_character_` when notes are intentionally missing.
 #' @return data table with metadata columns added.
-#' @importFrom checkmate assert_data_frame assert_string assert_list assert_character
+#' @importFrom checkmate check_character check_data_frame check_list check_string
 #' @importFrom dplyr mutate
 #' @importFrom data.table as.data.table
 #' @examples
@@ -166,12 +166,12 @@ reshape_to_long <- function(df, config) {
 #' config_example <- list(defaults = list(notes_value = NA_character_))
 #' add_metadata(df_example, "file.xlsx", "yearbook_a", config_example)
 add_metadata <- function(fao_data_long_raw, file_name, yearbook, config) {
-  checkmate::assert_data_frame(fao_data_long_raw)
-  checkmate::assert_string(file_name, min.chars = 1)
-  checkmate::assert_string(yearbook, min.chars = 1)
-  checkmate::assert_list(config, any.missing = FALSE)
-  checkmate::assert_list(config$defaults, any.missing = FALSE)
-  checkmate::assert_character(config$defaults$notes_value, len = 1)
+  assert_or_abort(checkmate::check_data_frame(fao_data_long_raw))
+  assert_or_abort(checkmate::check_string(file_name, min.chars = 1))
+  assert_or_abort(checkmate::check_string(yearbook, min.chars = 1))
+  assert_or_abort(checkmate::check_list(config, any.missing = FALSE))
+  assert_or_abort(checkmate::check_list(config$defaults, any.missing = FALSE))
+  assert_or_abort(checkmate::check_character(config$defaults$notes_value, len = 1))
 
   notes_value <- config$defaults$notes_value
 
@@ -193,15 +193,15 @@ add_metadata <- function(fao_data_long_raw, file_name, yearbook, config) {
 #' @param product_name character scalar product label.
 #' @param config named list containing required transform configuration.
 #' @return named list with `wide_raw` and `long_raw` data tables.
-#' @importFrom checkmate assert_data_frame assert_string assert_list
+#' @importFrom checkmate check_data_frame check_list check_string
 #' @examples
 #' # transform_file_dt(df_example, "file.xlsx", "yearbook_a", "crops", config_example)
 transform_file_dt <- function(df, file_name, yearbook, product_name, config) {
-  checkmate::assert_data_frame(df)
-  checkmate::assert_string(file_name, min.chars = 1)
-  checkmate::assert_string(yearbook, min.chars = 1)
-  checkmate::assert_string(product_name, min.chars = 1)
-  checkmate::assert_list(config, any.missing = FALSE)
+  assert_or_abort(checkmate::check_data_frame(df))
+  assert_or_abort(checkmate::check_string(file_name, min.chars = 1))
+  assert_or_abort(checkmate::check_string(yearbook, min.chars = 1))
+  assert_or_abort(checkmate::check_string(product_name, min.chars = 1))
+  assert_or_abort(checkmate::check_list(config, any.missing = FALSE))
 
   df_norm <- df |>
     normalize_key_fields(product_name, config) |>
@@ -214,20 +214,25 @@ transform_file_dt <- function(df, file_name, yearbook, product_name, config) {
   list(wide_raw = df_norm, long_raw = fao_data_long_raw)
 }
 
-#' @title transform single file
-#' @description transform one discovered file row and its wide data table. returns
-#' `null` when the input table has zero rows.
+#' @title resolve product name from file metadata
+#' @description resolve the product value from a single metadata row. when the
+#' product field is missing or blank, return `"unknown"` and optionally emit a
+#' warning based on configuration.
 #' @param file_row single-row data frame or data table with `file_name`,
 #' `yearbook`, and `product` columns.
 #' @param config named list with transform configuration.
 #' @return character scalar product name resolved from metadata.
-#' @importFrom checkmate assert_data_frame assert_list
+#' @importFrom checkmate check_data_frame check_list
 #' @importFrom cli cli_warn
 #' @examples
 #' # resolve_product_name(file_row_example, config_example)
 resolve_product_name <- function(file_row, config) {
-  checkmate::assert_data_frame(file_row, min.rows = 1, max.rows = 1)
-  checkmate::assert_list(config, any.missing = FALSE)
+  assert_or_abort(checkmate::check_data_frame(
+    file_row,
+    min.rows = 1,
+    max.rows = 1
+  ))
+  assert_or_abort(checkmate::check_list(config, any.missing = FALSE))
 
   show_missing_product_metadata_warning <-
     !is.null(config$messages$show_missing_product_metadata_warning) &&
@@ -258,18 +263,22 @@ resolve_product_name <- function(file_row, config) {
 #' @param df_wide data frame or data table for one file.
 #' @param config named list with transform configuration.
 #' @return named list from `transform_file_dt` or `null` when `df_wide` is empty.
-#' @importFrom checkmate assert_data_frame assert_list assert_names
+#' @importFrom checkmate check_data_frame check_list check_names
 #' @examples
 #' # transform_single_file(file_row_example, df_wide_example, config_example)
 transform_single_file <- function(file_row, df_wide, config) {
-  checkmate::assert_data_frame(file_row, min.rows = 1, max.rows = 1)
-  checkmate::assert_names(
+  assert_or_abort(checkmate::check_data_frame(
+    file_row,
+    min.rows = 1,
+    max.rows = 1
+  ))
+  assert_or_abort(checkmate::check_names(
     names(file_row),
     must.include = c("file_name", "yearbook", "product"),
     what = "names(file_row)"
-  )
-  checkmate::assert_data_frame(df_wide)
-  checkmate::assert_list(config, any.missing = FALSE)
+  ))
+  assert_or_abort(checkmate::check_data_frame(df_wide))
+  assert_or_abort(checkmate::check_list(config, any.missing = FALSE))
 
   if (nrow(df_wide) == 0) {
     return(NULL)
@@ -294,14 +303,14 @@ transform_single_file <- function(file_row, df_wide, config) {
 #' @param read_data_list list of data frames or data tables aligned to file rows.
 #' @param config named list with transform configuration.
 #' @return list of transformed per-file results.
-#' @importFrom checkmate assert_data_frame assert_list
+#' @importFrom checkmate check_data_frame check_list
 #' @importFrom purrr compact detect_index
 #' @examples
 #' # process_files(file_list_dt_example, read_data_list_example, config_example)
 process_files <- function(file_list_dt, read_data_list, config) {
-  checkmate::assert_data_frame(file_list_dt)
-  checkmate::assert_list(read_data_list)
-  checkmate::assert_list(config, any.missing = FALSE)
+  assert_or_abort(checkmate::check_data_frame(file_list_dt))
+  assert_or_abort(checkmate::check_list(read_data_list))
+  assert_or_abort(checkmate::check_list(config, any.missing = FALSE))
 
   expected_items <- nrow(file_list_dt)
   provided_items <- length(read_data_list)
@@ -346,7 +355,7 @@ process_files <- function(file_list_dt, read_data_list, config) {
 #' @param read_data_list list of per-file data frames or data tables.
 #' @param config named list with transform configuration.
 #' @return named list with `wide_raw` and `long_raw` as data tables.
-#' @importFrom checkmate assert_data_frame assert_list
+#' @importFrom checkmate check_data_frame check_list
 #' @importFrom cli cli_abort
 #' @importFrom data.table data.table rbindlist
 #' @importFrom purrr map
@@ -357,9 +366,9 @@ process_files <- function(file_list_dt, read_data_list, config) {
 #' config_example <- list()
 #' transform_files_list(file_list_example, read_data_list_example, config_example)
 transform_files_list <- function(file_list_dt, read_data_list, config) {
-  checkmate::assert_data_frame(file_list_dt)
-  checkmate::assert_list(read_data_list)
-  checkmate::assert_list(config, any.missing = FALSE)
+  assert_or_abort(checkmate::check_data_frame(file_list_dt))
+  assert_or_abort(checkmate::check_list(read_data_list))
+  assert_or_abort(checkmate::check_list(config, any.missing = FALSE))
 
   if (nrow(file_list_dt) != length(read_data_list)) {
     cli::cli_abort("file list row count must match read data list length")

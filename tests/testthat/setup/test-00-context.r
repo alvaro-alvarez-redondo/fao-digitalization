@@ -6,6 +6,7 @@ source(here::here("R/1-import_pipeline/11-reading.R"), echo = FALSE)
 source(here::here("R/1-import_pipeline/12-transform.R"), echo = FALSE)
 source(here::here("R/1-import_pipeline/13-validate_log.R"), echo = FALSE)
 source(here::here("R/1-import_pipeline/15-output.R"), echo = FALSE)
+source(here::here("R/3-export_pipeline/30-data_audit.R"), echo = FALSE)
 
 load_dependencies(required_packages)
 

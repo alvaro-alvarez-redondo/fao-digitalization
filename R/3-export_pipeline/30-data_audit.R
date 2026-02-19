@@ -1,5 +1,5 @@
-# script: data audit script
-# description: validate consolidated import data, isolate invalid records,
+# script: 30-data_audit.r
+# description: validate consolidated pipeline data, isolate invalid records,
 # and export audit artifacts with mirrored raw source files.
 
 #' @title prepare audit root directory
@@ -36,9 +36,6 @@ prepare_audit_root <- function(audit_root_dir) {
 #' @examples
 #' empty_audit_findings_dt()
 #' @export
-# script: data audit script
-# description: validate consolidated import data, isolate invalid records,
-# and export audit artifacts with mirrored raw source files.
 empty_audit_findings_dt <- function() {
   data.table::data.table(
     row_index = integer(),
@@ -49,7 +46,7 @@ empty_audit_findings_dt <- function() {
 }
 
 #' @title load audit configuration
-#' @description validate required audit configuration fields used by the import audit pipeline.
+#' @description validate required audit configuration fields used by the export audit workflow.
 #' @param config named list containing required configuration elements.
 #' @return invisible TRUE when validation succeeds.
 #' @examples
