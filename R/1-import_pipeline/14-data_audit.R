@@ -304,8 +304,6 @@ export_validation_audit_report <- function(
   cols_to_show <- setdiff(names(export_dt), technical_cols)
   row_lookup_dt <- export_dt[, .(excel_row = .I + 1L), by = .(source_row_index)]
 
-  output_dir <- fs::path_dir(output_path)
-
   # create workbook only if there is data
   workbook <- openxlsx::createWorkbook()
   openxlsx::addWorksheet(workbook, "audit_report")
@@ -368,10 +366,7 @@ export_validation_audit_report <- function(
     }
   }
 
-  # create output directory only if needed
-  if (!fs::dir_exists(output_dir)) {
-    fs::dir_create(output_dir, recurse = TRUE)
-  }
+  ensure_output_directories(output_path)
 
   openxlsx::saveWorkbook(workbook, output_path, overwrite = TRUE)
   output_path
@@ -447,10 +442,7 @@ mirror_raw_import_errors <- function(
   relative_paths <- fs::path_rel(matched_paths, start = raw_imports_dir)
   target_paths <- fs::path(raw_imports_mirror_dir, relative_paths)
 
-  if (!fs::dir_exists(raw_imports_mirror_dir)) {
-    fs::dir_create(raw_imports_mirror_dir, recurse = TRUE)
-  }
-  fs::dir_create(fs::path_dir(target_paths))
+  ensure_output_directories(target_paths)
   fs::file_copy(matched_paths, target_paths, overwrite = TRUE)
 
   invisible(as.character(target_paths))
