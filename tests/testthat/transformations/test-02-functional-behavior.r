@@ -206,12 +206,16 @@ testthat::test_that("load_pipeline_config can infer dataset name from data attri
   )
 })
 
-testthat::test_that("create_required_directories normalizes file targets to parent folders", {
+testthat::test_that("create_required_directories skips audit folders for lazy creation", {
   temp_root <- withr::local_tempdir()
 
   paths <- list(
     data = list(
+      exports = list(
+        processed = fs::path(temp_root, "exports", "processed")
+      ),
       audit = list(
+        audit_root_dir = fs::path(temp_root, "audit"),
         audit_dir = fs::path(temp_root, "audit", "dataset_a"),
         audit_file_path = fs::path(
           temp_root,
@@ -227,18 +231,29 @@ testthat::test_that("create_required_directories normalizes file targets to pare
 
   testthat::expect_true(fs::dir_exists(fs::path(
     temp_root,
-    "audit",
-    "dataset_a"
+    "exports",
+    "processed"
   )))
   testthat::expect_false(fs::dir_exists(fs::path(
     temp_root,
-    "audit",
-    "dataset_a",
-    "dataset_a_audit.xlsx"
+    "audit"
   )))
-  testthat::expect_true(
-    fs::path(temp_root, "audit", "dataset_a") %in% created_dirs
+  testthat::expect_false(any(grepl("audit", created_dirs, fixed = TRUE)))
+})
+
+testthat::test_that("ensure_output_directories creates only parent folders for file outputs", {
+  temp_root <- withr::local_tempdir()
+  output_paths <- c(
+    fs::path(temp_root, "audit", "dataset_a", "report.xlsx"),
+    fs::path(temp_root, "audit", "dataset_a", "raw", "failed.csv")
   )
+
+  created_dirs <- ensure_output_directories(output_paths)
+
+  testthat::expect_true(fs::dir_exists(fs::path(temp_root, "audit", "dataset_a")))
+  testthat::expect_true(fs::dir_exists(fs::path(temp_root, "audit", "dataset_a", "raw")))
+  testthat::expect_false(fs::file_exists(output_paths[[1]]))
+  testthat::expect_true(fs::path(temp_root, "audit", "dataset_a") %in% created_dirs)
 })
 
 testthat::test_that("resolve_product_name applies unknown fallback for missing product", {
@@ -263,6 +278,40 @@ testthat::test_that("resolve_product_name trims whitespace from product names", 
   resolved_product <- resolve_product_name(file_row, test_config)
 
   testthat::expect_identical(resolved_product, "rice")
+})
+
+testthat::test_that("resolve_product_name rejects multi-row metadata inputs", {
+  file_row <- data.frame(
+    file_name = c("sample_file_a.xlsx", "sample_file_b.xlsx"),
+    yearbook = c("yb_2020", "yb_2021"),
+    product = c("rice", "maize")
+  )
+
+  testthat::expect_error(
+    resolve_product_name(file_row, test_config),
+    regexp = "at most 1"
+  )
+})
+
+testthat::test_that("transform_single_file rejects multi-row metadata inputs", {
+  file_row <- data.frame(
+    file_name = c("sample_file_a.xlsx", "sample_file_b.xlsx"),
+    yearbook = c("yb_2020", "yb_2021"),
+    product = c("rice", "maize")
+  )
+  df_wide <- data.frame(
+    variable = "production",
+    continent = "asia",
+    country = "nepal",
+    unit = "t",
+    footnotes = "none",
+    `2020` = "1"
+  )
+
+  testthat::expect_error(
+    transform_single_file(file_row, df_wide, test_config),
+    regexp = "at most 1"
+  )
 })
 
 testthat::test_that("validate_output_column_order returns configured order", {
