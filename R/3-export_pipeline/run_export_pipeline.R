@@ -14,7 +14,6 @@ purrr::walk(
 #' @title run export pipeline
 #' @description run the export pipeline by writing the processed dataset and configured
 #' unique-value lists, then return both output paths.
-#'
 #' @param fao_data_raw data frame containing records to export; validated with
 #' `checkmate::assert_data_frame`.
 #' @param config named list containing export configuration values consumed by downstream

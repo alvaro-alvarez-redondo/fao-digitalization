@@ -4,10 +4,8 @@
 
 #' @title extract file metadata
 #' @description build a standardized metadata table from a character vector of
-#'
 #' file paths. the function validates inputs, extracts file names, flags non-ascii
 #' names, and derives product and yearbook fields using helper parsers.
-#'
 #' @param file_paths character vector of file paths. must be non-empty and contain
 #' no missing values.
 #' @return a tibble with columns `file_path`, `file_name`, `product`, `yearbook`,
@@ -57,11 +55,9 @@ extract_file_metadata <- function(file_paths) {
 
 #' @title discover files
 #' @description recursively discover all xlsx files inside an import directory,
-#'
 #' validate the directory input, and return standardized metadata for each file.
 #' when no files are found, the function emits a cli warning and returns an empty
 #' metadata tibble with stable column names.
-#'
 #' @param import_folder character scalar path to an existing directory.
 #' @return a tibble with columns `file_path`, `file_name`, `product`, `yearbook`,
 #' `is_ascii`, and `error_message`. returns zero rows when no xlsx files are found.
@@ -106,10 +102,8 @@ discover_files <- function(import_folder) {
 
 #' @title discover pipeline files
 #' @description retrieve the raw import folder from a pipeline configuration list,
-#'
 #' validate configuration structure and target path, and delegate file discovery to
 #' `discover_files`.
-#'
 #' @param config named list containing `paths$data$imports$raw` as a character
 #' scalar path to an existing directory.
 #' @return a tibble with discovered file metadata from `discover_files`.

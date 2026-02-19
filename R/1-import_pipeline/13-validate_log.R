@@ -3,10 +3,8 @@
 
 #' @title validate mandatory fields data table
 #' @description validate mandatory columns in a long-format table, create missing
-#'
 #' mandatory columns as `na_character_`, ensure a `document` column exists, and
 #' generate unique row-level error messages for missing mandatory values.
-#'
 #' @param dt data table or data frame in long format.
 #' @param config named list containing `column_required` as a non-empty character
 #' vector.
@@ -71,10 +69,8 @@ validate_mandatory_fields_dt <- function(dt, config) {
 
 #' @title detect duplicates data table
 #' @description detect duplicate rows using the long-grain key
-#'
 #' (`product`, `variable`, `year`, `value`, `document`) and return duplicate
 #' diagnostics as error messages.
-#'
 #' @param dt data table or data frame containing long-format observations.
 #' @return named list with `errors` as a character vector and `data` as the
 #' unchanged data table.
@@ -131,10 +127,8 @@ detect_duplicates_dt <- function(dt) {
 
 #' @title validate long data table
 #' @description run the complete long-table validation pipeline by applying
-#'
 #' mandatory field checks and duplicate detection, and return a validated table
 #' with aggregated error messages.
-#'
 #' @param long_dt data table or data frame containing long-format records.
 #' @param config named list containing `column_required` as a non-empty character
 #' vector.

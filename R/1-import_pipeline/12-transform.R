@@ -3,10 +3,8 @@
 
 #' @title identify year columns
 #' @description identify columns that represent year values in four-digit format
-#'
 #' or year ranges in `yyyy-yyyy` format, excluding known metadata columns from
 #' the configured output schema.
-#'
 #' @param df data frame or data table with source columns.
 #' @param config named list containing `column_order` as a character vector.
 #' @return character vector of detected year column names.
@@ -34,10 +32,8 @@ identify_year_columns <- function(df, config) {
 
 #' @title normalize key fields
 #' @description ensure required base columns exist and normalize key text fields
-#'
 #' (`product`, `variable`, `continent`, `country`) using `normalize_string`.
 #' missing required columns are created with `na_character_`.
-#'
 #' @param df data frame or data table to normalize.
 #' @param product_name character scalar product label from file metadata.
 #' @param config named list containing `column_required` as a non-empty character
@@ -73,10 +69,8 @@ normalize_key_fields <- function(df, product_name, config) {
 
 #' @title convert year columns
 #' @description sanitize column names by removing trailing `.0`, identify year
-#'
 #' columns, and coerce year columns to character for consistent downstream
 #' reshaping.
-#'
 #' @param df data table or data frame with potential year columns.
 #' @param config named list containing `column_order` as a character vector.
 #' @return input table with cleaned names and year columns converted to character.
@@ -112,9 +106,7 @@ convert_year_columns <- function(df, config) {
 
 #' @title reshape to long
 #' @description reshape wide source data into long format using configured id
-#'
 #' columns and detected year columns.
-#'
 #' @param df data table or data frame in wide format.
 #' @param config named list containing `column_id` as a character vector and
 #' `column_order` for year detection.
@@ -159,9 +151,7 @@ reshape_to_long <- function(df, config) {
 
 #' @title add metadata
 #' @description append file-level metadata fields (`document`, `notes`,
-#'
 #' `yearbook`) to long-format data and return a data table.
-#'
 #' @param fao_data_long_raw data frame or data table in long format.
 #' @param file_name character scalar source file name.
 #' @param yearbook character scalar yearbook label.
@@ -196,9 +186,7 @@ add_metadata <- function(fao_data_long_raw, file_name, yearbook, config) {
 
 #' @title transform file data table
 #' @description run normalization, year coercion, long reshaping, and metadata
-#'
 #' enrichment for one file dataset.
-#'
 #' @param df data frame or data table with source observations.
 #' @param file_name character scalar source file name.
 #' @param yearbook character scalar yearbook label.
@@ -228,9 +216,7 @@ transform_file_dt <- function(df, file_name, yearbook, product_name, config) {
 
 #' @title transform single file
 #' @description transform one discovered file row and its wide data table. returns
-#'
 #' `null` when the input table has zero rows.
-#'
 #' @param file_row single-row data frame or data table with `file_name`,
 #' `yearbook`, and `product` columns.
 #' @param config named list with transform configuration.
@@ -266,9 +252,7 @@ resolve_product_name <- function(file_row, config) {
 
 #' @title transform single file
 #' @description transform one discovered file row and its wide data table. returns
-#'
 #' `null` when the input table has zero rows.
-#'
 #' @param file_row single-row data frame or data table with `file_name`,
 #' `yearbook`, and `product` columns.
 #' @param df_wide data frame or data table for one file.
@@ -304,10 +288,8 @@ transform_single_file <- function(file_row, df_wide, config) {
 
 #' @title process files
 #' @description iterate over discovered files and corresponding read datasets,
-#'
 #' apply `transform_single_file`, and collect non-null results with a progress
 #' indicator.
-#'
 #' @param file_list_dt data frame or data table describing files.
 #' @param read_data_list list of data frames or data tables aligned to file rows.
 #' @param config named list with transform configuration.
@@ -358,10 +340,8 @@ process_files <- function(file_list_dt, read_data_list, config) {
 
 #' @title transform files list
 #' @description transform all discovered files by combining metadata rows with
-#'
 #' read datasets, then bind transformed wide and long outputs into unified data
 #' tables.
-#'
 #' @param file_list_dt data frame or data table with file metadata rows.
 #' @param read_data_list list of per-file data frames or data tables.
 #' @param config named list with transform configuration.

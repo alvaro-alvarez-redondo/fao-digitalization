@@ -3,7 +3,6 @@
 
 #' @title get unique column values
 #' @description extract, de-duplicate, and sort values from a selected column in a data frame.
-#'
 #' @param df data frame containing the source records; validated with
 #' `checkmate::check_data_frame(min.rows = 1)`.
 #' @param col_name single character string naming an existing column in df;
@@ -27,7 +26,6 @@ get_unique_column <- function(df, col_name) {
 #' @title export single column list
 #' @description export sorted unique values from one selected column to an excel file and
 #' return the output path.
-#'
 #' @param df data frame containing the source records; validated with
 #' `checkmate::check_data_frame(min.rows = 1)`.
 #' @param col_name single character string naming an existing column in df;
@@ -66,7 +64,6 @@ export_single_column_list <- function(df, col_name, config, overwrite = TRUE) {
 #' @title normalize sheet name
 #' @description normalize column names into excel-safe worksheet names limited to thirty-one
 #' characters.
-#'
 #' @param col_name atomic vector of column names to normalize; validated with
 #' `checkmate::check_atomic_vector(min.len = 1, any.missing = `TRUE`)`.
 #' @return character vector of normalized worksheet names with empty values replaced by unknown.
@@ -93,7 +90,6 @@ normalize_sheet_name <- function(col_name) {
 #' @title export selected unique lists
 #' @description export unique values from configured columns into one workbook with one
 #' worksheet per column.
-#'
 #' @param df data frame containing the source records; validated with
 #' `checkmate::check_data_frame(min.rows = 1)`.
 #' @param config named list containing export configuration, list columns, and

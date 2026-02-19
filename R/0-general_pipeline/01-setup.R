@@ -9,12 +9,10 @@ options(
 
 #' @title load pipeline config
 #' @description builds and returns a deterministic configuration object for the
-#'
 #' pipeline, including project-root-relative paths, file names, semantic column
 #' groups, export settings, default values, and dataset-specific audit paths.
 #' audit paths are generated dynamically from `dataset_name` so the auditing
 #' workflow is reusable across multiple datasets.
-#'
 #' @param dataset_name character scalar dataset identifier used to build
 #' audit directories and audit workbook names with the
 #' `{dataset_name}_audit.xlsx` convention. when `null` or empty, the function
@@ -274,11 +272,9 @@ load_pipeline_config <- function(dataset_name = "fao_data_raw", ...) {
 
 #' @title create required directories
 #' @description validates a nested list of paths, flattens it to a character
-#'
 #' vector, normalizes file paths to their parent directories, excludes audit
 #' directories for lazy creation, creates every remaining directory if missing,
 #' and returns the resolved directory vector invisibly.
-#'
 #' @param paths named or unnamed list containing character path elements. must
 #' be a non-empty list that resolves to a non-empty character vector with no
 #' missing values.
@@ -314,13 +310,20 @@ create_required_directories <- function(paths) {
 
   if (is.character(audit_root_dir) && length(audit_root_dir) == 1) {
     normalized_audit_root <- fs::path_norm(audit_root_dir)
-    all_directories <- all_directories[!vapply(all_directories, \(path_value) {
-      normalized_path <- fs::path_norm(path_value)
-      identical(normalized_path, normalized_audit_root) || startsWith(
-        normalized_path,
-        paste0(normalized_audit_root, .Platform$file.sep)
+    all_directories <- all_directories[
+      !vapply(
+        all_directories,
+        \(path_value) {
+          normalized_path <- fs::path_norm(path_value)
+          identical(normalized_path, normalized_audit_root) ||
+            startsWith(
+              normalized_path,
+              paste0(normalized_audit_root, .Platform$file.sep)
+            )
+        },
+        logical(1)
       )
-    }, logical(1))]
+    ]
   }
 
   if (length(all_directories) > 0) {
@@ -332,9 +335,7 @@ create_required_directories <- function(paths) {
 
 #' @title ensure output directories
 #' @description creates parent directories for generated output files only when
-#'
 #' at least one file path is provided.
-#'
 #' @param output_paths character vector of file paths that will be generated.
 #' @return invisible character vector of parent directories that were created.
 #' @importFrom checkmate assert_character

@@ -4,7 +4,6 @@
 #' @title export processed data
 #' @description export a processed data frame to an excel workbook in the processed export path
 #' generated from configuration values.
-#'
 #' @param fao_data_raw data frame containing processed fao records; validated with
 #' `checkmate::assert_data_frame`.
 #' @param config named list with export configuration values required by generate_export_path;

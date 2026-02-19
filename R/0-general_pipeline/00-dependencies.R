@@ -23,9 +23,7 @@ required_packages <- c(
 
 #' @title abort on failed checkmate checks
 #' @description convert a `checkmate::check_*` result into a cli abort when validation fails.
-#'
 #' this keeps user-facing errors consistent and structured.
-#'
 #' @param check_result logical true or character scalar returned by a `checkmate::check_*`
 #' validator.
 #' @return invisible true when validation passes.
@@ -48,10 +46,8 @@ abort_on_checkmate_failure <- function(check_result) {
 
 #' @title check dependencies
 #' @description validates a character vector of package names, identifies missing packages,
-#'
 #' and installs any package that is not currently available via namespace lookup.
 #' this function is defensive and installs packages silently when required.
-#'
 #' @param packages character vector. must be non-missing, non-empty, and contain at least
 #' one package name.
 #' @return character vector of missing package names. returns an empty character vector when
@@ -95,9 +91,7 @@ check_dependencies <- function(packages) {
 
 #' @title load dependencies
 #' @description validates a character vector of package names and attaches each package with
-#'
 #' startup messages suppressed to keep project logs clean and deterministic.
-#'
 #' @param packages character vector. must be non-missing, non-empty, and contain at least
 #' one package name.
 #' @return invisible null. used for side effects by attaching packages to the session.

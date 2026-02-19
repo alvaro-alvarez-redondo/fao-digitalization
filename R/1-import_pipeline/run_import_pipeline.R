@@ -19,10 +19,8 @@ purrr::walk(
 
 #' @title run import pipeline
 #' @description run the complete import pipeline by discovering source files,
-#'
 #' reading sheets, transforming to wide and long outputs, validating each
 #' document group, and consolidating validated long tables with diagnostics.
-#'
 #' @param config named list containing at least `paths$data$imports$raw` and
 #' `paths$data$audit$audit_root_dir` as character scalar directories.
 #' @return named list with `data` as consolidated long `data.table`, `wide_raw`
@@ -39,7 +37,10 @@ run_import_pipeline <- function(config) {
   checkmate::assert_list(config, any.missing = FALSE)
   checkmate::assert_string(config$paths$data$imports$raw, min.chars = 1)
   checkmate::assert_directory_exists(config$paths$data$imports$raw)
-  checkmate::assert_string(config$paths$data$audit$audit_root_dir, min.chars = 1)
+  checkmate::assert_string(
+    config$paths$data$audit$audit_root_dir,
+    min.chars = 1
+  )
 
   prepare_audit_root(config$paths$data$audit$audit_root_dir)
 

@@ -5,7 +5,6 @@
 #' @title prepare audit root directory
 #' @description safely remove previous audit folder if it exists.
 #' only creates the audit folder when files are to be written.
-#'
 #' @param audit_root_dir character scalar path to the root audit folder.
 #' @return invisible logical scalar: TRUE if folder existed and was deleted, FALSE otherwise.
 #' @examples
@@ -18,9 +17,6 @@ prepare_audit_root <- function(audit_root_dir) {
     tryCatch(
       {
         fs::dir_delete(audit_root_dir)
-        cli::cli_alert_info(
-          "deleted previous audit folder at {.path {audit_root_dir}}"
-        )
         invisible(TRUE)
       },
       error = function(e) {
@@ -36,7 +32,6 @@ prepare_audit_root <- function(audit_root_dir) {
 
 #' @title empty audit findings data table
 #' @description create a standardized empty audit findings data table.
-#'
 #' @return data.table with predefined audit columns.
 #' @examples
 #' empty_audit_findings_dt()
@@ -55,7 +50,6 @@ empty_audit_findings_dt <- function() {
 
 #' @title load audit configuration
 #' @description validate required audit configuration fields used by the import audit pipeline.
-#'
 #' @param config named list containing required configuration elements.
 #' @return invisible TRUE when validation succeeds.
 #' @examples
@@ -111,11 +105,9 @@ load_audit_config <- function(config) {
 
 #' @title resolve audit output paths
 #' @description compute audit output paths without creating directories.
-#'
 #' @param audit_root_dir character scalar root audit directory.
 #' @param audit_file_name character scalar excel file name.
 #' @param mirror_dir_name character scalar mirror directory name.
-#'
 #' @return named list with audit_file_path and mirror_dir_path.
 #' @examples
 #' resolve_audit_output_paths("data/audit", "audit.xlsx", "mirror")
@@ -246,7 +238,6 @@ run_master_validation <- function(
 #' @description return audit columns grouped by validator type. if
 #' config$audit_columns_by_type is present, it is returned. otherwise,
 #' a default mapping is created from config$audit_columns and config$column_order.
-#'
 #' @param config named list with audit configuration.
 #' @return named list mapping audit types to column names.
 #' @examples
@@ -278,12 +269,10 @@ resolve_audit_columns_by_type <- function(config) {
 #' Only creates folders and workbook if there is data to export.
 #' Output is sorted by document and written to sheet audit_report
 #' with specific cells highlighted based on config styles.
-#'
 #' @param audit_dt data frame or data table containing at least document.
 #' @param config named audit configuration list containing export styles.
 #' @param findings_dt data table with row_index and audit_column.
 #' @param output_path character scalar destination path for the excel file.
-#'
 #' @return character scalar with written output path (or NULL if nothing written).
 #' @examples
 #' # export_validation_audit_report(audit_dt, config)
@@ -407,11 +396,9 @@ export_validation_audit_report <- function(
 #' @title mirror raw import errors
 #' @description copy raw import files associated with invalid audit records
 #' into a mirror directory while preserving relative folder structure.
-#'
 #' @param audit_dt data frame or data table containing at least document.
 #' @param raw_imports_dir character scalar path to raw import files.
 #' @param raw_imports_mirror_dir character scalar path to mirror destination.
-#'
 #' @return invisible character vector of mirrored target file paths.
 #' @examples
 #' # mirror_raw_import_errors(audit_dt, "data/imports/raw", "data/audit/mirror")
@@ -478,7 +465,6 @@ mirror_raw_import_errors <- function(
 
   invisible(as.character(target_paths))
 }
-
 
 #' @title create audited data output
 #' @description run audit, export excel, mirror files, and return numeric-parsed data.

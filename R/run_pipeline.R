@@ -1,20 +1,15 @@
 #' @title run full project pipeline
 #' @description run the general, import, and export pipelines in sequence.
 #'
-#'
-#'
 #' @param show_view logical flag. if `TRUE`, show `fao_data_raw` in the rstudio
 #'   viewer when it exists in the current environment.
 #' @param pipeline_root character scalar. root folder containing the pipeline
 #'   scripts.
-#'
 #' @return invisible `TRUE` when all pipeline scripts execute successfully.
-#'
 #' @examples
 #' \dontrun{
 #' run_pipeline(show_view = FALSE)
 #' }
-#'
 #' @export
 run_pipeline <- function(
   show_view = interactive(),
