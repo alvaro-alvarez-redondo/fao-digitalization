@@ -104,6 +104,26 @@ resolve_audit_output_paths <- function(
   )
 }
 
+#' @title clear audit output directory
+#' @description remove the audit output directory recursively when it exists.
+#'
+#' @param audit_root_dir character scalar audit root directory path.
+#' @return invisible logical scalar indicating whether a directory was deleted.
+#' @examples
+#' # clear_audit_output_directory("data/audit/fao_data_raw")
+#' @export
+clear_audit_output_directory <- function(audit_root_dir) {
+  assert_or_abort(checkmate::check_string(audit_root_dir, min.chars = 1))
+
+  if (!fs::dir_exists(audit_root_dir)) {
+    return(invisible(FALSE))
+  }
+
+  fs::dir_delete(audit_root_dir)
+
+  invisible(TRUE)
+}
+
 
 #' @title audit non-empty character values
 #' @description validate that values are non-missing and non-empty.
@@ -461,6 +481,9 @@ audit_data_output <- function(dataset_dt, config) {
 
   load_audit_config(config)
 
+  audit_root_dir <- fs::path_dir(config$paths$data$audit$audit_file_path)
+  clear_audit_output_directory(audit_root_dir)
+
   audit_result <- run_master_validation(
     dataset_dt,
     resolve_audit_columns_by_type(config)
@@ -492,8 +515,6 @@ audit_data_output <- function(dataset_dt, config) {
       findings_dt[, row_index := local_row_index]
       findings_dt[, local_row_index := NULL]
     }
-
-    audit_root_dir <- fs::path_dir(config$paths$data$audit$audit_file_path)
 
     prepared_paths <- resolve_audit_output_paths(
       audit_root_dir = audit_root_dir,
