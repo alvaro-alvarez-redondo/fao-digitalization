@@ -32,7 +32,7 @@ options(
 #' @importFrom here here
 #' @importFrom fs dir_create path
 #' @importFrom checkmate assert_string assert_directory_exists
-#' @importFrom cli cli_abort cli_inform
+#' @importFrom cli cli_abort
 #' @importFrom purrr walk
 #' @examples
 #' config <- load_pipeline_config("fao_data_raw")

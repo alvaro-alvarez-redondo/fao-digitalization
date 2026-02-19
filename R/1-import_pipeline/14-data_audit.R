@@ -492,7 +492,12 @@ audit_data_output <- function(dataset_dt, config) {
 
   load_audit_config(config)
 
-  audit_root_dir <- fs::path_dir(config$paths$data$audit$audit_file_path)
+  audit_root_dir <- config$paths$data$audit$audit_root_dir
+  audit_output_dir <- fs::path_dir(config$paths$data$audit$audit_file_path)
+
+  assert_or_abort(checkmate::check_string(audit_root_dir, min.chars = 1))
+  assert_or_abort(checkmate::check_string(audit_output_dir, min.chars = 1))
+
   prepare_audit_root(audit_root_dir)
 
   audit_result <- run_master_validation(
@@ -528,7 +533,7 @@ audit_data_output <- function(dataset_dt, config) {
     }
 
     prepared_paths <- resolve_audit_output_paths(
-      audit_root_dir = audit_root_dir,
+      audit_root_dir = audit_output_dir,
       audit_file_name = fs::path_file(config$paths$data$audit$audit_file_path),
       mirror_dir_name = fs::path_file(
         config$paths$data$audit$raw_imports_mirror_dir

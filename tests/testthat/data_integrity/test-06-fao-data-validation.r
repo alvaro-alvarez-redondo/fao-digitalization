@@ -247,18 +247,22 @@ testthat::test_that("audit_data_output clears stale audit outputs and does not r
   )
 
   config <- test_config
-  audit_dir <- fs::path(withr::local_tempdir(), "audit", "clean_dataset")
+  temp_root <- withr::local_tempdir()
+  audit_dir <- fs::path(temp_root, "audit", "clean_dataset")
   stale_file <- fs::path(audit_dir, "stale.xlsx")
 
   fs::dir_create(audit_dir, recurse = TRUE)
   fs::file_create(stale_file)
 
+  config$paths$data$audit$audit_root_dir <- fs::path(temp_root, "audit")
   config$paths$data$audit$audit_file_path <- fs::path(
-    audit_dir,
+    config$paths$data$audit$audit_root_dir,
+    "clean_dataset",
     "clean_dataset_audit.xlsx"
   )
   config$paths$data$audit$raw_imports_mirror_dir <- fs::path(
-    audit_dir,
+    config$paths$data$audit$audit_root_dir,
+    "clean_dataset",
     "raw_imports_mirror"
   )
 
