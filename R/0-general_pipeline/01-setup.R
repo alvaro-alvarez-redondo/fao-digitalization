@@ -273,11 +273,11 @@ load_pipeline_config <- function(dataset_name = "fao_data_raw", ...) {
 }
 
 #' @title create required directories
-#' @description validates a nested list of paths, flattens it to a
+#' @description validates a nested list of paths, flattens it to a character
 #'
-#' character vector, normalizes file paths to their parent directories, creates
-#' every directory if missing, and returns the resolved directory vector
-#' invisibly.
+#' vector, normalizes file paths to their parent directories, excludes audit
+#' directories for lazy creation, creates every remaining directory if missing,
+#' and returns the resolved directory vector invisibly.
 #'
 #' @param paths named or unnamed list containing character path elements. must
 #' be a non-empty list that resolves to a non-empty character vector with no
@@ -285,7 +285,7 @@ load_pipeline_config <- function(dataset_name = "fao_data_raw", ...) {
 #' @return invisible character vector of directories passed to
 #' `fs::dir_create()`.
 #' @importFrom checkmate assert_list assert_character
-#' @importFrom fs dir_create path_file path_dir
+#' @importFrom fs dir_create path_file path_dir path_norm
 #' @importFrom purrr map_chr
 #' @examples
 #' temp_paths <- list(a = file.path(tempdir(), "a"), b = file.path(tempdir(), "b"))
@@ -310,7 +310,47 @@ create_required_directories <- function(paths) {
     }) |>
     unique()
 
-  fs::dir_create(all_directories)
+  audit_root_dir <- paths$data$audit$audit_root_dir
+
+  if (is.character(audit_root_dir) && length(audit_root_dir) == 1) {
+    normalized_audit_root <- fs::path_norm(audit_root_dir)
+    all_directories <- all_directories[!vapply(all_directories, \(path_value) {
+      normalized_path <- fs::path_norm(path_value)
+      identical(normalized_path, normalized_audit_root) || startsWith(
+        normalized_path,
+        paste0(normalized_audit_root, .Platform$file.sep)
+      )
+    }, logical(1))]
+  }
+
+  if (length(all_directories) > 0) {
+    fs::dir_create(all_directories)
+  }
 
   invisible(all_directories)
+}
+
+#' @title ensure output directories
+#' @description creates parent directories for generated output files only when
+#'
+#' at least one file path is provided.
+#'
+#' @param output_paths character vector of file paths that will be generated.
+#' @return invisible character vector of parent directories that were created.
+#' @importFrom checkmate assert_character
+#' @importFrom fs dir_create path_dir
+#' @examples
+#' output_paths <- file.path(tempdir(), "audit", "dataset", "result.xlsx")
+#' ensure_output_directories(output_paths)
+ensure_output_directories <- function(output_paths) {
+  checkmate::assert_character(output_paths, any.missing = FALSE)
+
+  if (length(output_paths) == 0) {
+    return(invisible(character(0)))
+  }
+
+  output_directories <- unique(fs::path_dir(output_paths))
+  fs::dir_create(output_directories, recurse = TRUE)
+
+  invisible(output_directories)
 }
