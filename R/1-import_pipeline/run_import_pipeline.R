@@ -6,7 +6,6 @@ import_scripts <- c(
   "11-reading.R",
   "12-transform.R",
   "13-validate_log.R",
-  "14-data_audit.R",
   "15-output.R"
 )
 
@@ -21,8 +20,9 @@ purrr::walk(
 #' @description run the complete import pipeline by discovering source files,
 #' reading sheets, transforming to wide and long outputs, validating each
 #' document group, and consolidating validated long tables with diagnostics.
-#' @param config named list containing at least `paths$data$imports$raw` and
-#' `paths$data$audit$audit_root_dir` as character scalar directories.
+#' audit execution is handled in the export pipeline stage.
+#' @param config named list containing at least `paths$data$imports$raw` as a
+#' character scalar directory.
 #' @return named list with `data` as consolidated long `data.table`, `wide_raw`
 #' as transformed wide `data.table`, and `diagnostics` list with
 #' `reading_errors`, `validation_errors`, and `warnings` character vectors.
@@ -37,13 +37,6 @@ run_import_pipeline <- function(config) {
   checkmate::assert_list(config, any.missing = FALSE)
   checkmate::assert_string(config$paths$data$imports$raw, min.chars = 1)
   checkmate::assert_directory_exists(config$paths$data$imports$raw)
-  checkmate::assert_string(
-    config$paths$data$audit$audit_root_dir,
-    min.chars = 1
-  )
-
-  prepare_audit_root(config$paths$data$audit$audit_root_dir)
-
   file_list_dt <- discover_files(config$paths$data$imports$raw)
 
   if (nrow(file_list_dt) == 0) {
@@ -75,10 +68,9 @@ run_import_pipeline <- function(config) {
     unlist(use.names = FALSE)
 
   consolidated_result <- consolidate_audited_dt(audited_dt_list, config)
-  fao_data_audited <- audit_data_output(consolidated_result$data, config)
 
   list(
-    data = fao_data_audited,
+    data = consolidated_result$data,
     wide_raw = transformed$wide_raw,
     diagnostics = list(
       reading_errors = read_pipeline_result$errors,
