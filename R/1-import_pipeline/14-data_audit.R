@@ -2,6 +2,38 @@
 # description: validate consolidated import data, isolate invalid records,
 # and export audit artifacts with mirrored raw source files.
 
+#' @title prepare audit root directory
+#' @description safely remove previous audit folder if it exists.
+#' only creates the audit folder when files are to be written.
+#'
+#' @param audit_root_dir character scalar path to the root audit folder.
+#' @return invisible logical scalar: TRUE if folder existed and was deleted, FALSE otherwise.
+#' @examples
+#' # prepare_audit_root("data/audit")
+#' @export
+prepare_audit_root <- function(audit_root_dir) {
+  assert_or_abort(checkmate::check_string(audit_root_dir, min.chars = 1))
+
+  if (fs::dir_exists(audit_root_dir)) {
+    tryCatch(
+      {
+        fs::dir_delete(audit_root_dir)
+        cli::cli_alert_info(
+          "deleted previous audit folder at {.path {audit_root_dir}}"
+        )
+        invisible(TRUE)
+      },
+      error = function(e) {
+        cli::cli_abort(
+          "failed to delete existing audit folder {.path {audit_root_dir}}: {e$message}"
+        )
+      }
+    )
+  } else {
+    invisible(FALSE)
+  }
+}
+
 #' @title empty audit findings data table
 #' @description create a standardized empty audit findings data table.
 #'
@@ -103,27 +135,6 @@ resolve_audit_output_paths <- function(
     mirror_dir_path = fs::path(audit_root_dir, mirror_dir_name)
   )
 }
-
-#' @title clear audit output directory
-#' @description remove the audit output directory recursively when it exists.
-#'
-#' @param audit_root_dir character scalar audit root directory path.
-#' @return invisible logical scalar indicating whether a directory was deleted.
-#' @examples
-#' # clear_audit_output_directory("data/audit/fao_data_raw")
-#' @export
-clear_audit_output_directory <- function(audit_root_dir) {
-  assert_or_abort(checkmate::check_string(audit_root_dir, min.chars = 1))
-
-  if (!fs::dir_exists(audit_root_dir)) {
-    return(invisible(FALSE))
-  }
-
-  fs::dir_delete(audit_root_dir)
-
-  invisible(TRUE)
-}
-
 
 #' @title audit non-empty character values
 #' @description validate that values are non-missing and non-empty.
@@ -482,7 +493,7 @@ audit_data_output <- function(dataset_dt, config) {
   load_audit_config(config)
 
   audit_root_dir <- fs::path_dir(config$paths$data$audit$audit_file_path)
-  clear_audit_output_directory(audit_root_dir)
+  prepare_audit_root(audit_root_dir)
 
   audit_result <- run_master_validation(
     dataset_dt,

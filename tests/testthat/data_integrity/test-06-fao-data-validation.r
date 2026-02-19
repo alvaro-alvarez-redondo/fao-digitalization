@@ -231,45 +231,42 @@ testthat::test_that("clear_audit_output_directory deletes existing audit tree", 
   testthat::expect_false(fs::dir_exists(audit_dir))
 })
 
-testthat::test_that(
-  "audit_data_output clears stale audit outputs and does not recreate folder when clean",
-  {
-    input_dt <- data.table::data.table(
-      continent = "asia",
-      country = "nepal",
-      product = "rice",
-      variable = "production",
-      unit = "t",
-      year = "2020",
-      value = "1.25",
-      notes = NA_character_,
-      footnotes = "none",
-      yearbook = "yb_2020",
-      document = "sample.xlsx"
-    )
+testthat::test_that("audit_data_output clears stale audit outputs and does not recreate folder when clean", {
+  input_dt <- data.table::data.table(
+    continent = "asia",
+    country = "nepal",
+    product = "rice",
+    variable = "production",
+    unit = "t",
+    year = "2020",
+    value = "1.25",
+    notes = NA_character_,
+    footnotes = "none",
+    yearbook = "yb_2020",
+    document = "sample.xlsx"
+  )
 
-    config <- test_config
-    audit_dir <- fs::path(withr::local_tempdir(), "audit", "clean_dataset")
-    stale_file <- fs::path(audit_dir, "stale.xlsx")
+  config <- test_config
+  audit_dir <- fs::path(withr::local_tempdir(), "audit", "clean_dataset")
+  stale_file <- fs::path(audit_dir, "stale.xlsx")
 
-    fs::dir_create(audit_dir, recurse = TRUE)
-    fs::file_create(stale_file)
+  fs::dir_create(audit_dir, recurse = TRUE)
+  fs::file_create(stale_file)
 
-    config$paths$data$audit$audit_file_path <- fs::path(
-      audit_dir,
-      "clean_dataset_audit.xlsx"
-    )
-    config$paths$data$audit$raw_imports_mirror_dir <- fs::path(
-      audit_dir,
-      "raw_imports_mirror"
-    )
+  config$paths$data$audit$audit_file_path <- fs::path(
+    audit_dir,
+    "clean_dataset_audit.xlsx"
+  )
+  config$paths$data$audit$raw_imports_mirror_dir <- fs::path(
+    audit_dir,
+    "raw_imports_mirror"
+  )
 
-    audited_dt <- audit_data_output(input_dt, config)
+  audited_dt <- audit_data_output(input_dt, config)
 
-    testthat::expect_true(data.table::is.data.table(audited_dt))
-    testthat::expect_false(fs::dir_exists(audit_dir))
-  }
-)
+  testthat::expect_true(data.table::is.data.table(audited_dt))
+  testthat::expect_false(fs::dir_exists(audit_dir))
+})
 
 testthat::test_that("load_audit_config rejects missing required fields", {
   invalid_config <- list(column_order = "document")
@@ -314,9 +311,18 @@ testthat::test_that("mirror_raw_import_errors returns empty when no document mat
 testthat::test_that("load_pipeline_config includes centralized error highlight style", {
   config <- load_pipeline_config("fao_data_raw")
 
-  testthat::expect_identical(config$export_config$styles$error_highlight$fgFill, "#ffff00")
-  testthat::expect_identical(config$export_config$styles$error_highlight$fontColour, "#000000")
-  testthat::expect_identical(config$export_config$styles$error_highlight$textDecoration, "bold")
+  testthat::expect_identical(
+    config$export_config$styles$error_highlight$fgFill,
+    "#ffff00"
+  )
+  testthat::expect_identical(
+    config$export_config$styles$error_highlight$fontColour,
+    "#000000"
+  )
+  testthat::expect_identical(
+    config$export_config$styles$error_highlight$textDecoration,
+    "bold"
+  )
 })
 
 testthat::test_that("identify_audit_errors can return detailed findings object", {
@@ -334,10 +340,16 @@ testthat::test_that("identify_audit_errors can return detailed findings object",
     document = c("a.xlsx", "b.xlsx")
   )
 
-  audit_result <- identify_audit_errors(input_dt, test_config, include_findings = TRUE)
+  audit_result <- identify_audit_errors(
+    input_dt,
+    test_config,
+    include_findings = TRUE
+  )
 
   testthat::expect_named(audit_result, c("audit_dt", "findings_dt"))
   testthat::expect_true(data.table::is.data.table(audit_result$audit_dt))
   testthat::expect_true(data.table::is.data.table(audit_result$findings_dt))
-  testthat::expect_true(all(c("row_index", "audit_column") %in% names(audit_result$findings_dt)))
+  testthat::expect_true(all(
+    c("row_index", "audit_column") %in% names(audit_result$findings_dt)
+  ))
 })
