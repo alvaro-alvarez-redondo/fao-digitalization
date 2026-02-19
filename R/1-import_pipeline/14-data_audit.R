@@ -77,9 +77,8 @@ load_audit_config <- function(config) {
   invisible(TRUE)
 }
 
-#' @title prepare audit output directory
-#' @description attempt to delete the entire audit directory before export.
-#' if deletion fails, create a timestamped subdirectory and export there.
+#' @title resolve audit output paths
+#' @description compute audit output paths without creating directories.
 #'
 #' @param audit_root_dir character scalar root audit directory.
 #' @param audit_file_name character scalar excel file name.
@@ -87,9 +86,9 @@ load_audit_config <- function(config) {
 #'
 #' @return named list with audit_file_path and mirror_dir_path.
 #' @examples
-#' # prepare_audit_output_directory("data/audit", "audit.xlsx", "mirror")
+#' resolve_audit_output_paths("data/audit", "audit.xlsx", "mirror")
 #' @export
-prepare_audit_output_directory <- function(
+resolve_audit_output_paths <- function(
   audit_root_dir,
   audit_file_name,
   mirror_dir_name
@@ -98,42 +97,13 @@ prepare_audit_output_directory <- function(
   assert_or_abort(checkmate::check_string(audit_file_name, min.chars = 1))
   assert_or_abort(checkmate::check_string(mirror_dir_name, min.chars = 1))
 
-  deletion_successful <- FALSE
-
-  if (fs::dir_exists(audit_root_dir)) {
-    deletion_successful <- tryCatch(
-      {
-        fs::dir_delete(audit_root_dir)
-        TRUE
-      },
-      error = function(e) FALSE
-    )
-  }
-
-  if (deletion_successful || !fs::dir_exists(audit_root_dir)) {
-    fs::dir_create(audit_root_dir, recurse = TRUE)
-
-    return(list(
-      audit_file_path = fs::path(audit_root_dir, audit_file_name),
-      mirror_dir_path = fs::path(audit_root_dir, mirror_dir_name)
-    ))
-  }
-
-  timestamp_id <- format(Sys.time(), "%Y%m%d_%H%M%S")
-  fallback_dir <- fs::path(audit_root_dir, paste0("audit_", timestamp_id))
-  fs::dir_create(fallback_dir, recurse = TRUE)
-
-  cli::cli_warn(c(
-    "could not delete existing audit directory",
-    "i" = "creating versioned audit folder instead",
-    "path" = "{fallback_dir}"
-  ))
-
   list(
-    audit_file_path = fs::path(fallback_dir, audit_file_name),
-    mirror_dir_path = fs::path(fallback_dir, mirror_dir_name)
+    audit_root_dir = audit_root_dir,
+    audit_file_path = fs::path(audit_root_dir, audit_file_name),
+    mirror_dir_path = fs::path(audit_root_dir, mirror_dir_name)
   )
 }
+
 
 #' @title audit non-empty character values
 #' @description validate that values are non-missing and non-empty.
@@ -274,7 +244,8 @@ resolve_audit_columns_by_type <- function(config) {
 
 #' @title export validation audit report
 #' @description write audit results to an excel workbook at output_path.
-#' output is sorted by document and written to sheet audit_report
+#' Only creates folders and workbook if there is data to export.
+#' Output is sorted by document and written to sheet audit_report
 #' with specific cells highlighted based on config styles.
 #'
 #' @param audit_dt data frame or data table containing at least document.
@@ -282,7 +253,7 @@ resolve_audit_columns_by_type <- function(config) {
 #' @param findings_dt data table with row_index and audit_column.
 #' @param output_path character scalar destination path for the excel file.
 #'
-#' @return character scalar with written output path.
+#' @return character scalar with written output path (or NULL if nothing written).
 #' @examples
 #' # export_validation_audit_report(audit_dt, config)
 #' @export
@@ -302,14 +273,23 @@ export_validation_audit_report <- function(
 
   load_audit_config(config)
 
-  export_dt <- data.table::as.data.table(data.table::copy(audit_dt))
-
-  if ("row_index" %in% names(export_dt)) {
-    export_dt[, source_row_index := row_index]
-  } else {
-    export_dt[, source_row_index := seq_len(.N)]
+  # nothing to export
+  if (nrow(audit_dt) == 0) {
+    return(invisible(NULL))
   }
 
+  export_dt <- data.table::as.data.table(data.table::copy(audit_dt))
+
+  # create source row index
+  export_dt[,
+    source_row_index := if ("row_index" %in% names(export_dt)) {
+      row_index
+    } else {
+      seq_len(.N)
+    }
+  ]
+
+  # sort by document
   if ("document" %in% names(export_dt)) {
     data.table::setorderv(export_dt, cols = "document", na.last = TRUE)
   }
@@ -321,20 +301,18 @@ export_validation_audit_report <- function(
     "audit_type",
     "audit_message"
   )
-
   cols_to_show <- setdiff(names(export_dt), technical_cols)
-
   row_lookup_dt <- export_dt[, .(excel_row = .I + 1L), by = .(source_row_index)]
 
-  fs::dir_create(fs::path_dir(output_path), recurse = TRUE)
+  output_dir <- fs::path_dir(output_path)
 
+  # create workbook only if there is data
   workbook <- openxlsx::createWorkbook()
   openxlsx::addWorksheet(workbook, "audit_report")
-
   openxlsx::writeData(workbook, "audit_report", export_dt[, ..cols_to_show])
 
+  # determine effective findings
   effective_findings_dt <- findings_dt
-
   if (
     is.null(effective_findings_dt) &&
       all(c("row_index", "audit_column") %in% names(export_dt))
@@ -342,13 +320,13 @@ export_validation_audit_report <- function(
     effective_findings_dt <- unique(export_dt[, .(row_index, audit_column)])
   }
 
+  # highlight errors if any
   if (
     !is.null(effective_findings_dt) &&
       nrow(export_dt) > 0 &&
       nrow(effective_findings_dt) > 0
   ) {
     style_config <- config$export_config$styles$error_highlight
-
     highlight_style <- do.call(openxlsx::createStyle, style_config)
 
     findings_to_style <- data.table::as.data.table(effective_findings_dt)
@@ -358,25 +336,17 @@ export_validation_audit_report <- function(
 
     if (nrow(findings_to_style) > 0) {
       findings_to_style[, source_row_index := as.integer(row_index)]
-
       findings_to_style <- merge(
         findings_to_style,
         row_lookup_dt,
         by = "source_row_index",
         all.x = FALSE
       )
-
       column_index_map <- setNames(seq_along(cols_to_show), cols_to_show)
-
-      findings_to_style <- findings_to_style[
-        audit_column %in% cols_to_show
-      ]
+      findings_to_style <- findings_to_style[audit_column %in% cols_to_show]
 
       if (nrow(findings_to_style) > 0) {
-        findings_to_style[,
-          excel_col := unname(column_index_map[audit_column])
-        ]
-
+        findings_to_style[, excel_col := unname(column_index_map[audit_column])]
         style_groups <- split(
           findings_to_style$excel_row,
           findings_to_style$excel_col
@@ -385,7 +355,6 @@ export_validation_audit_report <- function(
         purrr::walk(names(style_groups), function(col_idx_chr) {
           col_idx <- as.integer(col_idx_chr)
           rows_to_paint <- style_groups[[col_idx_chr]]
-
           openxlsx::addStyle(
             workbook,
             sheet = "audit_report",
@@ -399,10 +368,15 @@ export_validation_audit_report <- function(
     }
   }
 
-  openxlsx::saveWorkbook(workbook, output_path, overwrite = TRUE)
+  # create output directory only if needed
+  if (!fs::dir_exists(output_dir)) {
+    fs::dir_create(output_dir, recurse = TRUE)
+  }
 
+  openxlsx::saveWorkbook(workbook, output_path, overwrite = TRUE)
   output_path
 }
+
 
 #' @title mirror raw import errors
 #' @description copy raw import files associated with invalid audit records
@@ -437,12 +411,9 @@ mirror_raw_import_errors <- function(
   error_documents <- error_documents[
     !is.na(error_documents) & nzchar(error_documents)
   ]
-
   if (length(error_documents) == 0) {
     return(invisible(character(0)))
   }
-
-  fs::dir_create(raw_imports_mirror_dir, recurse = TRUE)
 
   raw_files <- fs::dir_ls(
     path = raw_imports_dir,
@@ -450,17 +421,13 @@ mirror_raw_import_errors <- function(
     recurse = TRUE,
     glob = "*.xlsx"
   )
-
   if (length(raw_files) == 0) {
-    cli::cli_warn(
-      "no raw import files found under {.path {raw_imports_dir}}"
-    )
+    cli::cli_warn("no raw import files found under {.path {raw_imports_dir}}")
     return(invisible(character(0)))
   }
 
   raw_file_names <- fs::path_file(raw_files)
   selected_rows <- raw_file_names %in% error_documents
-
   if (!any(selected_rows)) {
     cli::cli_warn(
       "no matching raw import files were found for mirrored audit output"
@@ -469,7 +436,6 @@ mirror_raw_import_errors <- function(
   }
 
   unmatched_documents <- setdiff(error_documents, raw_file_names)
-
   if (length(unmatched_documents) > 0) {
     cli::cli_warn(c(
       "some audited documents were not found in raw imports",
@@ -478,22 +444,18 @@ mirror_raw_import_errors <- function(
   }
 
   matched_paths <- raw_files[selected_rows]
+  relative_paths <- fs::path_rel(matched_paths, start = raw_imports_dir)
+  target_paths <- fs::path(raw_imports_mirror_dir, relative_paths)
 
-  relative_paths <- fs::path_rel(
-    matched_paths,
-    start = raw_imports_dir
-  )
-
-  target_paths <- fs::path(
-    raw_imports_mirror_dir,
-    relative_paths
-  )
-
+  if (!fs::dir_exists(raw_imports_mirror_dir)) {
+    fs::dir_create(raw_imports_mirror_dir, recurse = TRUE)
+  }
   fs::dir_create(fs::path_dir(target_paths))
   fs::file_copy(matched_paths, target_paths, overwrite = TRUE)
 
   invisible(as.character(target_paths))
 }
+
 
 #' @title create audited data output
 #' @description run audit, export excel, mirror files, and return numeric-parsed data.
@@ -541,7 +503,7 @@ audit_data_output <- function(dataset_dt, config) {
 
     audit_root_dir <- fs::path_dir(config$paths$data$audit$audit_file_path)
 
-    prepared_paths <- prepare_audit_output_directory(
+    prepared_paths <- resolve_audit_output_paths(
       audit_root_dir = audit_root_dir,
       audit_file_name = fs::path_file(config$paths$data$audit$audit_file_path),
       mirror_dir_name = fs::path_file(
@@ -565,9 +527,11 @@ audit_data_output <- function(dataset_dt, config) {
 
   audited_dt <- data.table::as.data.table(dataset_dt)
 
-  audited_dt[,
-    value := suppressWarnings(readr::parse_double(as.character(value)))
-  ]
+  if ("value" %in% names(audited_dt)) {
+    audited_dt[,
+      value := suppressWarnings(readr::parse_double(as.character(value)))
+    ]
+  }
 
   audited_dt
 }
