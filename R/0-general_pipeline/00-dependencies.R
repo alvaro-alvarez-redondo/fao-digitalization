@@ -58,7 +58,7 @@ abort_on_checkmate_failure <- function(check_result) {
 #' all dependencies are already installed.
 #' @importFrom checkmate check_character
 #' @importFrom base requireNamespace
-#' @importFrom cli cli_inform cli_warn
+#' @importFrom cli cli_alert_info cli_warn
 #' @importFrom renv install
 #' @examples
 #' missing_packages <- check_dependencies(c("stats", "utils"))
@@ -87,7 +87,7 @@ check_dependencies <- function(packages) {
 
     renv::install(missing_packages)
 
-    cli::cli_inform("dependency installation completed")
+    cli::cli_alert_info("dependency installation completed")
   }
 
   missing_packages

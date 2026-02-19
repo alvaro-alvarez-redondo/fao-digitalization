@@ -37,6 +37,35 @@ testthat::test_that("check_dependencies returns unique missing packages", {
   testthat::expect_identical(missing_packages, c("pkg_a", "pkg_b"))
 })
 
+testthat::test_that("check_dependencies emits info alert after installation", {
+  mock_require_namespace <- function(package, quietly = TRUE) {
+    FALSE
+  }
+
+  mock_renv_install <- function(packages) {
+    invisible(packages)
+  }
+
+  info_called <- FALSE
+  mock_cli_alert_info <- function(...) {
+    info_called <<- TRUE
+    invisible(NULL)
+  }
+
+  missing_packages <- testthat::with_mocked_bindings(
+    requireNamespace = mock_require_namespace,
+    `renv::install` = mock_renv_install,
+    `cli::cli_alert_info` = mock_cli_alert_info,
+    .env = environment(check_dependencies),
+    {
+      check_dependencies(c("pkg_a"))
+    }
+  )
+
+  testthat::expect_true(info_called)
+  testthat::expect_identical(missing_packages, c("pkg_a"))
+})
+
 testthat::test_that("load_dependencies validates inputs with cli errors", {
   testthat::expect_error(
     load_dependencies(character()),

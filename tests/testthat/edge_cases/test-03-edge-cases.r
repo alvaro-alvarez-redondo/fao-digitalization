@@ -293,3 +293,37 @@ testthat::test_that("read helpers return standardized empty structures", {
   testthat::expect_true(has_read_errors(list(result = NULL, errors = "x")))
   testthat::expect_false(has_read_errors(list(result = 1L, errors = character(0))))
 })
+
+testthat::test_that("run_import_pipeline deletes stale audit root before file discovery", {
+  withr::local_options(list(fao.run_import_pipeline.auto = FALSE))
+  source(here::here("R/1-import_pipeline/run_import_pipeline.R"), echo = FALSE)
+
+  temp_root <- withr::local_tempdir()
+  raw_imports_dir <- fs::path(temp_root, "raw_imports")
+  audit_root_dir <- fs::path(temp_root, "audit")
+
+  fs::dir_create(raw_imports_dir, recurse = TRUE)
+  fs::dir_create(fs::path(audit_root_dir, "old_dataset"), recurse = TRUE)
+  fs::file_create(fs::path(audit_root_dir, "old_dataset", "stale.xlsx"))
+
+  config <- test_config
+  config$paths$data$imports$raw <- raw_imports_dir
+  config$paths$data$audit$audit_root_dir <- audit_root_dir
+  config$paths$data$audit$audit_file_path <- fs::path(
+    audit_root_dir,
+    "new_dataset",
+    "new_dataset_audit.xlsx"
+  )
+  config$paths$data$audit$raw_imports_mirror_dir <- fs::path(
+    audit_root_dir,
+    "new_dataset",
+    "raw_imports_mirror"
+  )
+
+  testthat::expect_error(
+    run_import_pipeline(config),
+    regexp = "no excel files were found"
+  )
+
+  testthat::expect_false(fs::dir_exists(audit_root_dir))
+})
