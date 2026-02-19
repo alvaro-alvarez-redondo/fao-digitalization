@@ -240,7 +240,7 @@ transform_file_dt <- function(df, file_name, yearbook, product_name, config) {
 #' @examples
 #' # resolve_product_name(file_row_example, config_example)
 resolve_product_name <- function(file_row, config) {
-  checkmate::assert_data_frame(file_row, min.rows = 1)
+  checkmate::assert_data_frame(file_row, min.rows = 1, max.rows = 1)
   checkmate::assert_list(config, any.missing = FALSE)
 
   show_missing_product_metadata_warning <-
@@ -278,7 +278,7 @@ resolve_product_name <- function(file_row, config) {
 #' @examples
 #' # transform_single_file(file_row_example, df_wide_example, config_example)
 transform_single_file <- function(file_row, df_wide, config) {
-  checkmate::assert_data_frame(file_row, min.rows = 1)
+  checkmate::assert_data_frame(file_row, min.rows = 1, max.rows = 1)
   checkmate::assert_names(
     names(file_row),
     must.include = c("file_name", "yearbook", "product"),

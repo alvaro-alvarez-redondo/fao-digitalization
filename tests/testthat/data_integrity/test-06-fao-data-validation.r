@@ -217,6 +217,60 @@ testthat::test_that("audit_data_output returns numeric value for clean rows", {
   testthat::expect_identical(audited_dt$value[[1]], 1.25)
 })
 
+testthat::test_that("clear_audit_output_directory deletes existing audit tree", {
+  temp_root <- withr::local_tempdir()
+  audit_dir <- fs::path(temp_root, "audit", "dataset_a")
+  stale_file <- fs::path(audit_dir, "stale.xlsx")
+
+  fs::dir_create(audit_dir, recurse = TRUE)
+  fs::file_create(stale_file)
+
+  deleted <- clear_audit_output_directory(audit_dir)
+
+  testthat::expect_true(deleted)
+  testthat::expect_false(fs::dir_exists(audit_dir))
+})
+
+testthat::test_that(
+  "audit_data_output clears stale audit outputs and does not recreate folder when clean",
+  {
+    input_dt <- data.table::data.table(
+      continent = "asia",
+      country = "nepal",
+      product = "rice",
+      variable = "production",
+      unit = "t",
+      year = "2020",
+      value = "1.25",
+      notes = NA_character_,
+      footnotes = "none",
+      yearbook = "yb_2020",
+      document = "sample.xlsx"
+    )
+
+    config <- test_config
+    audit_dir <- fs::path(withr::local_tempdir(), "audit", "clean_dataset")
+    stale_file <- fs::path(audit_dir, "stale.xlsx")
+
+    fs::dir_create(audit_dir, recurse = TRUE)
+    fs::file_create(stale_file)
+
+    config$paths$data$audit$audit_file_path <- fs::path(
+      audit_dir,
+      "clean_dataset_audit.xlsx"
+    )
+    config$paths$data$audit$raw_imports_mirror_dir <- fs::path(
+      audit_dir,
+      "raw_imports_mirror"
+    )
+
+    audited_dt <- audit_data_output(input_dt, config)
+
+    testthat::expect_true(data.table::is.data.table(audited_dt))
+    testthat::expect_false(fs::dir_exists(audit_dir))
+  }
+)
+
 testthat::test_that("load_audit_config rejects missing required fields", {
   invalid_config <- list(column_order = "document")
 

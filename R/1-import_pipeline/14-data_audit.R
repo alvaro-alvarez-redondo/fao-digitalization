@@ -104,6 +104,26 @@ resolve_audit_output_paths <- function(
   )
 }
 
+#' @title clear audit output directory
+#' @description remove the audit output directory recursively when it exists.
+#'
+#' @param audit_root_dir character scalar audit root directory path.
+#' @return invisible logical scalar indicating whether a directory was deleted.
+#' @examples
+#' # clear_audit_output_directory("data/audit/fao_data_raw")
+#' @export
+clear_audit_output_directory <- function(audit_root_dir) {
+  assert_or_abort(checkmate::check_string(audit_root_dir, min.chars = 1))
+
+  if (!fs::dir_exists(audit_root_dir)) {
+    return(invisible(FALSE))
+  }
+
+  fs::dir_delete(audit_root_dir)
+
+  invisible(TRUE)
+}
+
 
 #' @title audit non-empty character values
 #' @description validate that values are non-missing and non-empty.
@@ -304,8 +324,6 @@ export_validation_audit_report <- function(
   cols_to_show <- setdiff(names(export_dt), technical_cols)
   row_lookup_dt <- export_dt[, .(excel_row = .I + 1L), by = .(source_row_index)]
 
-  output_dir <- fs::path_dir(output_path)
-
   # create workbook only if there is data
   workbook <- openxlsx::createWorkbook()
   openxlsx::addWorksheet(workbook, "audit_report")
@@ -368,10 +386,7 @@ export_validation_audit_report <- function(
     }
   }
 
-  # create output directory only if needed
-  if (!fs::dir_exists(output_dir)) {
-    fs::dir_create(output_dir, recurse = TRUE)
-  }
+  ensure_output_directories(output_path)
 
   openxlsx::saveWorkbook(workbook, output_path, overwrite = TRUE)
   output_path
@@ -447,10 +462,7 @@ mirror_raw_import_errors <- function(
   relative_paths <- fs::path_rel(matched_paths, start = raw_imports_dir)
   target_paths <- fs::path(raw_imports_mirror_dir, relative_paths)
 
-  if (!fs::dir_exists(raw_imports_mirror_dir)) {
-    fs::dir_create(raw_imports_mirror_dir, recurse = TRUE)
-  }
-  fs::dir_create(fs::path_dir(target_paths))
+  ensure_output_directories(target_paths)
   fs::file_copy(matched_paths, target_paths, overwrite = TRUE)
 
   invisible(as.character(target_paths))
@@ -468,6 +480,9 @@ audit_data_output <- function(dataset_dt, config) {
   assert_or_abort(checkmate::check_list(config, min.len = 1))
 
   load_audit_config(config)
+
+  audit_root_dir <- fs::path_dir(config$paths$data$audit$audit_file_path)
+  clear_audit_output_directory(audit_root_dir)
 
   audit_result <- run_master_validation(
     dataset_dt,
@@ -500,8 +515,6 @@ audit_data_output <- function(dataset_dt, config) {
       findings_dt[, row_index := local_row_index]
       findings_dt[, local_row_index := NULL]
     }
-
-    audit_root_dir <- fs::path_dir(config$paths$data$audit$audit_file_path)
 
     prepared_paths <- resolve_audit_output_paths(
       audit_root_dir = audit_root_dir,
