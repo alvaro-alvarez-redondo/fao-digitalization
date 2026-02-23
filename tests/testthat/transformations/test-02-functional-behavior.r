@@ -161,6 +161,17 @@ testthat::test_that("consolidate_audited_dt validates required schema coverage",
 })
 
 
+
+
+testthat::test_that("consolidate_audited_dt keeps schema columns on empty consolidation", {
+  consolidated <- consolidate_audited_dt(list(NULL), test_config)
+
+  testthat::expect_true(data.table::is.data.table(consolidated$data))
+  testthat::expect_identical(colnames(consolidated$data), test_config$column_order)
+  testthat::expect_identical(nrow(consolidated$data), 0L)
+  testthat::expect_type(consolidated$warnings, "character")
+})
+
 testthat::test_that("consolidate_audited_dt fails when column_order is undefined", {
   config_missing_column_order <- test_config
   config_missing_column_order$column_order <- NULL

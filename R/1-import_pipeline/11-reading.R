@@ -152,10 +152,10 @@ read_excel_sheet <- function(file_path, sheet_name, config) {
     read_dt[, (missing_base) := NA_character_]
   }
 
-  keep_row <- read_dt[,
-    rowSums(!is.na(as.matrix(.SD)) & trimws(as.matrix(.SD)) != "") > 0,
-    .SDcols = base_cols
-  ]
+  base_matrix <- as.matrix(read_dt[, ..base_cols])
+  keep_row <- rowSums(
+    !is.na(base_matrix) & nzchar(trimws(base_matrix))
+  ) > 0
 
   filtered_dt <- read_dt[keep_row]
   filtered_dt[, variable := sheet_name]
@@ -218,20 +218,20 @@ read_file_sheets <- function(file_path, config) {
     character(0)
   }
 
-  sheets_list <- purrr::map(sheets, \(sheet_name) {
-    read_excel_sheet(file_path, sheet_name, config)
-  })
+  sheets_data <- vector("list", length(sheets))
+  error_items <- vector("list", length(sheets) + 1)
+  error_items[[1]] <- errors
 
-  combined_data <- sheets_list |>
-    purrr::map("data") |>
-    data.table::rbindlist(use.names = TRUE, fill = TRUE)
+  for (sheet_index in seq_along(sheets)) {
+    sheet_result <- read_excel_sheet(file_path, sheets[[sheet_index]], config)
+    sheets_data[[sheet_index]] <- sheet_result$data
+    error_items[[sheet_index + 1]] <- sheet_result$errors
+  }
 
-  combined_errors <- c(
-    errors,
-    sheets_list |> purrr::map("errors") |> unlist(use.names = FALSE)
+  list(
+    data = data.table::rbindlist(sheets_data, use.names = TRUE, fill = TRUE),
+    errors = unlist(error_items, use.names = FALSE)
   )
-
-  list(data = combined_data, errors = combined_errors)
 }
 
 #' @title read pipeline files
@@ -245,7 +245,7 @@ read_file_sheets <- function(file_path, config) {
 #' @return named list with `read_data_list` as a list of `data.table` objects and
 #' `errors` as a character vector.
 #' @importFrom checkmate check_character check_data_frame check_list check_names
-#' @importFrom purrr map transpose
+#' @importFrom purrr map
 #' @examples
 #' file_list_example <- data.frame(file_path = character())
 #' config_example <- list(column_required = c("country", "year"))
@@ -285,24 +285,22 @@ read_pipeline_files <- function(file_list_dt, config) {
     message_template = "Import pipeline: reading file %s/%s"
   )
 
-  parsed_results <- purrr::transpose(read_results)
+  read_data_list <- vector("list", length(read_results))
+  error_items <- vector("list", length(read_results) * 2)
 
-  failed_results <- parsed_results$errors |>
-    unlist(use.names = FALSE)
+  for (result_index in seq_along(read_results)) {
+    current_result <- read_results[[result_index]]
+    error_items[[result_index * 2 - 1]] <- current_result$errors
 
-  per_file_results <- purrr::map(parsed_results$result, \(result_item) {
-    if (is.null(result_item)) {
-      return(create_empty_read_result())
+    if (is.null(current_result$result)) {
+      empty_result <- create_empty_read_result()
+      read_data_list[[result_index]] <- empty_result$data
+      error_items[[result_index * 2]] <- empty_result$errors
+    } else {
+      read_data_list[[result_index]] <- current_result$result$data
+      error_items[[result_index * 2]] <- current_result$result$errors
     }
+  }
 
-    result_item
-  })
-
-  list(
-    read_data_list = per_file_results |> purrr::map("data"),
-    errors = c(
-      failed_results,
-      per_file_results |> purrr::map("errors") |> unlist(use.names = FALSE)
-    )
-  )
+  list(read_data_list = read_data_list, errors = unlist(error_items, use.names = FALSE))
 }

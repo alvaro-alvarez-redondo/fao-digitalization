@@ -8,7 +8,9 @@
 #' @param audit_root_dir character scalar path to the root audit folder.
 #' @return invisible logical scalar: TRUE if folder existed and was deleted, FALSE otherwise.
 #' @examples
-#' # prepare_audit_root("data/audit")
+#' temp_audit_dir <- fs::path(tempdir(), "audit_root")
+#' fs::dir_create(temp_audit_dir)
+#' prepare_audit_root(temp_audit_dir)
 #' @export
 prepare_audit_root <- function(audit_root_dir) {
   assert_or_abort(checkmate::check_string(audit_root_dir, min.chars = 1))
@@ -50,7 +52,20 @@ empty_audit_findings_dt <- function() {
 #' @param config named list containing required configuration elements.
 #' @return invisible TRUE when validation succeeds.
 #' @examples
-#' # load_audit_config(config)
+#' config_example <- list(
+#'   column_order = c("document", "value"),
+#'   audit_columns = c("document", "value"),
+#'   paths = list(
+#'     data = list(
+#'       imports = list(raw = tempdir()),
+#'       audit = list(
+#'         audit_file_path = fs::path(tempdir(), "audit.xlsx"),
+#'         raw_imports_mirror_dir = fs::path(tempdir(), "mirror")
+#'       )
+#'     )
+#'   )
+#' )
+#' load_audit_config(config_example)
 #' @export
 load_audit_config <- function(config) {
   assert_or_abort(checkmate::check_list(
@@ -127,11 +142,13 @@ resolve_audit_output_paths <- function(
 
 #' @title audit non-empty character values
 #' @description validate that values are non-missing and non-empty.
-#' @param dataset_dt data frame.
+#' @param dataset_dt data frame containing the `column_name` field.
 #' @param column_name character scalar.
-#' @return data.table of findings.
+#' @return `data.table` with columns `row_index`, `audit_column`, `audit_type`,
+#' and `audit_message`.
 #' @examples
-#' # audit_character_non_empty(df, "document")
+#' input_dt <- data.table::data.table(document = c("file.xlsx", "", NA_character_))
+#' audit_character_non_empty(input_dt, "document")
 #' @export
 audit_character_non_empty <- function(dataset_dt, column_name) {
   assert_or_abort(checkmate::check_data_frame(dataset_dt, min.rows = 0))
@@ -158,11 +175,13 @@ audit_character_non_empty <- function(dataset_dt, column_name) {
 
 #' @title audit numeric string values
 #' @description validate numeric string pattern.
-#' @param dataset_dt data frame.
+#' @param dataset_dt data frame containing the `column_name` field.
 #' @param column_name character scalar.
-#' @return data.table of findings.
+#' @return `data.table` with columns `row_index`, `audit_column`, `audit_type`,
+#' and `audit_message`.
 #' @examples
-#' # audit_numeric_string(df)
+#' input_dt <- data.table::data.table(value = c("10", "7.5", "invalid"))
+#' audit_numeric_string(input_dt)
 #' @export
 audit_numeric_string <- function(dataset_dt, column_name = "value") {
   assert_or_abort(checkmate::check_data_frame(dataset_dt, min.rows = 0))
@@ -189,12 +208,20 @@ audit_numeric_string <- function(dataset_dt, column_name = "value") {
 
 #' @title run master validation
 #' @description execute configured validators.
-#' @param dataset_dt data frame.
-#' @param audit_columns_by_type named list.
-#' @param selected_validations optional character vector.
-#' @return named list with findings and invalid_row_index.
+#' @param dataset_dt data frame with columns referenced by
+#' `audit_columns_by_type`.
+#' @param audit_columns_by_type named list that maps validation types to
+#' character vectors of column names.
+#' @param selected_validations optional character vector. currently reserved
+#' for future scoped execution.
+#' @return named list with `findings` (`data.table`) and
+#' `invalid_row_index` (integer vector).
 #' @examples
-#' # run_master_validation(df, audit_map)
+#' input_dt <- data.table::data.table(document = c("file.xlsx", ""), value = c("10", "x"))
+#' run_master_validation(
+#'   input_dt,
+#'   list(character_non_empty = "document", numeric_string = "value")
+#' )
 #' @export
 run_master_validation <- function(
   dataset_dt,
@@ -238,7 +265,20 @@ run_master_validation <- function(
 #' @param config named list with audit configuration.
 #' @return named list mapping audit types to column names.
 #' @examples
-#' # resolve_audit_columns_by_type(config)
+#' config_example <- list(
+#'   column_order = c("document", "value"),
+#'   audit_columns = c("document", "value"),
+#'   paths = list(
+#'     data = list(
+#'       imports = list(raw = tempdir()),
+#'       audit = list(
+#'         audit_file_path = fs::path(tempdir(), "audit.xlsx"),
+#'         raw_imports_mirror_dir = fs::path(tempdir(), "mirror")
+#'       )
+#'     )
+#'   )
+#' )
+#' resolve_audit_columns_by_type(config_example)
 #' @export
 resolve_audit_columns_by_type <- function(config) {
   assert_or_abort(checkmate::check_list(
@@ -272,7 +312,9 @@ resolve_audit_columns_by_type <- function(config) {
 #' @param output_path character scalar destination path for the excel file.
 #' @return character scalar with written output path (or NULL if nothing written).
 #' @examples
-#' # export_validation_audit_report(audit_dt, config)
+#' \dontrun{
+#' export_validation_audit_report(audit_dt, config)
+#' }
 #' @export
 export_validation_audit_report <- function(
   audit_dt,
@@ -295,7 +337,7 @@ export_validation_audit_report <- function(
     return(invisible(NULL))
   }
 
-  export_dt <- data.table::as.data.table(data.table::copy(audit_dt))
+  export_dt <- data.table::copy(data.table::as.data.table(audit_dt))
 
   # create source row index
   export_dt[,
@@ -398,7 +440,13 @@ export_validation_audit_report <- function(
 #' @param raw_imports_mirror_dir character scalar path to mirror destination.
 #' @return invisible character vector of mirrored target file paths.
 #' @examples
-#' # mirror_raw_import_errors(audit_dt, "data/imports/raw", "data/audit/mirror")
+#' \dontrun{
+#' mirror_raw_import_errors(
+#'   audit_dt = data.table::data.table(document = "sample.xlsx"),
+#'   raw_imports_dir = "data/imports/raw",
+#'   raw_imports_mirror_dir = "data/audit/mirror"
+#' )
+#' }
 #' @export
 mirror_raw_import_errors <- function(
   audit_dt,
@@ -464,10 +512,17 @@ mirror_raw_import_errors <- function(
 }
 
 #' @title create audited data output
-#' @description run audit, export excel, mirror files, and return numeric-parsed data.
-#' @param dataset_dt data frame.
-#' @param config audit configuration.
-#' @return data.table.
+#' @description run validation, write audit artifacts for invalid rows, mirror
+#' matched raw source files, and return the input data as a `data.table` with
+#' parsed numeric `value` when present.
+#' @param dataset_dt data frame to validate and return.
+#' @param config named list containing audit columns, ordering, and output paths.
+#' @return `data.table` matching input rows; `value` is parsed with
+#' `readr::parse_double` when the column exists.
+#' @examples
+#' \dontrun{
+#' audit_data_output(dataset_dt, config)
+#' }
 #' @export
 audit_data_output <- function(dataset_dt, config) {
   assert_or_abort(checkmate::check_data_frame(dataset_dt, min.rows = 0))
