@@ -245,7 +245,7 @@ read_file_sheets <- function(file_path, config) {
 #' @return named list with `read_data_list` as a list of `data.table` objects and
 #' `errors` as a character vector.
 #' @importFrom checkmate check_character check_data_frame check_list check_names
-#' @importFrom purrr map transpose
+#' @importFrom purrr map
 #' @examples
 #' file_list_example <- data.frame(file_path = character())
 #' config_example <- list(column_required = c("country", "year"))
@@ -285,24 +285,24 @@ read_pipeline_files <- function(file_list_dt, config) {
     message_template = "Import pipeline: reading file %s/%s"
   )
 
-  parsed_results <- purrr::transpose(read_results)
-
-  failed_results <- parsed_results$errors |>
-    unlist(use.names = FALSE)
-
-  per_file_results <- purrr::map(parsed_results$result, \(result_item) {
-    if (is.null(result_item)) {
-      return(create_empty_read_result())
+  normalized_results <- purrr::map(read_results, \(read_result) {
+    if (is.null(read_result$result)) {
+      return(list(
+        data = create_empty_read_result()$data,
+        errors = c(read_result$errors)
+      ))
     }
 
-    result_item
+    return(list(
+      data = read_result$result$data,
+      errors = c(read_result$errors, read_result$result$errors)
+    ))
   })
 
-  list(
-    read_data_list = per_file_results |> purrr::map("data"),
-    errors = c(
-      failed_results,
-      per_file_results |> purrr::map("errors") |> unlist(use.names = FALSE)
-    )
-  )
+  return(list(
+    read_data_list = purrr::map(normalized_results, "data"),
+    errors = normalized_results |>
+      purrr::map("errors") |>
+      unlist(use.names = FALSE)
+  ))
 }

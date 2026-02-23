@@ -69,7 +69,7 @@ run_import_pipeline <- function(config) {
 
   consolidated_result <- consolidate_audited_dt(audited_dt_list, config)
 
-  list(
+  return(list(
     data = consolidated_result$data,
     wide_raw = transformed$wide_raw,
     diagnostics = list(
@@ -77,17 +77,5 @@ run_import_pipeline <- function(config) {
       validation_errors = validation_errors,
       warnings = consolidated_result$warnings
     )
-  )
-}
-
-if (isTRUE(getOption("fao.run_import_pipeline.auto", TRUE))) {
-  import_pipeline_result <- run_import_pipeline(config)
-  fao_data_raw <- import_pipeline_result$data
-  fao_data_wide_raw <- import_pipeline_result$wide_raw
-  collected_reading_errors <- import_pipeline_result$diagnostics$reading_errors
-  collected_errors <- import_pipeline_result$diagnostics$validation_errors
-  collected_warnings <- import_pipeline_result$diagnostics$warnings
-
-  rm(import_pipeline_result)
-  gc()
+  ))
 }

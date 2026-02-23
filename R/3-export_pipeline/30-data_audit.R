@@ -191,8 +191,11 @@ audit_numeric_string <- function(dataset_dt, column_name = "value") {
 #' @description execute configured validators.
 #' @param dataset_dt data frame.
 #' @param audit_columns_by_type named list.
-#' @param selected_validations optional character vector.
+#' @param selected_validations optional character vector of validation types to execute. when `NULL`, all supported validation types from `audit_columns_by_type` are executed.
 #' @return named list with findings and invalid_row_index.
+#' @importFrom checkmate check_data_frame check_list check_character
+#' @importFrom purrr map map2
+#' @importFrom data.table data.table rbindlist
 #' @examples
 #' # run_master_validation(df, audit_map)
 #' @export
@@ -209,26 +212,55 @@ run_master_validation <- function(
     numeric_string = audit_numeric_string
   )
 
+  if (!is.null(selected_validations)) {
+    assert_or_abort(checkmate::check_character(
+      selected_validations,
+      min.len = 1,
+      any.missing = FALSE
+    ))
+  }
+
   audit_types <- names(audit_columns_by_type)
   supported <- intersect(audit_types, names(registry))
 
-  findings <- purrr::map(supported, function(type) {
-    purrr::map(
-      audit_columns_by_type[[type]],
-      function(col) registry[[type]](dataset_dt, col)
-    )
-  }) |>
-    purrr::flatten()
+  if (!is.null(selected_validations)) {
+    supported <- intersect(supported, unique(selected_validations))
+  }
+
+  validation_pairs <- purrr::map(
+    supported,
+    \(audit_type) {
+      data.table::data.table(
+        audit_type = audit_type,
+        column_name = audit_columns_by_type[[audit_type]]
+      )
+    }
+  ) |>
+    data.table::rbindlist(use.names = TRUE, fill = TRUE)
+
+  if (nrow(validation_pairs) == 0) {
+    findings_dt <- empty_audit_findings_dt()
+    return(list(
+      findings = findings_dt,
+      invalid_row_index = integer(0)
+    ))
+  }
+
+  findings <- purrr::map2(
+    validation_pairs$audit_type,
+    validation_pairs$column_name,
+    \(audit_type, column_name) registry[[audit_type]](dataset_dt, column_name)
+  )
 
   findings_dt <- data.table::rbindlist(findings, fill = TRUE)
   if (nrow(findings_dt) == 0) {
     findings_dt <- empty_audit_findings_dt()
   }
 
-  list(
+  return(list(
     findings = findings_dt,
     invalid_row_index = sort(unique(findings_dt$row_index))
-  )
+  ))
 }
 
 #' @title resolve audit columns by validation type
