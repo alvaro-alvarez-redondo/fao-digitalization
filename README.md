@@ -14,7 +14,8 @@ an r pipeline package-like repository for importing, transforming, validating, a
 
 - r >= 4.1
 - `renv` for dependency isolation
-- packages referenced with explicit namespaces in source files
+- package metadata is declared in `DESCRIPTION` and `NAMESPACE`
+- packages are referenced with explicit namespaces in source files
 
 ## execution
 

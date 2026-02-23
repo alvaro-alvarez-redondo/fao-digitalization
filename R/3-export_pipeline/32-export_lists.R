@@ -20,7 +20,7 @@ get_unique_column <- function(df, col_name) {
   df <- ensure_data_table(df)
   assert_or_abort(checkmate::check_choice(col_name, choices = colnames(df)))
 
-  sort(unique(df[[col_name]]))
+  return(sort(unique(df[[col_name]])))
 }
 
 #' @title export single column list
@@ -58,7 +58,7 @@ export_single_column_list <- function(df, col_name, config, overwrite = TRUE) {
   openxlsx::writeData(wb, "data", values)
   openxlsx::saveWorkbook(wb, path, overwrite = overwrite)
 
-  path
+  return(path)
 }
 
 #' @title normalize sheet name
@@ -84,7 +84,7 @@ normalize_sheet_name <- function(col_name) {
 
   sheet_name[is.na(sheet_name) | sheet_name == ""] <- "unknown"
 
-  sheet_name
+  return(sheet_name)
 }
 
 #' @title export selected unique lists
@@ -145,5 +145,5 @@ export_selected_unique_lists <- function(df, config, overwrite = TRUE) {
 
   openxlsx::saveWorkbook(wb, workbook_path, overwrite = overwrite)
 
-  workbook_path
+  return(workbook_path)
 }

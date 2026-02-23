@@ -83,6 +83,49 @@ has_read_errors <- function(read_result) {
   !is.null(read_result$errors) && length(read_result$errors) > 0
 }
 
+#' @title assert read result contract
+#' @description validate that a successful read result contains the expected
+#' `data` and `errors` fields with stable types.
+#' @param read_result named list returned by a read operation.
+#' @return invisible `TRUE` when validation succeeds.
+#' @importFrom checkmate check_list check_data_frame check_character
+#' @examples
+#' assert_read_result_contract(list(data = data.frame(), errors = character(0)))
+assert_read_result_contract <- function(read_result) {
+  assert_or_abort(checkmate::check_list(read_result, min.len = 1, any.missing = FALSE))
+  assert_or_abort(checkmate::check_data_frame(read_result$data, min.rows = 0))
+  assert_or_abort(checkmate::check_character(read_result$errors, any.missing = FALSE))
+
+  return(invisible(TRUE))
+}
+
+#' @title normalize pipeline read result
+#' @description normalize the output of `safe_execute_read()` when reading a
+#' file so downstream aggregation can remain branch-free.
+#' @param read_result named list with `result` and `errors`.
+#' @return named list with `data` as `data.table` and `errors` as character
+#' vector.
+#' @importFrom checkmate check_list
+#' @examples
+#' normalize_pipeline_read_result(list(result = NULL, errors = character(0)))
+normalize_pipeline_read_result <- function(read_result) {
+  assert_or_abort(checkmate::check_list(read_result, min.len = 1))
+
+  if (is.null(read_result$result)) {
+    return(list(
+      data = create_empty_read_result()$data,
+      errors = c(read_result$errors)
+    ))
+  }
+
+  assert_read_result_contract(read_result$result)
+
+  return(list(
+    data = data.table::as.data.table(read_result$result$data),
+    errors = c(read_result$errors, read_result$result$errors)
+  ))
+}
+
 #' @title read excel sheet
 #' @description read one excel sheet as text columns, validate required inputs,
 #' enforce required base columns, and return a standardized list containing a
@@ -285,24 +328,14 @@ read_pipeline_files <- function(file_list_dt, config) {
     message_template = "Import pipeline: reading file %s/%s"
   )
 
-  normalized_results <- purrr::map(read_results, \(read_result) {
-    if (is.null(read_result$result)) {
-      return(list(
-        data = create_empty_read_result()$data,
-        errors = c(read_result$errors)
-      ))
-    }
+  normalized_results <- purrr::map(read_results, normalize_pipeline_read_result)
+  normalized_components <- data.table::transpose(normalized_results)
 
-    return(list(
-      data = read_result$result$data,
-      errors = c(read_result$errors, read_result$result$errors)
-    ))
-  })
+  read_data_list <- normalized_components[[1]]
+  errors_list <- normalized_components[[2]]
 
   return(list(
-    read_data_list = purrr::map(normalized_results, "data"),
-    errors = normalized_results |>
-      purrr::map("errors") |>
-      unlist(use.names = FALSE)
+    read_data_list = read_data_list,
+    errors = unlist(errors_list, use.names = FALSE)
   ))
 }

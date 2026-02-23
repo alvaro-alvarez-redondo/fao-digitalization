@@ -61,7 +61,7 @@ run_general_pipeline <- function(dataset_name = "fao_data_raw") {
     clear = FALSE
   ))
 
-  progressr::with_progress({
+  config <- progressr::with_progress({
     progress <- progressr::progressor(along = seq_len(total_steps))
 
     source_general_scripts(general_scripts)
@@ -81,6 +81,8 @@ run_general_pipeline <- function(dataset_name = "fao_data_raw") {
 
     config
   })
+
+  return(config)
 }
 
 if (isTRUE(getOption("fao.run_general_pipeline.auto", TRUE))) {
