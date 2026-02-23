@@ -191,7 +191,8 @@ audit_numeric_string <- function(dataset_dt, column_name = "value") {
 #' @description execute configured validators.
 #' @param dataset_dt data frame.
 #' @param audit_columns_by_type named list.
-#' @param selected_validations optional character vector of validation types to execute. when `NULL`, all supported validation types from `audit_columns_by_type` are executed.
+#' @param selected_validations optional character vector of validation types to execute.
+#' when `NULL`, all supported validation types from `audit_columns_by_type` are executed.
 #' @return named list with findings and invalid_row_index.
 #' @importFrom checkmate check_data_frame check_list check_character
 #' @importFrom purrr map map2

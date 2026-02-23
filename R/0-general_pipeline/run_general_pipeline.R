@@ -61,7 +61,7 @@ run_general_pipeline <- function(dataset_name = "fao_data_raw") {
     clear = FALSE
   ))
 
-  config <- progressr::with_progress({
+  progressr::with_progress({
     progress <- progressr::progressor(along = seq_len(total_steps))
 
     source_general_scripts(general_scripts)
@@ -79,8 +79,10 @@ run_general_pipeline <- function(dataset_name = "fao_data_raw") {
     create_required_directories(config$paths)
     progress("general pipeline: creating required directories")
 
-    return(config)
+    config
   })
+}
 
-  return(config)
+if (isTRUE(getOption("fao.run_general_pipeline.auto", TRUE))) {
+  config <- run_general_pipeline()
 }

@@ -69,8 +69,22 @@ run_export_pipeline <- function(fao_data_raw, config, overwrite = TRUE) {
     lists_path <- export_selected_unique_lists(fao_data_raw, config, overwrite)
     progress("export pipeline: exporting unique lists")
 
-    return(list(processed_path = processed_path, lists_path = lists_path))
+    list(processed_path = processed_path, lists_path = lists_path)
   })
+}
 
-  return(export_result)
+if (!exists("fao_data_raw")) {
+  cli::cli_abort(
+    "fao_data_raw not found in the environment. make sure the import pipeline has run."
+  )
+}
+
+if (!exists("config")) {
+  cli::cli_abort(
+    "config not found in the environment. make sure configuration has been loaded."
+  )
+}
+
+if (isTRUE(getOption("fao.run_export_pipeline.auto", TRUE))) {
+  export_paths <- run_export_pipeline(fao_data_raw, config, overwrite = TRUE)
 }

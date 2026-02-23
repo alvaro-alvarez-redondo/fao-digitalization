@@ -46,5 +46,9 @@ run_pipeline <- function(
     utils::View(get("fao_data_raw", inherits = TRUE))
   }
 
-  return(invisible(TRUE))
+  invisible(TRUE)
+}
+
+if (isTRUE(getOption("fao.run_pipeline.auto", TRUE))) {
+  run_pipeline()
 }
