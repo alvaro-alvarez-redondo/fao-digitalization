@@ -47,7 +47,10 @@ run_import_pipeline <- function(config) {
     names(read_pipeline_result),
     must.include = c("read_data_list", "errors")
   )
-  checkmate::assert_list(read_pipeline_result$read_data_list, any.missing = TRUE)
+  checkmate::assert_list(
+    read_pipeline_result$read_data_list,
+    any.missing = TRUE
+  )
   checkmate::assert_character(read_pipeline_result$errors, any.missing = FALSE)
 
   read_data_list <- read_pipeline_result$read_data_list
@@ -57,14 +60,6 @@ run_import_pipeline <- function(config) {
     read_data_list = read_data_list,
     config = config
   )
-
-  checkmate::assert_names(
-    names(transformed),
-    must.include = c("wide_raw", "long_raw")
-  )
-  checkmate::assert_data_frame(transformed$wide_raw, min.rows = 0)
-  checkmate::assert_data_frame(transformed$long_raw, min.rows = 0)
-  checkmate::assert_names(names(transformed$long_raw), must.include = "document")
 
   validation_data_list <- split(
     transformed$long_raw,

@@ -92,9 +92,16 @@ has_read_errors <- function(read_result) {
 #' @examples
 #' assert_read_result_contract(list(data = data.frame(), errors = character(0)))
 assert_read_result_contract <- function(read_result) {
-  assert_or_abort(checkmate::check_list(read_result, min.len = 1, any.missing = FALSE))
+  assert_or_abort(checkmate::check_list(
+    read_result,
+    min.len = 1,
+    any.missing = FALSE
+  ))
   assert_or_abort(checkmate::check_data_frame(read_result$data, min.rows = 0))
-  assert_or_abort(checkmate::check_character(read_result$errors, any.missing = FALSE))
+  assert_or_abort(checkmate::check_character(
+    read_result$errors,
+    any.missing = FALSE
+  ))
 
   return(invisible(TRUE))
 }
@@ -328,11 +335,22 @@ read_pipeline_files <- function(file_list_dt, config) {
     message_template = "Import pipeline: reading file %s/%s"
   )
 
-  normalized_results <- purrr::map(read_results, normalize_pipeline_read_result)
-  normalized_components <- data.table::transpose(normalized_results)
+  normalized_results <- purrr::map(read_results, function(read_result) {
+    if (is.null(read_result$result)) {
+      return(list(
+        data = create_empty_read_result()$data,
+        errors = c(read_result$errors)
+      ))
+    }
 
-  read_data_list <- normalized_components[[1]]
-  errors_list <- normalized_components[[2]]
+    return(list(
+      data = read_result$result$data,
+      errors = c(read_result$errors, read_result$result$errors)
+    ))
+  })
+
+  read_data_list <- purrr::map(normalized_results, "data")
+  errors_list <- purrr::map(normalized_results, "errors")
 
   return(list(
     read_data_list = read_data_list,
