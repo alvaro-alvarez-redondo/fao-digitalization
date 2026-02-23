@@ -1,0 +1,32 @@
+Package: faodigitalization
+Title: FAO Digitalization Pipeline
+Version: 0.1.0
+Authors@R: person("FAO", "Digitalization", email = "noreply@example.com", role = c("aut", "cre"))
+Description: Pipeline-style repository for importing, transforming, validating,
+    and exporting FAO digitalization workbooks.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.2
+Depends:
+    R (>= 4.1)
+Imports:
+    checkmate,
+    cli,
+    data.table,
+    dplyr,
+    fs,
+    here,
+    openxlsx,
+    progressr,
+    purrr,
+    readr,
+    readxl,
+    stringi,
+    stringr,
+    tibble,
+    tidyr,
+    tidyselect
+Suggests:
+    testthat,
+    withr

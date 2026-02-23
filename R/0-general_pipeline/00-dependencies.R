@@ -5,20 +5,23 @@
 # documentation
 
 required_packages <- c(
-  "tidyverse",
-  "data.table",
-  "readxl",
-  "janitor",
-  "openxlsx",
-  "fs",
-  "here",
-  "stringi",
-  "progressr",
-  "renv",
-  "testthat",
   "checkmate",
   "cli",
-  "progress"
+  "data.table",
+  "dplyr",
+  "fs",
+  "here",
+  "openxlsx",
+  "progressr",
+  "purrr",
+  "readr",
+  "readxl",
+  "renv",
+  "stringi",
+  "stringr",
+  "tibble",
+  "tidyr",
+  "tidyselect"
 )
 
 #' @title abort on failed checkmate checks
