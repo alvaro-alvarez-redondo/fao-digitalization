@@ -69,7 +69,7 @@ run_import_pipeline <- function(config) {
 
   consolidated_result <- consolidate_audited_dt(audited_dt_list, config)
 
-  list(
+  return(list(
     data = consolidated_result$data,
     wide_raw = transformed$wide_raw,
     diagnostics = list(
@@ -77,7 +77,7 @@ run_import_pipeline <- function(config) {
       validation_errors = validation_errors,
       warnings = consolidated_result$warnings
     )
-  )
+  ))
 }
 
 if (isTRUE(getOption("fao.run_import_pipeline.auto", TRUE))) {
