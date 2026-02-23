@@ -8,7 +8,7 @@
 #' script path from `r/0-general_pipeline`, validates file existence, sources
 #' each script, and returns sourced paths invisibly.
 #' @param script_names character vector with one or more script filenames,
-#' validated with `checkmate::assert_character(any.missing = false, min.len = 1)`.
+#' validated with `checkmate::assert_character(any.missing = FALSE, min.len = 1)`.
 #' @return invisible character vector of sourced script paths.
 #' @importFrom checkmate assert_character assert_file_exists
 #' @importFrom purrr map_chr walk
@@ -20,17 +20,18 @@ source_general_scripts <- function(script_names) {
   checkmate::assert_character(script_names, any.missing = FALSE, min.len = 1)
 
   script_paths <- script_names |>
-    purrr::map_chr(function(script_name) {
-      here::here("R", "0-general_pipeline", script_name)
+    purrr::map_chr(\(script_name) {
+      return(here::here("R", "0-general_pipeline", script_name))
     })
 
   script_paths |>
-    purrr::walk(function(script_path) {
+    purrr::walk(\(script_path) {
       checkmate::assert_file_exists(script_path)
       source(script_path, echo = FALSE)
+      return(invisible(NULL))
     })
 
-  invisible(script_paths)
+  return(invisible(script_paths))
 }
 
 #' @title run general pipeline
@@ -48,6 +49,7 @@ source_general_scripts <- function(script_names) {
 #' names(config)
 run_general_pipeline <- function(dataset_name = "fao_data_raw") {
   checkmate::assert_string(dataset_name, min.chars = 1)
+
   general_scripts <- c(
     "00-dependencies.R",
     "01-setup.R",
@@ -61,7 +63,7 @@ run_general_pipeline <- function(dataset_name = "fao_data_raw") {
     clear = FALSE
   ))
 
-  progressr::with_progress({
+  config <- progressr::with_progress({
     progress <- progressr::progressor(along = seq_len(total_steps))
 
     source_general_scripts(general_scripts)
@@ -73,16 +75,38 @@ run_general_pipeline <- function(dataset_name = "fao_data_raw") {
     load_dependencies(required_packages)
     progress("general pipeline: loading dependencies")
 
-    config <- load_pipeline_config(dataset_name = dataset_name)
+    config_inner <- load_pipeline_config(dataset_name = dataset_name)
     progress("general pipeline: loading pipeline configuration")
 
-    create_required_directories(config$paths)
+    create_required_directories(config_inner$paths)
     progress("general pipeline: creating required directories")
 
-    config
+    return(config_inner)
   })
+
+  return(config)
 }
 
-if (isTRUE(getOption("fao.run_general_pipeline.auto", TRUE))) {
-  config <- run_general_pipeline()
+#' @title run general pipeline legacy compatibility wrapper
+#' @description backward-compatible wrapper that runs the general pipeline and
+#' assigns `config` in the global environment.
+#' @param dataset_name character scalar dataset identifier forwarded to
+#' `run_general_pipeline()`.
+#' @return named list pipeline configuration.
+#' @examples
+#' \dontrun{
+#' legacy_source_run_general_pipeline("fao_data_raw")
+#' }
+legacy_source_run_general_pipeline <- function(dataset_name = "fao_data_raw") {
+  checkmate::assert_string(dataset_name, min.chars = 1)
+
+  cli::cli_warn(c(
+    "legacy_source_run_general_pipeline() is deprecated and will be removed in a future release",
+    "i" = "migrate to explicit run_general_pipeline(dataset_name = ...) calls"
+  ))
+
+  config <- run_general_pipeline(dataset_name = dataset_name)
+  assign("config", config, envir = .GlobalEnv)
+
+  return(config)
 }

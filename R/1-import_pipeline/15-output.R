@@ -81,8 +81,13 @@ consolidate_audited_dt <- function(dt_list, config) {
     warning_message <- "no data tables were provided for consolidation"
     cli::cli_warn(warning_message)
 
+    empty_schema <- stats::setNames(
+      replicate(length(column_order), character(0), simplify = FALSE),
+      column_order
+    )
+
     return(list(
-      data = data.table::data.table(),
+      data = data.table::as.data.table(empty_schema),
       warnings = warning_message
     ))
   }
@@ -93,6 +98,12 @@ consolidate_audited_dt <- function(dt_list, config) {
 
   if (length(missing_cols) > 0) {
     dt_combined[, (missing_cols) := NA_character_]
+  }
+
+  schema_cols <- intersect(column_order, colnames(dt_combined))
+
+  if (length(schema_cols) > 0) {
+    dt_combined[, (schema_cols) := lapply(.SD, as.character), .SDcols = schema_cols]
   }
 
   extra_cols <- setdiff(colnames(dt_combined), column_order)
