@@ -285,7 +285,7 @@ read_pipeline_files <- function(file_list_dt, config) {
     message_template = "Import pipeline: reading file %s/%s"
   )
 
-  normalized_results <- purrr::map(read_results, \(read_result) {
+  normalized_results <- purrr::map(read_results, function(read_result) {
     if (is.null(read_result$result)) {
       return(list(
         data = create_empty_read_result()$data,
@@ -299,10 +299,11 @@ read_pipeline_files <- function(file_list_dt, config) {
     ))
   })
 
+  read_data_list <- purrr::map(normalized_results, "data")
+  errors_list <- purrr::map(normalized_results, "errors")
+
   return(list(
-    read_data_list = purrr::map(normalized_results, "data"),
-    errors = normalized_results |>
-      purrr::map("errors") |>
-      unlist(use.names = FALSE)
+    read_data_list = read_data_list,
+    errors = unlist(errors_list, use.names = FALSE)
   ))
 }

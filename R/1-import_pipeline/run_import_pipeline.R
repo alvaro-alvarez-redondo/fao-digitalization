@@ -28,7 +28,6 @@ purrr::walk(
 #' `reading_errors`, `validation_errors`, and `warnings` character vectors.
 #' @importFrom checkmate assert_list assert_string assert_directory_exists
 #' @importFrom purrr map walk
-#' @importFrom data.table copy
 #' @importFrom cli cli_abort
 #' @importFrom here here
 #' @examples
@@ -52,13 +51,15 @@ run_import_pipeline <- function(config) {
     config = config
   )
 
-  validation_groups <- transformed$long_raw[,
-    .(data = list(data.table::copy(.SD)[, document := .BY$document])),
-    by = .(document)
-  ]
+  validation_data_list <- split(
+    transformed$long_raw,
+    by = "document",
+    keep.by = TRUE,
+    sorted = FALSE
+  )
 
   validation_results <- purrr::map(
-    validation_groups$data,
+    validation_data_list,
     \(document_dt) validate_long_dt(document_dt, config)
   )
 
