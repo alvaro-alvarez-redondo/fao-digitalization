@@ -1,29 +1,54 @@
-# fao-digitalization
+# FAO Digitalization Pipeline
 
-an r pipeline package-like repository for importing, transforming, validating, and exporting fao digitalization workbooks.
+## 1. Short Technical Description
 
-## repository structure
+`faodigitalization` is an R (>= 4.1) pipeline-style repository for workbook ingestion, transformation, validation, auditing, and export. The codebase is organized as stage scripts under `R/` and exposes orchestration and audit APIs through `NAMESPACE` exports.
 
-- `R/0-general_pipeline/`: dependency checks, setup, and shared helpers.
-- `R/1-import_pipeline/`: file io, read, transform, validation, and output for imported workbook data.
-- `R/3-export_pipeline/`: data audit and export helpers for output artifacts.
-- `R/run_pipeline.R`: top-level pipeline orchestrator.
-- `tests/testthat/`: deterministic unit tests organized by area.
+## 2. Installation
 
-## runtime requirements
+### 2.1 Prerequisites
 
-- r >= 4.1
-- `renv` for dependency isolation
-- package metadata is declared in `DESCRIPTION` and `NAMESPACE`
-- packages are referenced with explicit namespaces in source files
+- R >= 4.1
+- `renv`
 
-## execution
+### 2.2 Project-local dependency bootstrap with `renv`
 
-run the full pipeline:
+```r
+install.packages("renv")
+renv::init(bare = TRUE)
+renv::install(c(
+  "checkmate", "cli", "data.table", "dplyr", "fs", "here", "openxlsx",
+  "progressr", "purrr", "readr", "readxl", "stringi", "stringr",
+  "tibble", "tidyr", "tidyselect", "testthat", "withr"
+))
+```
+
+### 2.3 Development install
+
+```r
+renv::install(".")
+```
+
+## 3. Dependency Management
+
+Dependencies are declared in `DESCRIPTION`:
+
+- Runtime imports: `checkmate`, `cli`, `data.table`, `dplyr`, `fs`, `here`, `openxlsx`, `progressr`, `purrr`, `readr`, `readxl`, `stringi`, `stringr`, `tibble`, `tidyr`, `tidyselect`
+- Suggested test/development dependencies: `testthat`, `withr`
+- R runtime: `R (>= 4.1)`
+
+Dependency policy is repository-local isolation with `renv`. A lockfile is expected for strict version pinning in production workflows.
+
+## 4. Quick Start Example
 
 ```r
 source(here::here("R", "run_pipeline.R"), local = TRUE)
-run_pipeline(show_view = FALSE, pipeline_root = here::here("R"))
+
+# deterministic invocation (no viewer side effects)
+run_pipeline(
+  show_view = FALSE,
+  pipeline_root = here::here("R")
+)
 ```
 
 run tests:
