@@ -1,11 +1,15 @@
 #' @title run full project pipeline
-#' @description run the general, import, and export pipelines in sequence.
+#' @description run the general, import, and export pipelines in sequence and
+#' populate legacy global objects used by downstream scripts.
 #'
 #' @param show_view logical flag. if `TRUE`, show imported data in the rstudio
 #'   viewer after the import stage completes.
 #' @param pipeline_root character scalar. root folder containing the pipeline
 #'   scripts.
 #' @return invisible `TRUE` when all pipeline scripts execute successfully.
+#' side effects: assigns `config`, `import_pipeline_result`, `fao_data_raw`,
+#' `fao_data_wide_raw`, `collected_reading_errors`, `collected_errors`,
+#' `collected_warnings`, and `export_paths` in `.GlobalEnv`.
 #' @examples
 #' \dontrun{
 #' run_pipeline(show_view = FALSE)
@@ -70,11 +74,32 @@ run_pipeline <- function(
   import_result <- run_import_pipeline(config)
 
   cli::cli_alert_info("{.strong executing export pipeline}")
-  run_export_pipeline(
+  export_paths <- run_export_pipeline(
     fao_data_raw = import_result$data,
     config = config,
     overwrite = TRUE
   )
+
+  assign("config", config, envir = .GlobalEnv)
+  assign("import_pipeline_result", import_result, envir = .GlobalEnv)
+  assign("fao_data_raw", import_result$data, envir = .GlobalEnv)
+  assign("fao_data_wide_raw", import_result$wide_raw, envir = .GlobalEnv)
+  assign(
+    "collected_reading_errors",
+    import_result$diagnostics$reading_errors,
+    envir = .GlobalEnv
+  )
+  assign(
+    "collected_errors",
+    import_result$diagnostics$validation_errors,
+    envir = .GlobalEnv
+  )
+  assign(
+    "collected_warnings",
+    import_result$diagnostics$warnings,
+    envir = .GlobalEnv
+  )
+  assign("export_paths", export_paths, envir = .GlobalEnv)
 
   if (show_view) {
     utils::View(import_result$data)

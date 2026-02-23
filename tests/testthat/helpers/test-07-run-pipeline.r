@@ -76,3 +76,55 @@ test_that("run_pipeline aborts when sourced runner functions are missing", {
     }
   )
 })
+
+
+test_that("run_pipeline assigns legacy global objects", {
+  local_options(fao.run_pipeline.auto = FALSE)
+  source(here::here("R/run_pipeline.R"), local = TRUE)
+
+  with_mocked_bindings(
+    source = function(file, echo = FALSE) invisible(NULL),
+    run_general_pipeline = function(dataset_name = "fao_data_raw") {
+      list(paths = list(data = list(imports = list(raw = tempdir()))))
+    },
+    run_import_pipeline = function(config) {
+      list(
+        data = data.frame(country = "argentina"),
+        wide_raw = data.frame(country = "argentina"),
+        diagnostics = list(
+          reading_errors = character(0),
+          validation_errors = character(0),
+          warnings = character(0)
+        )
+      )
+    },
+    run_export_pipeline = function(fao_data_raw, config, overwrite = TRUE) {
+      list(processed_path = "processed.xlsx", lists_path = "lists.xlsx")
+    },
+    .env = environment(run_pipeline),
+    {
+      run_pipeline(show_view = FALSE, pipeline_root = "R")
+    }
+  )
+
+  expect_true(exists("config", envir = .GlobalEnv, inherits = FALSE))
+  expect_true(exists("import_pipeline_result", envir = .GlobalEnv, inherits = FALSE))
+  expect_true(exists("fao_data_raw", envir = .GlobalEnv, inherits = FALSE))
+  expect_true(exists("fao_data_wide_raw", envir = .GlobalEnv, inherits = FALSE))
+  expect_true(exists("collected_reading_errors", envir = .GlobalEnv, inherits = FALSE))
+  expect_true(exists("collected_errors", envir = .GlobalEnv, inherits = FALSE))
+  expect_true(exists("collected_warnings", envir = .GlobalEnv, inherits = FALSE))
+  expect_true(exists("export_paths", envir = .GlobalEnv, inherits = FALSE))
+
+  rm(
+    "config",
+    "import_pipeline_result",
+    "fao_data_raw",
+    "fao_data_wide_raw",
+    "collected_reading_errors",
+    "collected_errors",
+    "collected_warnings",
+    "export_paths",
+    envir = .GlobalEnv
+  )
+})

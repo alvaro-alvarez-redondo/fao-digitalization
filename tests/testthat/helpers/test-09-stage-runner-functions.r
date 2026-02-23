@@ -150,6 +150,61 @@ testthat::test_that("run_import_pipeline errors when no files are discovered", {
   )
 })
 
+testthat::test_that("run_import_pipeline falls back to legacy raw folder when needed", {
+  source(here::here("R/1-import_pipeline/run_import_pipeline.R"), echo = FALSE)
+
+  temp_root <- withr::local_tempdir()
+  configured_raw_imports <- fs::path(temp_root, "raw imports")
+  legacy_raw <- fs::path(temp_root, "raw")
+  fs::dir_create(configured_raw_imports)
+  fs::dir_create(legacy_raw)
+
+  config <- list(paths = list(data = list(imports = list(raw = configured_raw_imports))))
+
+  transformed_long <- data.table::data.table(
+    document = "doc.xlsx",
+    product = "rice",
+    variable = "production",
+    year = "2020",
+    value = "1"
+  )
+
+  file_list_dt <- data.table::data.table(document = "doc.xlsx", file_path = "doc.xlsx")
+
+  discovered_folders <- character(0)
+
+  result <- testthat::with_mocked_bindings(
+    source_import_scripts = function(script_names) invisible(script_names),
+    discover_files = function(import_folder) {
+      discovered_folders <<- c(discovered_folders, import_folder)
+      if (identical(import_folder, configured_raw_imports)) {
+        return(data.table::data.table())
+      }
+      file_list_dt
+    },
+    read_pipeline_files = function(file_list_dt, config) {
+      list(read_data_list = list(data.frame(x = 1L)), errors = character(0))
+    },
+    transform_files_list = function(file_list_dt, read_data_list, config) {
+      list(wide_raw = data.table::data.table(a = 1L), long_raw = transformed_long)
+    },
+    validate_long_dt = function(long_dt, config) {
+      list(data = long_dt, errors = character(0))
+    },
+    consolidate_audited_dt = function(dt_list, config) {
+      list(data = data.table::rbindlist(dt_list), warnings = character(0))
+    },
+    .env = environment(run_import_pipeline),
+    {
+      run_import_pipeline(config)
+    }
+  )
+
+  testthat::expect_true(any(discovered_folders == configured_raw_imports))
+  testthat::expect_true(any(discovered_folders == legacy_raw))
+  testthat::expect_true(data.table::is.data.table(result$data))
+})
+
 testthat::test_that("run_import_pipeline keeps backward-compatible signature", {
   source(here::here("R/1-import_pipeline/run_import_pipeline.R"), echo = FALSE)
 

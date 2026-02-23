@@ -126,10 +126,8 @@ Repository structure:
   - `transformations` (2 files)
   - `edge_cases` (1 file)
   - `helpers` (6 files)
-- `benchmarks`  
-  Targeted benchmark scripts for performance-sensitive code paths.
-- `docs`  
-  Engineering audit reports (dependency governance, memory analysis, data contracts, call graph, integration).
+- `tests/testthat` orchestrator scripts  
+  `test_all.r` composes deterministic suites by concern area and serves as the test execution index.
 
 Separation of concerns:
 
@@ -157,16 +155,12 @@ Project engineering standards currently enforced in code and tests:
 
 ## 9. Performance Notes (if applicable)
 
-A benchmark exists at `benchmarks/read_excel_sheet_filter_benchmark.R`.
+No committed benchmark harness is currently present in this repository tree.
 
-Benchmark scope:
+Performance guidance:
 
-- compares `original_keep_row()` versus `optimized_keep_row()` for row filtering logic in the Excel read path.
-- uses `bench::mark()` with fixed iterations (`iterations = 30`) and result equivalence checks (`check = TRUE`).
-
-Interpretation boundary:
-
-- benchmark script is present; benchmark execution results are environment-dependent and are not committed as static metrics in this repository.
+- treat workbook read/transform stages in `R/1-import_pipeline` as likely hotspots due to row-wise filtering and reshaping.
+- add environment-local benchmark scripts only when performance tuning is explicitly requested, then exclude generated result artifacts from version control.
 
 ## 10. Reproducibility & Determinism
 
@@ -221,7 +215,7 @@ Compatibility model applied in current codebase:
 - preserve return structure contracts for runner outputs.
 - provide deprecated legacy wrappers when behavior shifts from implicit source-time side effects to explicit function execution.
 
-Deprecation lifecycle (documented in repository docs):
+Deprecation lifecycle (maintained in this README until dedicated docs are added):
 
 1. Introduce wrapper + warning.
 2. Keep wrapper in next release with migration guidance.
@@ -241,7 +235,7 @@ For contributions in this repository:
 4. Use `cli` for user-facing errors and warnings.
 5. Keep file paths project-rooted via `here::here()`.
 6. Add or update deterministic `testthat` tests for changed behavior.
-7. Update relevant engineering reports under `docs/` when architectural contracts are changed.
+7. Update this README section (and add dedicated docs when introduced) when architectural contracts are changed.
 
 ## 15. License
 

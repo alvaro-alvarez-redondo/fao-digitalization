@@ -47,6 +47,27 @@ run_import_pipeline <- function(config) {
   checkmate::assert_string(config$paths$data$imports$raw, min.chars = 1)
   checkmate::assert_directory_exists(config$paths$data$imports$raw)
 
+  build_import_folder_candidates <- function(import_folder) {
+    checkmate::assert_string(import_folder, min.chars = 1)
+
+    normalized_folder <- normalizePath(import_folder, winslash = "/", mustWork = FALSE)
+    folder_name <- basename(normalized_folder)
+    parent_folder <- dirname(normalized_folder)
+
+    alternate_folder <- if (identical(folder_name, "raw imports")) {
+      file.path(parent_folder, "raw")
+    } else if (identical(folder_name, "raw")) {
+      file.path(parent_folder, "raw imports")
+    } else {
+      NULL
+    }
+
+    c(normalized_folder, alternate_folder) |>
+      unique() |>
+      stats::na.omit() |>
+      as.character()
+  }
+
   import_scripts <- c(
     "10-file_io.R",
     "11-reading.R",
@@ -56,7 +77,38 @@ run_import_pipeline <- function(config) {
   )
   source_import_scripts(import_scripts)
 
-  file_list_dt <- discover_files(config$paths$data$imports$raw)
+  import_folder_candidates <- build_import_folder_candidates(
+    config$paths$data$imports$raw
+  )
+
+  discovered_file_lists <- purrr::map(import_folder_candidates, function(import_folder) {
+    if (!dir.exists(import_folder)) {
+      return(data.table::data.table())
+    }
+
+    discover_files(import_folder)
+  })
+
+  file_counts <- purrr::map_int(discovered_file_lists, nrow)
+  selected_candidate_index <- which(file_counts > 0)[1]
+
+  if (is.na(selected_candidate_index)) {
+    file_list_dt <- data.table::data.table()
+  } else {
+    file_list_dt <- discovered_file_lists[[selected_candidate_index]]
+  }
+
+  if (
+    length(import_folder_candidates) > 1 &&
+      !is.na(selected_candidate_index) &&
+      selected_candidate_index > 1
+  ) {
+    cli::cli_alert_info(c(
+      "excel files were discovered in a legacy-compatible raw import folder",
+      "i" = "configured folder: {import_folder_candidates[[1]]}",
+      "i" = "selected folder: {import_folder_candidates[[selected_candidate_index]]}"
+    ))
+  }
 
   if (nrow(file_list_dt) == 0) {
     cli::cli_abort("no excel files were found. pipeline terminated")
