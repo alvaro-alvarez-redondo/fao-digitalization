@@ -71,6 +71,8 @@ run_export_pipeline <- function(fao_data_raw, config, overwrite = TRUE) {
 
     list(processed_path = processed_path, lists_path = lists_path)
   })
+
+  return(export_result)
 }
 
 if (!exists("fao_data_raw")) {

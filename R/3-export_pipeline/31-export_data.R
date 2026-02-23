@@ -44,5 +44,5 @@ export_processed_data <- function(
   openxlsx::writeData(wb, "data", fao_data_raw)
   openxlsx::saveWorkbook(wb, path, overwrite = overwrite)
 
-  path
+  return(path)
 }
