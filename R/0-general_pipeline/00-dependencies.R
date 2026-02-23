@@ -41,7 +41,7 @@ abort_on_checkmate_failure <- function(check_result) {
     cli::cli_abort(check_result)
   }
 
-  invisible(TRUE)
+  return(invisible(TRUE))
 }
 
 #' @title check dependencies
@@ -86,7 +86,7 @@ check_dependencies <- function(packages) {
     cli::cli_alert_info("dependency installation completed")
   }
 
-  missing_packages
+  return(missing_packages)
 }
 
 #' @title load dependencies
@@ -119,5 +119,5 @@ load_dependencies <- function(packages) {
       }
     })
 
-  invisible(NULL)
+  return(invisible(NULL))
 }

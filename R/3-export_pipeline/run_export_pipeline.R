@@ -52,7 +52,7 @@ run_export_pipeline <- function(fao_data_raw, config, overwrite = TRUE) {
     clear = FALSE
   ))
 
-  progressr::with_progress({
+  export_result <- progressr::with_progress({
     progress <- progressr::progressor(along = seq_len(total_steps))
 
     fao_data_raw <- audit_data_output(fao_data_raw, config)
@@ -69,22 +69,8 @@ run_export_pipeline <- function(fao_data_raw, config, overwrite = TRUE) {
     lists_path <- export_selected_unique_lists(fao_data_raw, config, overwrite)
     progress("export pipeline: exporting unique lists")
 
-    list(processed_path = processed_path, lists_path = lists_path)
+    return(list(processed_path = processed_path, lists_path = lists_path))
   })
-}
 
-if (!exists("fao_data_raw")) {
-  cli::cli_abort(
-    "fao_data_raw not found in the environment. make sure the import pipeline has run."
-  )
-}
-
-if (!exists("config")) {
-  cli::cli_abort(
-    "config not found in the environment. make sure configuration has been loaded."
-  )
-}
-
-if (isTRUE(getOption("fao.run_export_pipeline.auto", TRUE))) {
-  export_paths <- run_export_pipeline(fao_data_raw, config, overwrite = TRUE)
+  return(export_result)
 }
