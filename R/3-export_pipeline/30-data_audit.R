@@ -13,21 +13,19 @@
 prepare_audit_root <- function(audit_root_dir) {
   assert_or_abort(checkmate::check_string(audit_root_dir, min.chars = 1))
 
-  if (fs::dir_exists(audit_root_dir)) {
-    tryCatch(
-      {
-        fs::dir_delete(audit_root_dir)
-        invisible(TRUE)
-      },
-      error = function(e) {
-        cli::cli_abort(
-          "failed to delete existing audit folder {.path {audit_root_dir}}: {e$message}"
-        )
-      }
-    )
-  } else {
-    invisible(FALSE)
+  if (!fs::dir_exists(audit_root_dir)) {
+    return(invisible(FALSE))
   }
+
+  delete_result <- purrr::safely(fs::dir_delete)(audit_root_dir)
+
+  if (!is.null(delete_result$error)) {
+    cli::cli_abort(
+      "failed to delete existing audit folder {.path {audit_root_dir}}: {delete_result$error$message}"
+    )
+  }
+
+  return(invisible(TRUE))
 }
 
 #' @title empty audit findings data table
@@ -105,7 +103,7 @@ load_audit_config <- function(config) {
 #' @param audit_root_dir character scalar root audit directory.
 #' @param audit_file_name character scalar excel file name.
 #' @param mirror_dir_name character scalar mirror directory name.
-#' @return named list with audit_file_path and mirror_dir_path.
+#' @return named list with `audit_root_dir`, `audit_file_path`, and `mirror_dir_path`.
 #' @examples
 #' resolve_audit_output_paths("data/audit", "audit.xlsx", "mirror")
 #' @export
@@ -118,11 +116,11 @@ resolve_audit_output_paths <- function(
   assert_or_abort(checkmate::check_string(audit_file_name, min.chars = 1))
   assert_or_abort(checkmate::check_string(mirror_dir_name, min.chars = 1))
 
-  list(
+  return(list(
     audit_root_dir = audit_root_dir,
     audit_file_path = fs::path(audit_root_dir, audit_file_name),
     mirror_dir_path = fs::path(audit_root_dir, mirror_dir_name)
-  )
+  ))
 }
 
 #' @title audit non-empty character values
@@ -148,12 +146,12 @@ audit_character_non_empty <- function(dataset_dt, column_name) {
     return(empty_audit_findings_dt())
   }
 
-  data.table::data.table(
+  return(data.table::data.table(
     row_index = invalid_rows,
     audit_column = column_name,
     audit_type = "character_non_empty",
     audit_message = "value must be a non-empty character string"
-  )
+  ))
 }
 
 #' @title audit numeric string values
@@ -179,12 +177,12 @@ audit_numeric_string <- function(dataset_dt, column_name = "value") {
     return(empty_audit_findings_dt())
   }
 
-  data.table::data.table(
+  return(data.table::data.table(
     row_index = invalid_rows,
     audit_column = column_name,
     audit_type = "numeric_string",
     audit_message = "value must contain only digits and at most one decimal point"
-  )
+  ))
 }
 
 #' @title run master validation
@@ -223,6 +221,14 @@ run_master_validation <- function(
 
   audit_types <- names(audit_columns_by_type)
   supported <- intersect(audit_types, names(registry))
+  unsupported <- setdiff(audit_types, names(registry))
+
+  if (length(unsupported) > 0) {
+    cli::cli_warn(c(
+      "unsupported audit types were skipped",
+      "i" = "unsupported types: {toString(unsupported)}"
+    ))
+  }
 
   if (!is.null(selected_validations)) {
     supported <- intersect(supported, unique(selected_validations))
@@ -297,7 +303,7 @@ resolve_audit_columns_by_type <- function(config) {
     )
   }
 
-  audit_columns_by_type
+  return(audit_columns_by_type)
 }
 
 #' @title export validation audit report
@@ -425,7 +431,8 @@ export_validation_audit_report <- function(
   ensure_output_directories(output_path)
 
   openxlsx::saveWorkbook(workbook, output_path, overwrite = TRUE)
-  output_path
+
+  return(output_path)
 }
 
 
@@ -499,7 +506,7 @@ mirror_raw_import_errors <- function(
   ensure_output_directories(target_paths)
   fs::file_copy(matched_paths, target_paths, overwrite = TRUE)
 
-  invisible(as.character(target_paths))
+  return(invisible(as.character(target_paths)))
 }
 
 #' @title create audited data output
@@ -570,5 +577,5 @@ audit_data_output <- function(dataset_dt, config) {
     ]
   }
 
-  audited_dt
+  return(audited_dt)
 }

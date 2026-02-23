@@ -9,7 +9,7 @@ export_scripts <- c(
 
 purrr::walk(
   export_scripts,
-  ~ source(here::here("R/3-export_pipeline", .x), echo = FALSE)
+  \(script_name) source(here::here("R", "3-export_pipeline", script_name), echo = FALSE)
 )
 
 #' @title run export pipeline

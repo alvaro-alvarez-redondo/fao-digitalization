@@ -1,12 +1,21 @@
 source(here::here("R/3-export_pipeline/30-data_audit.R"), echo = FALSE)
 
-testthat::test_that("prepare_audit_root creates directory and returns canonical path", {
+testthat::test_that("prepare_audit_root deletes existing directory and returns TRUE", {
   audit_root_dir <- fs::path(withr::local_tempdir(), "audit-root")
+  fs::dir_create(audit_root_dir)
 
-  output_path <- prepare_audit_root(audit_root_dir)
+  output_flag <- prepare_audit_root(audit_root_dir)
 
-  testthat::expect_true(fs::dir_exists(output_path))
-  testthat::expect_identical(fs::path_norm(output_path), fs::path_norm(audit_root_dir))
+  testthat::expect_true(isTRUE(output_flag))
+  testthat::expect_false(fs::dir_exists(audit_root_dir))
+})
+
+testthat::test_that("prepare_audit_root returns FALSE when directory does not exist", {
+  audit_root_dir <- fs::path(withr::local_tempdir(), "audit-root-missing")
+
+  output_flag <- prepare_audit_root(audit_root_dir)
+
+  testthat::expect_identical(output_flag, FALSE)
 })
 
 testthat::test_that("prepare_audit_root aborts on invalid path input", {

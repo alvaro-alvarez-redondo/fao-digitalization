@@ -39,3 +39,8 @@ testthat::test_dir(here::here("tests", "testthat"))
 - tests include happy-path and edge/error coverage for core helpers.
 - no network access is required for test execution.
 
+
+## orchestration artifacts
+
+- repository-wide integration report: `docs/repository_integration_report.md`
+- the report captures audit summary, risk matrix, compatibility posture, and migration notes.
