@@ -195,8 +195,8 @@ audit_numeric_string <- function(dataset_dt, column_name = "value") {
 #' when `NULL`, all supported validation types from `audit_columns_by_type` are executed.
 #' @return named list with findings and invalid_row_index.
 #' @importFrom checkmate check_data_frame check_list check_character
-#' @importFrom purrr map map2
 #' @importFrom data.table data.table rbindlist
+#' @importFrom purrr map2
 #' @examples
 #' # run_master_validation(df, audit_map)
 #' @export
@@ -228,18 +228,7 @@ run_master_validation <- function(
     supported <- intersect(supported, unique(selected_validations))
   }
 
-  validation_pairs <- purrr::map(
-    supported,
-    \(audit_type) {
-      data.table::data.table(
-        audit_type = audit_type,
-        column_name = audit_columns_by_type[[audit_type]]
-      )
-    }
-  ) |>
-    data.table::rbindlist(use.names = TRUE, fill = TRUE)
-
-  if (nrow(validation_pairs) == 0) {
+  if (length(supported) == 0) {
     findings_dt <- empty_audit_findings_dt()
     return(list(
       findings = findings_dt,
@@ -247,9 +236,26 @@ run_master_validation <- function(
     ))
   }
 
+  supported_columns <- audit_columns_by_type[supported]
+
+  purrr::map2(
+    supported,
+    supported_columns,
+    \(audit_type, column_names) {
+      assert_or_abort(checkmate::check_character(
+        column_names,
+        min.len = 1,
+        any.missing = FALSE
+      ))
+    }
+  )
+
+  audit_type_vector <- rep(supported, times = lengths(supported_columns))
+  column_name_vector <- unlist(supported_columns, use.names = FALSE)
+
   findings <- purrr::map2(
-    validation_pairs$audit_type,
-    validation_pairs$column_name,
+    audit_type_vector,
+    column_name_vector,
     \(audit_type, column_name) registry[[audit_type]](dataset_dt, column_name)
   )
 
@@ -531,21 +537,7 @@ audit_data_output <- function(dataset_dt, config) {
     findings_dt <- data.table::as.data.table(audit_result$findings)
 
     if (nrow(findings_dt) > 0) {
-      index_map <- data.table::data.table(
-        original_row_index = invalid_index,
-        local_row_index = seq_along(invalid_index)
-      )
-
-      findings_dt <- merge(
-        findings_dt,
-        index_map,
-        by.x = "row_index",
-        by.y = "original_row_index",
-        all.x = TRUE
-      )
-
-      findings_dt[, row_index := local_row_index]
-      findings_dt[, local_row_index := NULL]
+      findings_dt[, row_index := match(row_index, invalid_index)]
     }
 
     prepared_paths <- resolve_audit_output_paths(

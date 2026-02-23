@@ -121,3 +121,11 @@ testthat::test_that("check_dependencies keeps backward-compatible return type", 
   testthat::expect_type(missing_packages, "character")
   testthat::expect_identical(missing_packages, c("pkg_missing"))
 })
+
+
+testthat::test_that("required_packages excludes unused heavy and test-only packages", {
+  testthat::expect_false("tidyverse" %in% required_packages)
+  testthat::expect_false("janitor" %in% required_packages)
+  testthat::expect_false("progress" %in% required_packages)
+  testthat::expect_false("testthat" %in% required_packages)
+})

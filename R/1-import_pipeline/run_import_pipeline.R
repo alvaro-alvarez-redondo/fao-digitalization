@@ -26,9 +26,8 @@ purrr::walk(
 #' @return named list with `data` as consolidated long `data.table`, `wide_raw`
 #' as transformed wide `data.table`, and `diagnostics` list with
 #' `reading_errors`, `validation_errors`, and `warnings` character vectors.
-#' @importFrom checkmate assert_list assert_string assert_directory_exists
+#' @importFrom checkmate assert_list assert_string assert_directory_exists assert_names assert_character assert_data_frame
 #' @importFrom purrr map walk
-#' @importFrom data.table copy
 #' @importFrom cli cli_abort
 #' @importFrom here here
 #' @examples
@@ -44,6 +43,13 @@ run_import_pipeline <- function(config) {
   }
 
   read_pipeline_result <- read_pipeline_files(file_list_dt, config)
+  checkmate::assert_names(
+    names(read_pipeline_result),
+    must.include = c("read_data_list", "errors")
+  )
+  checkmate::assert_list(read_pipeline_result$read_data_list, any.missing = TRUE)
+  checkmate::assert_character(read_pipeline_result$errors, any.missing = FALSE)
+
   read_data_list <- read_pipeline_result$read_data_list
 
   transformed <- transform_files_list(
@@ -52,13 +58,23 @@ run_import_pipeline <- function(config) {
     config = config
   )
 
-  validation_groups <- transformed$long_raw[,
-    .(data = list(data.table::copy(.SD)[, document := .BY$document])),
-    by = .(document)
-  ]
+  checkmate::assert_names(
+    names(transformed),
+    must.include = c("wide_raw", "long_raw")
+  )
+  checkmate::assert_data_frame(transformed$wide_raw, min.rows = 0)
+  checkmate::assert_data_frame(transformed$long_raw, min.rows = 0)
+  checkmate::assert_names(names(transformed$long_raw), must.include = "document")
+
+  validation_data_list <- split(
+    transformed$long_raw,
+    by = "document",
+    keep.by = TRUE,
+    sorted = FALSE
+  )
 
   validation_results <- purrr::map(
-    validation_groups$data,
+    validation_data_list,
     \(document_dt) validate_long_dt(document_dt, config)
   )
 
@@ -68,8 +84,14 @@ run_import_pipeline <- function(config) {
     unlist(use.names = FALSE)
 
   consolidated_result <- consolidate_audited_dt(audited_dt_list, config)
+  checkmate::assert_names(
+    names(consolidated_result),
+    must.include = c("data", "warnings")
+  )
+  checkmate::assert_data_frame(consolidated_result$data, min.rows = 0)
+  checkmate::assert_character(consolidated_result$warnings, any.missing = FALSE)
 
-  list(
+  return(list(
     data = consolidated_result$data,
     wide_raw = transformed$wide_raw,
     diagnostics = list(
@@ -77,7 +99,7 @@ run_import_pipeline <- function(config) {
       validation_errors = validation_errors,
       warnings = consolidated_result$warnings
     )
-  )
+  ))
 }
 
 if (isTRUE(getOption("fao.run_import_pipeline.auto", TRUE))) {
