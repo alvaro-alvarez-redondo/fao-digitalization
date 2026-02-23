@@ -344,3 +344,39 @@ testthat::test_that("run_export_pipeline deletes stale audit root before exporti
   testthat::expect_true(fs::file_exists(output$processed_path))
   testthat::expect_false(fs::dir_exists(fs::path(audit_root_dir, "old_dataset")))
 })
+
+
+testthat::test_that("run_import_pipeline enforces transformed schema contract", {
+  withr::local_options(fao.run_import_pipeline.auto = FALSE)
+  source(here::here("R/1-import_pipeline/run_import_pipeline.R"), local = TRUE)
+
+  config <- list(paths = list(data = list(imports = list(raw = tempdir()))))
+
+  testthat::expect_error(
+    testthat::with_mocked_bindings(
+      discover_files = function(import_folder) {
+        data.table::data.table(file_path = "a.xlsx")
+      },
+      read_pipeline_files = function(file_list_dt, config) {
+        list(read_data_list = list(data.table::data.table(x = 1L)), errors = character(0))
+      },
+      transform_files_list = function(file_list_dt, read_data_list, config) {
+        list(
+          wide_raw = data.table::data.table(x = 1L),
+          long_raw = data.table::data.table(value = "1")
+        )
+      },
+      validate_long_dt = function(long_dt, config) {
+        list(data = long_dt, errors = character(0))
+      },
+      consolidate_audited_dt = function(dt_list, config) {
+        list(data = data.table::data.table(), warnings = character(0))
+      },
+      .env = environment(run_import_pipeline),
+      {
+        run_import_pipeline(config)
+      }
+    ),
+    regexp = "must.include|document"
+  )
+})

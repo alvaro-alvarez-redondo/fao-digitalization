@@ -26,7 +26,7 @@ purrr::walk(
 #' @return named list with `data` as consolidated long `data.table`, `wide_raw`
 #' as transformed wide `data.table`, and `diagnostics` list with
 #' `reading_errors`, `validation_errors`, and `warnings` character vectors.
-#' @importFrom checkmate assert_list assert_string assert_directory_exists
+#' @importFrom checkmate assert_list assert_string assert_directory_exists assert_names assert_character assert_data_frame
 #' @importFrom purrr map walk
 #' @importFrom cli cli_abort
 #' @importFrom here here
@@ -43,6 +43,16 @@ run_import_pipeline <- function(config) {
   }
 
   read_pipeline_result <- read_pipeline_files(file_list_dt, config)
+  checkmate::assert_names(
+    names(read_pipeline_result),
+    must.include = c("read_data_list", "errors")
+  )
+  checkmate::assert_list(
+    read_pipeline_result$read_data_list,
+    any.missing = TRUE
+  )
+  checkmate::assert_character(read_pipeline_result$errors, any.missing = FALSE)
+
   read_data_list <- read_pipeline_result$read_data_list
 
   transformed <- transform_files_list(
@@ -69,6 +79,12 @@ run_import_pipeline <- function(config) {
     unlist(use.names = FALSE)
 
   consolidated_result <- consolidate_audited_dt(audited_dt_list, config)
+  checkmate::assert_names(
+    names(consolidated_result),
+    must.include = c("data", "warnings")
+  )
+  checkmate::assert_data_frame(consolidated_result$data, min.rows = 0)
+  checkmate::assert_character(consolidated_result$warnings, any.missing = FALSE)
 
   return(list(
     data = consolidated_result$data,
