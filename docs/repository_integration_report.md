@@ -1,52 +1,69 @@
 # repository integration report
 
-## 1. repository audit summary
-- step 1 repository indexing completed across package metadata, runtime scripts, and tests.
-- step 2 engine execution completed in read-only mode for static audit, dependency governance, api surface, reproducibility, memory, quality metrics, data contracts, and call-graph impact.
-- repository is an r package-like pipeline with modular stages in `R/0-general_pipeline`, `R/1-import_pipeline`, and `R/3-export_pipeline` orchestrated by `run_pipeline`.
-- runtime baseline requirement `R (>= 4.1)` is declared in `DESCRIPTION`.
+## 1. Repository Audit Summary
+- step 1 repository indexing executed across package metadata (`DESCRIPTION`, `NAMESPACE`), runtime orchestration scripts (`R/`), staged pipeline modules, and tests (`tests/testthat`).
+- step 2 engine sequence executed in read-only mode:
+  - global static repository audit
+  - dependency governance auditor
+  - api surface auditor
+  - reproducibility auditor
+  - memory analyzer
+  - code quality metrics engine
+  - data contract validator
+  - call graph impact analyzer
+- step 3 refactor authorization decision: rewrite not authorized because no blocking defect requiring signature/default/return-type changes was identified.
+- step 4 authorized repository rewrite engine: skipped by policy decision (not authorized).
+- step 5 repository documentation normalizer: executed via this report normalization.
+- step 6 repository test generation engine: no new tests generated; existing staged tests retained.
+- step 7 repository performance engine: not triggered (no performance-critical classification and no explicit optimization request).
+- step 8 benchmark: not applicable because no performance rewrite occurred.
+- step 9 backward compatibility auditor: completed; no compatibility regressions introduced in this cycle.
+- step 10 repository readme generator: no rewrite required; current `README.md` remains aligned with runtime/dependency posture.
+- step 11 integration report assembly: completed in this document.
 
-## 2. cross-engine risk matrix
-| engine | classification | finding | impact |
+## 2. Cross-Engine Risk Matrix
+| engine | risk | finding | impact |
 |---|---|---|---|
-| global static repository audit | medium | entry scripts include option-gated auto-run side effects during `source()` | accidental execution in non-isolated sessions |
-| dependency governance auditor | medium | dependency policy references `renv`, but no committed `renv.lock` was detected in repository root | reproducibility drift across environments |
-| api surface auditor | low | exported functions in `NAMESPACE` are narrowly scoped and names are stable | low short-term breakage risk |
-| reproducibility auditor | medium | filesystem-dependent pipeline execution and option toggles can vary by local state | run-to-run variance risk |
-| memory analyzer | low | no immediate high-allocation anti-pattern was identified in orchestration layer | low |
-| code quality metrics engine | low | explicit namespaces and snake_case naming are consistently used | low |
-| data contract validator | medium | audit/import contracts are validated but remain coupled to workbook shape assumptions | medium |
-| call graph impact analyzer | medium | dynamic `source()` chaining across stage runners broadens blast radius of changes | medium |
+| global static repository audit | medium | stage runners use option-gated auto-execution blocks at file scope (`fao.run_*_pipeline.auto`) | sourcing side effects in non-isolated sessions |
+| dependency governance auditor | medium | `renv` is documented, but repository root does not contain a committed `renv.lock` | dependency resolution drift across machines |
+| api surface auditor | low | exported functions in `NAMESPACE` are limited and stable for current release scope | low breakage probability |
+| reproducibility auditor | medium | execution depends on filesystem layout and environment options | run-to-run variance risk |
+| memory analyzer | low | no high-amplification allocation patterns detected in top-level orchestrators | low immediate memory pressure risk |
+| code quality metrics engine | low | native pipe usage and explicit namespace calls are broadly consistent | low style-governance risk |
+| data contract validator | medium | import/audit contracts are validated but remain tightly coupled to expected workbook schemas | schema-drift failure risk |
+| call graph impact analyzer | medium | dynamic `source()` chaining across staged runners increases transitive change blast radius | medium regression propagation risk |
 
-## 3. refactored files (if rewrite authorized)
-- rewrite authorization decision: **not authorized**.
-- rationale: no blocking structural defect requiring signature-changing refactor was identified in phase-1/2 analysis.
-- mutation scope executed: documentation normalization only (this report update).
+## 3. Refactored Files (if rewrite authorized)
+- no source rewrite authorized.
+- file updated in this cycle: `docs/repository_integration_report.md` (documentation normalization and orchestration traceability only).
 
-## 4. benchmark results (if applicable)
+## 4. Benchmark Results (if applicable)
 - not applicable.
-- no performance-engine rewrite was triggered.
+- no performance-engine changes were introduced.
 
-## 5. generated or updated tests
-- no new tests generated.
-- existing test suite layout already includes runner compatibility coverage and staged functional tests.
-- validation execution in this environment was limited because `Rscript` is unavailable.
+## 5. Generated or Updated Tests
+- no new test files generated.
+- existing suite already contains staged functional and compatibility-focused tests.
+- runtime execution of tests was blocked in this environment because `R` is not installed in the shell image.
 
-## 6. dependency & api stability summary
-- `DESCRIPTION` dependency declarations are present and aligned with current script imports.
-- exported api surface remains unchanged in this cycle.
-- governance gap retained: repository-level `renv.lock` is still absent.
+## 6. Dependency & API Stability Summary
+- runtime floor `R (>= 4.1)` is declared in `DESCRIPTION`.
+- declared imports include `checkmate`, `cli`, `here`, `purrr`, `testthat` ecosystem dependencies, and staged pipeline dependencies.
+- `NAMESPACE` exports are unchanged in this cycle.
+- governance gap remains: commit `renv.lock` for deterministic restoration.
 
-## 7. backward compatibility analysis
-- no signature/default/return-type changes were introduced.
-- no wrapper or deprecation lifecycle was required.
-- compatibility posture remains stable for current exported functions.
+## 7. Backward Compatibility Analysis
+- no function signatures changed.
+- no argument defaults changed.
+- no return-type changes introduced.
+- no wrapper/deprecation lifecycle needed because no breaking change was applied.
 
-## 8. documentation & readme compliance summary
-- repository contains both `README.md` and integration documentation under `docs/`.
-- this report now aligns to mandatory orchestration output sections and phase decision points.
+## 8. Documentation & README Compliance Summary
+- `README.md` documents runtime requirements, `renv` bootstrap pattern, and pipeline invocation.
+- roxygen-exported surface remains aligned with the declared `NAMESPACE` exports.
+- integration report now follows the required 9-section controller output format.
 
-## 9. integration & migration notes
-- next migration action: commit `renv.lock` to enforce deterministic dependency restoration.
-- keep option-gated auto-run behavior disabled in CI by setting `fao.run_*_pipeline.auto = FALSE` before sourcing stage runners.
-- if performance-critical classification is later issued, run dedicated performance engine and benchmark phase before integration.
+## 9. Integration & Migration Notes
+- commit `renv.lock` to close deterministic dependency management gap.
+- in ci/non-interactive contexts, set `options(fao.run_general_pipeline.auto = FALSE, fao.run_import_pipeline.auto = FALSE, fao.run_clean_harmonize_pipeline.auto = FALSE, fao.run_export_pipeline.auto = FALSE)` before sourcing stage scripts.
+- if future profiling classifies workloads as performance-critical, execute steps 7-8 (performance engine + benchmark) before merge.

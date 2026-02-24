@@ -216,9 +216,10 @@ validate_rule_schema <- function(rules_dt, required_columns, layer_name) {
 #' @description discover and load one cleaning mapping file from configured
 #' cleaning imports directory.
 #' @param config named configuration list.
-#' @return data.table cleaning rules.
+#' @return named list with `rules_dt`, `template_created`, and `source_path`.
 #' @importFrom checkmate assert_list assert_string
-#' @importFrom fs dir_ls
+#' @importFrom fs dir_ls dir_create path
+#' @importFrom openxlsx createWorkbook addWorksheet writeData saveWorkbook
 #' @examples
 #' \dontrun{load_cleaning_rules(config)}
 load_cleaning_rules <- function(config) {
@@ -227,6 +228,8 @@ load_cleaning_rules <- function(config) {
 
   cleaning_dir <- config$paths$data$imports$cleaning
 
+  fs::dir_create(cleaning_dir, recurse = TRUE)
+
   candidate_files <- fs::dir_ls(
     cleaning_dir,
     regexp = "\\.(csv|xlsx|xls)$",
@@ -234,13 +237,46 @@ load_cleaning_rules <- function(config) {
     recurse = FALSE
   )
 
+  template_created <- FALSE
+
   if (length(candidate_files) == 0) {
-    cli::cli_abort("no cleaning rule files found under {.path {cleaning_dir}}")
+    template_path <- fs::path(
+      cleaning_dir,
+      paste0(
+        "cleaning_rules_template_",
+        format(Sys.time(), "%Y%m%d_%H%M%S", tz = "UTC"),
+        ".xlsx"
+      )
+    )
+
+    template_dt <- data.table::data.table(
+      target_column = character(0),
+      original_value = character(0),
+      cleaned_value = character(0),
+      rule_version = character(0),
+      active_flag = logical(0)
+    )
+
+    wb <- openxlsx::createWorkbook()
+    openxlsx::addWorksheet(wb, "cleaning_rules")
+    openxlsx::writeData(wb, "cleaning_rules", template_dt)
+    openxlsx::saveWorkbook(wb, template_path, overwrite = FALSE)
+
+    cli::cli_alert_info(
+      "created cleaning template rule file at {.path {template_path}}"
+    )
+
+    candidate_files <- template_path
+    template_created <- TRUE
   }
 
-  selected_file <- candidate_files[1]
+  selected_file <- sort(as.character(candidate_files))[1]
 
-  return(read_rule_table(selected_file))
+  return(list(
+    rules_dt = read_rule_table(selected_file),
+    template_created = template_created,
+    source_path = selected_file
+  ))
 }
 
 #' @title validate cleaning rules
@@ -370,7 +406,40 @@ run_cleaning_layer <- function(dataset_dt, config) {
   cleaned_dt <- data.table::as.data.table(data.table::copy(dataset_dt))
   rows_in <- as.integer(nrow(cleaned_dt))
 
-  cleaning_rules <- load_cleaning_rules(config)
+  cleaning_rules_payload <- load_cleaning_rules(config)
+  checkmate::assert_names(
+    names(cleaning_rules_payload),
+    must.include = c("rules_dt", "template_created", "source_path")
+  )
+  checkmate::assert_data_frame(cleaning_rules_payload$rules_dt, min.rows = 0)
+  checkmate::assert_flag(cleaning_rules_payload$template_created)
+  checkmate::assert_string(cleaning_rules_payload$source_path, min.chars = 1)
+
+  cleaning_rules <- cleaning_rules_payload$rules_dt
+
+  active_cleaning_rows <- !is.na(as.logical(cleaning_rules$active_flag)) &
+    as.logical(cleaning_rules$active_flag)
+
+  if (nrow(cleaning_rules) == 0 || !any(active_cleaning_rows)) {
+    diagnostics <- build_layer_diagnostics(
+      layer_name = "cleaning",
+      rows_in = rows_in,
+      rows_out = rows_in,
+      matched_count = 0L,
+      unmatched_count = 0L,
+      idempotence_passed = TRUE,
+      validation_passed = TRUE,
+      status = "warn",
+      messages = "step skipped: no active rules in template"
+    )
+
+    diagnostics_path <- persist_layer_diagnostics(diagnostics, config)
+    attr(cleaned_dt, "layer_diagnostics") <- diagnostics
+    attr(cleaned_dt, "layer_diagnostics_path") <- diagnostics_path
+
+    return(cleaned_dt)
+  }
+
   validate_cleaning_rules(cleaning_rules, colnames(cleaned_dt))
 
   cleaning_rule_version <- unique(as.character(cleaning_rules$rule_version))[1]
@@ -458,9 +527,11 @@ run_cleaning_layer <- function(dataset_dt, config) {
 #' @description load taxonomy and conversion rule tables from harmonization
 #' imports folder.
 #' @param config named configuration list.
-#' @return named list with `taxonomy_rules` and `conversion_rules`.
+#' @return named list with `taxonomy_rules`, `conversion_rules`,
+#' `template_created`, `taxonomy_source_path`, and `conversion_source_path`.
 #' @importFrom checkmate assert_list assert_string
-#' @importFrom fs dir_ls path_file
+#' @importFrom fs dir_ls dir_create path
+#' @importFrom openxlsx createWorkbook addWorksheet writeData saveWorkbook
 #' @examples
 #' \dontrun{load_harmonization_rules(config)}
 load_harmonization_rules <- function(config) {
@@ -472,6 +543,8 @@ load_harmonization_rules <- function(config) {
 
   harmonization_dir <- config$paths$data$imports$harmonization
 
+  fs::dir_create(harmonization_dir, recurse = TRUE)
+
   candidate_files <- fs::dir_ls(
     harmonization_dir,
     regexp = "\\.(csv|xlsx|xls)$",
@@ -479,10 +552,52 @@ load_harmonization_rules <- function(config) {
     recurse = FALSE
   )
 
-  if (length(candidate_files) < 2) {
-    cli::cli_abort(
-      "harmonization imports must include at least taxonomy and conversion rule files"
+  template_created <- FALSE
+
+  if (length(candidate_files) == 0) {
+    timestamp_token <- format(Sys.time(), "%Y%m%d_%H%M%S", tz = "UTC")
+    taxonomy_template_path <- fs::path(
+      harmonization_dir,
+      paste0("taxonomy_mapping_template_", timestamp_token, ".xlsx")
     )
+    conversion_template_path <- fs::path(
+      harmonization_dir,
+      paste0("conversion_mapping_template_", timestamp_token, ".xlsx")
+    )
+
+    taxonomy_template_dt <- data.table::data.table(
+      entity_key = character(0),
+      canonical_entity = character(0),
+      taxonomy_code = character(0),
+      hierarchy_level = character(0),
+      rule_version = character(0),
+      active_flag = logical(0)
+    )
+    conversion_template_dt <- data.table::data.table(
+      from_unit = character(0),
+      to_unit = character(0),
+      factor = numeric(0),
+      offset = numeric(0),
+      rule_version = character(0),
+      active_flag = logical(0)
+    )
+
+    taxonomy_wb <- openxlsx::createWorkbook()
+    openxlsx::addWorksheet(taxonomy_wb, "taxonomy_rules")
+    openxlsx::writeData(taxonomy_wb, "taxonomy_rules", taxonomy_template_dt)
+    openxlsx::saveWorkbook(taxonomy_wb, taxonomy_template_path, overwrite = FALSE)
+
+    conversion_wb <- openxlsx::createWorkbook()
+    openxlsx::addWorksheet(conversion_wb, "conversion_rules")
+    openxlsx::writeData(conversion_wb, "conversion_rules", conversion_template_dt)
+    openxlsx::saveWorkbook(conversion_wb, conversion_template_path, overwrite = FALSE)
+
+    cli::cli_alert_info(
+      "created harmonization templates at {.path {taxonomy_template_path}} and {.path {conversion_template_path}}"
+    )
+
+    candidate_files <- c(taxonomy_template_path, conversion_template_path)
+    template_created <- TRUE
   }
 
   file_names <- basename(candidate_files) |>
@@ -502,7 +617,10 @@ load_harmonization_rules <- function(config) {
 
   return(list(
     taxonomy_rules = taxonomy_rules,
-    conversion_rules = conversion_rules
+    conversion_rules = conversion_rules,
+    template_created = template_created,
+    taxonomy_source_path = candidate_files[taxonomy_index],
+    conversion_source_path = candidate_files[conversion_index]
   ))
 }
 
@@ -746,8 +864,54 @@ run_harmonization_layer <- function(cleaned_dt, config) {
   rows_in <- as.integer(nrow(harmonized_dt))
 
   harmonization_rules <- load_harmonization_rules(config)
+  checkmate::assert_names(
+    names(harmonization_rules),
+    must.include = c(
+      "taxonomy_rules",
+      "conversion_rules",
+      "template_created",
+      "taxonomy_source_path",
+      "conversion_source_path"
+    )
+  )
+  checkmate::assert_data_frame(harmonization_rules$taxonomy_rules, min.rows = 0)
+  checkmate::assert_data_frame(harmonization_rules$conversion_rules, min.rows = 0)
+  checkmate::assert_flag(harmonization_rules$template_created)
+  checkmate::assert_string(harmonization_rules$taxonomy_source_path, min.chars = 1)
+  checkmate::assert_string(harmonization_rules$conversion_source_path, min.chars = 1)
+
   taxonomy_rules <- harmonization_rules$taxonomy_rules
   conversion_rules <- harmonization_rules$conversion_rules
+
+  taxonomy_active_rows <- !is.na(as.logical(taxonomy_rules$active_flag)) &
+    as.logical(taxonomy_rules$active_flag)
+  conversion_active_rows <- !is.na(as.logical(conversion_rules$active_flag)) &
+    as.logical(conversion_rules$active_flag)
+
+  if (
+    nrow(taxonomy_rules) == 0 ||
+    nrow(conversion_rules) == 0 ||
+    !any(taxonomy_active_rows) ||
+    !any(conversion_active_rows)
+  ) {
+    diagnostics <- build_layer_diagnostics(
+      layer_name = "harmonization",
+      rows_in = rows_in,
+      rows_out = rows_in,
+      matched_count = 0L,
+      unmatched_count = 0L,
+      idempotence_passed = TRUE,
+      validation_passed = TRUE,
+      status = "warn",
+      messages = "step skipped: no active rules in template"
+    )
+
+    diagnostics_path <- persist_layer_diagnostics(diagnostics, config)
+    attr(harmonized_dt, "layer_diagnostics") <- diagnostics
+    attr(harmonized_dt, "layer_diagnostics_path") <- diagnostics_path
+
+    return(harmonized_dt)
+  }
 
   validate_taxonomy_rules(taxonomy_rules)
   validate_conversion_rules(conversion_rules)
