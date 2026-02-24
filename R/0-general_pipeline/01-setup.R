@@ -267,7 +267,7 @@ load_pipeline_config <- function(dataset_name = "fao_data_raw", ...) {
     min.chars = 1
   )
 
-  config
+  return(config)
 }
 
 #' @title create required directories

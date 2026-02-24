@@ -30,7 +30,7 @@ source_general_scripts <- function(script_names) {
       source(script_path, echo = FALSE)
     })
 
-  invisible(script_paths)
+  return(invisible(script_paths))
 }
 
 #' @title run general pipeline
