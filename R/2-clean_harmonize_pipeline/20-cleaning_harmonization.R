@@ -460,11 +460,12 @@ run_cleaning_layer <- function(dataset_dt, config) {
 }
 
 #' @title load harmonization rules
-#' @description load taxonomy and conversion rule tables from harmonization
-#' imports folder.
+#' @description load value-renaming harmonization mapping from harmonization
+#' imports folder. legacy taxonomy-style mappings are normalized to the same
+#' structure for backward compatibility.
 #' @param config named configuration list.
-#' @return named list with `taxonomy_rules`, `conversion_rules`,
-#' `template_created`, `taxonomy_source_path`, and `conversion_source_path`.
+#' @return named list with `harmonization_rules`, `template_created`, and
+#' `source_path`.
 #' @importFrom checkmate assert_list assert_string
 #' @importFrom fs dir_ls dir_create path
 #' @importFrom openxlsx createWorkbook addWorksheet writeData saveWorkbook
@@ -491,118 +492,120 @@ load_harmonization_rules <- function(config) {
   template_created <- FALSE
 
   if (length(candidate_files) == 0) {
-    taxonomy_template_path <- fs::path(
-      harmonization_dir,
-      paste0("taxonomy_mapping", ".xlsx")
-    )
-    conversion_template_path <- fs::path(
-      harmonization_dir,
-      paste0("conversion_mapping", ".xlsx")
+    template_path <- fs::path(harmonization_dir, "harmonization_mapping.xlsx")
+
+    harmonization_template_dt <- data.table::data.table(
+      target_column = character(0),
+      original_value = character(0),
+      harmonized_value = character(0)
     )
 
-    taxonomy_template_dt <- data.table::data.table(
-      entity_key = character(0),
-      canonical_entity = character(0),
-      taxonomy_code = character(0),
-      hierarchy_level = character(0),
-      rule_version = character(0),
-      active_flag = logical(0)
-    )
-    conversion_template_dt <- data.table::data.table(
-      from_unit = character(0),
-      to_unit = character(0),
-      factor = numeric(0),
-      offset = numeric(0),
-      rule_version = character(0),
-      active_flag = logical(0)
-    )
-
-    taxonomy_wb <- openxlsx::createWorkbook()
-    openxlsx::addWorksheet(taxonomy_wb, "taxonomy_rules")
-    openxlsx::writeData(taxonomy_wb, "taxonomy_rules", taxonomy_template_dt)
-    openxlsx::saveWorkbook(
-      taxonomy_wb,
-      taxonomy_template_path,
-      overwrite = FALSE
-    )
-
-    conversion_wb <- openxlsx::createWorkbook()
-    openxlsx::addWorksheet(conversion_wb, "conversion_rules")
-    openxlsx::writeData(
-      conversion_wb,
-      "conversion_rules",
-      conversion_template_dt
-    )
-    openxlsx::saveWorkbook(
-      conversion_wb,
-      conversion_template_path,
-      overwrite = FALSE
-    )
+    wb <- openxlsx::createWorkbook()
+    openxlsx::addWorksheet(wb, "harmonization_mapping")
+    openxlsx::writeData(wb, "harmonization_mapping", harmonization_template_dt)
+    openxlsx::saveWorkbook(wb, template_path, overwrite = FALSE)
 
     cli::cli_alert_info(
-      "created harmonization templates: {.file {basename(taxonomy_template_path)}} and {.file {basename(conversion_template_path)}}"
+      "created harmonization template: {.file {basename(template_path)}}"
     )
 
-    candidate_files <- c(taxonomy_template_path, conversion_template_path)
+    candidate_files <- template_path
     template_created <- TRUE
   }
 
-  file_names <- basename(candidate_files) |>
-    tolower()
+  file_names <- basename(candidate_files) |> tolower()
+  mapping_index <- grep("harmonization|taxonomy|mapping", file_names)[1]
 
-  taxonomy_index <- grep("taxonomy", file_names)[1]
-  conversion_index <- grep("conversion|unit", file_names)[1]
-
-  if (is.na(taxonomy_index) || is.na(conversion_index)) {
+  if (is.na(mapping_index)) {
     cli::cli_abort(
-      "could not identify taxonomy and conversion rule files in harmonization imports"
+      "could not identify harmonization mapping file in harmonization imports"
     )
   }
 
-  taxonomy_rules <- read_rule_table(candidate_files[taxonomy_index])
-  conversion_rules <- read_rule_table(candidate_files[conversion_index])
+  source_path <- candidate_files[mapping_index]
 
   return(list(
-    taxonomy_rules = taxonomy_rules,
-    conversion_rules = conversion_rules,
+    harmonization_rules = read_rule_table(source_path),
     template_created = template_created,
-    taxonomy_source_path = candidate_files[taxonomy_index],
-    conversion_source_path = candidate_files[conversion_index]
+    source_path = source_path
   ))
 }
 
-#' @title validate taxonomy rules
-#' @description validate taxonomy rule table schema and active-key uniqueness.
-#' @param taxonomy_dt taxonomy rules data.table.
+#' @title validate harmonization rules
+#' @description validate harmonization rule table schema and active-key
+#' uniqueness.
+#' @param harmonization_dt harmonization rules data.table.
 #' @return invisible true.
 #' @importFrom checkmate assert_data_frame
 #' @examples
-#' \dontrun{validate_taxonomy_rules(taxonomy_dt)}
-validate_taxonomy_rules <- function(taxonomy_dt) {
-  checkmate::assert_data_frame(taxonomy_dt, min.rows = 1)
+#' \dontrun{validate_harmonization_rules(harmonization_dt)}
+validate_harmonization_rules <- function(harmonization_dt) {
+  checkmate::assert_data_frame(harmonization_dt, min.rows = 1)
 
   required_columns <- c(
-    "entity_key",
-    "canonical_entity",
-    "taxonomy_code",
-    "hierarchy_level",
-    "rule_version",
-    "active_flag"
+    "target_column",
+    "original_value",
+    "harmonized_value"
   )
 
-  validate_rule_schema(taxonomy_dt, required_columns, "harmonization taxonomy")
+  validate_rule_schema(harmonization_dt, required_columns, "harmonization")
 
-  active_taxonomy <- taxonomy_dt[as.logical(active_flag)]
-
-  duplicate_active <- active_taxonomy[, .N, by = .(entity_key, rule_version)][
+  duplicate_active <- harmonization_dt[, .N, by = .(target_column, original_value)][
     N > 1
   ]
 
   if (nrow(duplicate_active) > 0) {
-    cli::cli_abort("taxonomy rules contain duplicate active entity keys")
+    cli::cli_abort("harmonization rules contain duplicate mapping keys")
   }
 
   return(invisible(TRUE))
+}
+
+#' @title validate taxonomy rules (backward-compatible alias)
+#' @description backward-compatible wrapper that forwards legacy taxonomy
+#' validation calls to `validate_harmonization_rules()`.
+#' @param taxonomy_dt taxonomy-style rule table.
+#' @return invisible true.
+validate_taxonomy_rules <- function(taxonomy_dt) {
+  return(validate_harmonization_rules(taxonomy_dt))
+}
+
+#' @title normalize legacy taxonomy mapping to harmonization mapping
+#' @description coerce legacy taxonomy schema (`entity_key`,
+#' `canonical_entity`) into harmonization value-renaming schema when needed.
+#' @param rules_dt raw rule data.table loaded from harmonization imports.
+#' @param default_target_column character scalar target column used for legacy
+#' taxonomy-style mappings.
+#' @return harmonization mapping data.table with columns `target_column`,
+#' `original_value`, and `harmonized_value`.
+normalize_harmonization_rules <- function(rules_dt, default_target_column) {
+  checkmate::assert_data_frame(rules_dt, min.rows = 0)
+  checkmate::assert_string(default_target_column, min.chars = 1)
+
+  rules_dt <- data.table::as.data.table(rules_dt)
+  standard_columns <- c(
+    "target_column",
+    "original_value",
+    "harmonized_value"
+  )
+
+  if (all(standard_columns %in% colnames(rules_dt))) {
+    return(rules_dt[, ..standard_columns])
+  }
+
+  legacy_columns <- c("entity_key", "canonical_entity")
+
+  if (all(legacy_columns %in% colnames(rules_dt))) {
+    return(data.table::data.table(
+      target_column = default_target_column,
+      original_value = as.character(rules_dt$entity_key),
+      harmonized_value = as.character(rules_dt$canonical_entity)
+    ))
+  }
+
+  cli::cli_abort(
+    "harmonization rules must contain either standardized mapping columns or legacy taxonomy mapping columns"
+  )
 }
 
 #' @title validate conversion rules
@@ -619,9 +622,7 @@ validate_conversion_rules <- function(conversion_dt) {
     "from_unit",
     "to_unit",
     "factor",
-    "offset",
-    "rule_version",
-    "active_flag"
+    "offset"
   )
 
   validate_rule_schema(
@@ -630,88 +631,83 @@ validate_conversion_rules <- function(conversion_dt) {
     "harmonization conversion"
   )
 
-  active_conversion <- conversion_dt[as.logical(active_flag)]
+  duplicate_rows <- conversion_dt[, .N, by = .(from_unit, to_unit)][N > 1]
 
-  duplicate_active <- active_conversion[,
-    .N,
-    by = .(from_unit, to_unit, rule_version)
-  ][N > 1]
-
-  if (nrow(duplicate_active) > 0) {
-    cli::cli_abort("conversion rules contain duplicate active unit pairs")
+  if (nrow(duplicate_rows) > 0) {
+    cli::cli_abort("conversion rules contain duplicate unit pairs")
   }
 
-  if (any(!is.finite(as.numeric(active_conversion$factor)))) {
+  if (any(!is.finite(as.numeric(conversion_dt$factor)))) {
     cli::cli_abort("conversion factor values must be finite")
   }
 
   return(invisible(TRUE))
 }
 
-#' @title apply taxonomy mapping
-#' @description map cleaned entity key to canonical taxonomy fields.
+#' @title apply harmonization mapping
+#' @description apply deterministic value renaming to cleaned columns based on
+#' harmonization mapping rules.
 #' @param cleaned_dt cleaned data.table.
-#' @param taxonomy_dt taxonomy rules data.table.
-#' @param entity_column character scalar entity key column name in data.
+#' @param harmonization_dt harmonization rules data.table.
 #' @return named list with harmonized data, matched count, unmatched count.
-#' @importFrom checkmate assert_data_frame assert_string
+#' @importFrom checkmate assert_data_frame
 #' @examples
-#' \dontrun{apply_taxonomy_mapping(cleaned_dt, taxonomy_dt, "country")}
-apply_taxonomy_mapping <- function(cleaned_dt, taxonomy_dt, entity_column) {
+#' \dontrun{apply_harmonization_mapping(cleaned_dt, harmonization_dt)}
+apply_harmonization_mapping <- function(cleaned_dt, harmonization_dt) {
   checkmate::assert_data_frame(cleaned_dt, min.rows = 0)
-  checkmate::assert_data_frame(taxonomy_dt, min.rows = 1)
-  checkmate::assert_string(entity_column, min.chars = 1)
-
-  if (!entity_column %in% colnames(cleaned_dt)) {
-    cli::cli_abort(
-      "entity column {.val {entity_column}} is missing from cleaned data"
-    )
-  }
+  checkmate::assert_data_frame(harmonization_dt, min.rows = 1)
 
   mapped_dt <- data.table::copy(data.table::as.data.table(cleaned_dt))
-  active_taxonomy <- data.table::as.data.table(taxonomy_dt)[as.logical(
-    active_flag
-  )]
+  active_rules <- data.table::as.data.table(harmonization_dt)
 
-  active_taxonomy[, entity_key_normalized := normalize_string(entity_key)]
-  data.table::setkey(active_taxonomy, entity_key_normalized)
+  matched_count <- 0L
+  unmatched_count <- 0L
 
-  data_entity_key <- normalize_string(mapped_dt[[entity_column]])
-  matched_index <- active_taxonomy[data_entity_key, which = TRUE]
-  is_matched <- !is.na(matched_index)
+  target_columns <- intersect(unique(active_rules$target_column), colnames(mapped_dt))
 
-  mapped_dt[, canonical_entity := NA_character_]
-  mapped_dt[, taxonomy_code := NA_character_]
-  mapped_dt[, hierarchy_level := NA_character_]
+  for (target_column in target_columns) {
+    column_rules <- data.table::copy(active_rules[target_column == ..target_column])
+    column_rules[, original_key := normalize_string(original_value)]
+    data.table::setkey(column_rules, original_key)
 
-  if (any(is_matched)) {
-    mapped_dt[
-      is_matched,
-      canonical_entity := active_taxonomy$canonical_entity[matched_index[
-        is_matched
-      ]]
-    ]
-    mapped_dt[
-      is_matched,
-      taxonomy_code := active_taxonomy$taxonomy_code[matched_index[is_matched]]
-    ]
-    mapped_dt[
-      is_matched,
-      hierarchy_level := as.character(active_taxonomy$hierarchy_level[matched_index[
-        is_matched
-      ]])
-    ]
+    source_values <- mapped_dt[[target_column]]
+    source_keys <- normalize_string(source_values)
+
+    matched_index <- column_rules[source_keys, which = TRUE]
+    is_matched <- !is.na(matched_index)
+
+    matched_count <- matched_count + as.integer(sum(is_matched))
+
+    unmatched_unique <- unique(source_keys[!is_matched & source_keys != ""])
+    unmatched_count <- unmatched_count + length(unmatched_unique)
+
+    if (any(is_matched)) {
+      replacement_values <- column_rules$harmonized_value[matched_index[is_matched]]
+      mapped_dt[is_matched, (target_column) := replacement_values]
+    }
   }
-
-  unmatched_count <- length(unique(data_entity_key[
-    !is_matched & data_entity_key != ""
-  ]))
 
   return(list(
     data = mapped_dt,
-    matched_count = as.integer(sum(is_matched)),
+    matched_count = as.integer(matched_count),
     unmatched_count = as.integer(unmatched_count)
   ))
+}
+
+#' @title apply taxonomy mapping (backward-compatible alias)
+#' @description backward-compatible wrapper that maps legacy taxonomy calls to
+#' harmonization value-renaming behavior.
+#' @param cleaned_dt cleaned data.table.
+#' @param taxonomy_dt taxonomy-style rule table.
+#' @param entity_column character scalar target column used by legacy schema.
+#' @return named list with harmonized data, matched count, unmatched count.
+apply_taxonomy_mapping <- function(cleaned_dt, taxonomy_dt, entity_column) {
+  harmonization_dt <- normalize_harmonization_rules(
+    rules_dt = taxonomy_dt,
+    default_target_column = entity_column
+  )
+
+  return(apply_harmonization_mapping(cleaned_dt, harmonization_dt))
 }
 
 #' @title apply numeric unit harmonization
@@ -745,9 +741,7 @@ apply_numeric_harmonization <- function(
   }
 
   harmonized_dt <- data.table::copy(data.table::as.data.table(mapped_dt))
-  active_conversion <- data.table::as.data.table(conversion_dt)[as.logical(
-    active_flag
-  )]
+  active_conversion <- data.table::as.data.table(conversion_dt)
 
   active_conversion[, from_unit_normalized := normalize_string(from_unit)]
   data.table::setkey(active_conversion, from_unit_normalized)
@@ -795,7 +789,7 @@ apply_numeric_harmonization <- function(
 }
 
 #' @title run harmonization layer
-#' @description execute taxonomy and numeric harmonization with idempotency and
+#' @description execute value-renaming harmonization with idempotency and
 #' diagnostics persistence.
 #' @param cleaned_dt cleaned data.frame/data.table.
 #' @param config named configuration list.
@@ -813,43 +807,25 @@ run_harmonization_layer <- function(cleaned_dt, config) {
   harmonization_rules <- load_harmonization_rules(config)
   checkmate::assert_names(
     names(harmonization_rules),
-    must.include = c(
-      "taxonomy_rules",
-      "conversion_rules",
-      "template_created",
-      "taxonomy_source_path",
-      "conversion_source_path"
-    )
+    must.include = c("harmonization_rules", "template_created", "source_path")
   )
-  checkmate::assert_data_frame(harmonization_rules$taxonomy_rules, min.rows = 0)
-  checkmate::assert_data_frame(
-    harmonization_rules$conversion_rules,
-    min.rows = 0
-  )
+  checkmate::assert_data_frame(harmonization_rules$harmonization_rules, min.rows = 0)
   checkmate::assert_flag(harmonization_rules$template_created)
-  checkmate::assert_string(
-    harmonization_rules$taxonomy_source_path,
-    min.chars = 1
+  checkmate::assert_string(harmonization_rules$source_path, min.chars = 1)
+
+  default_target_column <- purrr::pluck(
+    config,
+    "harmonization",
+    "target_column",
+    .default = purrr::pluck(config, "harmonization", "entity_column", .default = "country")
   )
-  checkmate::assert_string(
-    harmonization_rules$conversion_source_path,
-    min.chars = 1
+
+  rules_dt <- normalize_harmonization_rules(
+    harmonization_rules$harmonization_rules,
+    default_target_column = default_target_column
   )
 
-  taxonomy_rules <- harmonization_rules$taxonomy_rules
-  conversion_rules <- harmonization_rules$conversion_rules
-
-  taxonomy_active_rows <- !is.na(as.logical(taxonomy_rules$active_flag)) &
-    as.logical(taxonomy_rules$active_flag)
-  conversion_active_rows <- !is.na(as.logical(conversion_rules$active_flag)) &
-    as.logical(conversion_rules$active_flag)
-
-  if (
-    nrow(taxonomy_rules) == 0 ||
-      nrow(conversion_rules) == 0 ||
-      !any(taxonomy_active_rows) ||
-      !any(conversion_active_rows)
-  ) {
+  if (nrow(rules_dt) == 0) {
     diagnostics <- build_layer_diagnostics(
       layer_name = "harmonization",
       rows_in = rows_in,
@@ -859,7 +835,7 @@ run_harmonization_layer <- function(cleaned_dt, config) {
       idempotence_passed = TRUE,
       validation_passed = TRUE,
       status = "warn",
-      messages = "step skipped: no active rules in template"
+      messages = "step skipped: no harmonization mapping rows found"
     )
 
     diagnostics_path <- persist_layer_diagnostics(diagnostics, config)
@@ -869,91 +845,14 @@ run_harmonization_layer <- function(cleaned_dt, config) {
     return(harmonized_dt)
   }
 
-  validate_taxonomy_rules(taxonomy_rules)
-  validate_conversion_rules(conversion_rules)
+  validate_harmonization_rules(rules_dt)
 
-  taxonomy_rule_version <- unique(as.character(taxonomy_rules$rule_version))[1]
-  conversion_rule_version <- unique(as.character(
-    conversion_rules$rule_version
-  ))[1]
-
-  already_harmonized <-
-    "_harmonized_flag" %in%
-    colnames(harmonized_dt) &&
-    "_harmonization_rule_version" %in% colnames(harmonized_dt) &&
-    all(isTRUE(harmonized_dt[["_harmonized_flag"]])) &&
-    all(
-      harmonized_dt[["_harmonization_rule_version"]] ==
-        paste(taxonomy_rule_version, conversion_rule_version, sep = "|")
-    )
-
-  if (already_harmonized) {
-    diagnostics <- build_layer_diagnostics(
-      layer_name = "harmonization",
-      rule_version_taxonomy = taxonomy_rule_version,
-      rule_version_conversion = conversion_rule_version,
-      rows_in = rows_in,
-      rows_out = rows_in,
-      matched_count = 0L,
-      unmatched_count = 0L,
-      idempotence_passed = TRUE,
-      validation_passed = TRUE,
-      status = "warn",
-      messages = "harmonization skipped because identical rule versions are already applied"
-    )
-
-    diagnostics_path <- persist_layer_diagnostics(diagnostics, config)
-    attr(harmonized_dt, "layer_diagnostics") <- diagnostics
-    attr(harmonized_dt, "layer_diagnostics_path") <- diagnostics_path
-
-    return(harmonized_dt)
-  }
-
-  entity_column <- purrr::pluck(
-    config,
-    "harmonization",
-    "entity_column",
-    .default = "country"
-  )
-  unit_column <- purrr::pluck(
-    config,
-    "harmonization",
-    "unit_column",
-    .default = "unit"
-  )
-  value_column <- purrr::pluck(
-    config,
-    "harmonization",
-    "value_column",
-    .default = "value"
-  )
-
-  taxonomy_result <- apply_taxonomy_mapping(
-    harmonized_dt,
-    taxonomy_rules,
-    entity_column
-  )
-  harmonized_dt <- taxonomy_result$data
-
-  conversion_result <- apply_numeric_harmonization(
-    harmonized_dt,
-    conversion_rules,
-    unit_column,
-    value_column
-  )
-  harmonized_dt <- conversion_result$data
+  harmonization_result <- apply_harmonization_mapping(harmonized_dt, rules_dt)
+  harmonized_dt <- harmonization_result$data
 
   harmonized_dt[, `_harmonized_flag` := TRUE]
-  harmonized_dt[,
-    `_harmonization_rule_version` := paste(
-      taxonomy_rule_version,
-      conversion_rule_version,
-      sep = "|"
-    )
-  ]
 
-  unmatched_total <- taxonomy_result$unmatched_count +
-    conversion_result$unmatched_count
+  unmatched_total <- harmonization_result$unmatched_count
 
   unmatched_policy <- purrr::pluck(
     config,
@@ -973,12 +872,9 @@ run_harmonization_layer <- function(cleaned_dt, config) {
 
   diagnostics <- build_layer_diagnostics(
     layer_name = "harmonization",
-    rule_version_taxonomy = taxonomy_rule_version,
-    rule_version_conversion = conversion_rule_version,
     rows_in = rows_in,
     rows_out = rows_out,
-    matched_count = taxonomy_result$matched_count +
-      conversion_result$matched_count,
+    matched_count = harmonization_result$matched_count,
     unmatched_count = unmatched_total,
     idempotence_passed = TRUE,
     validation_passed = TRUE,
