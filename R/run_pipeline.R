@@ -25,6 +25,7 @@ run_pipeline <- function(
   pipeline_files <- c(
     file.path(pipeline_root, "0-general_pipeline", "run_general_pipeline.R"),
     file.path(pipeline_root, "1-import_pipeline", "run_import_pipeline.R"),
+    file.path(pipeline_root, "2-clean_harmonize_pipeline", "run_clean_harmonize_pipeline.R"),
     file.path(pipeline_root, "3-export_pipeline", "run_export_pipeline.R")
   )
 
@@ -46,7 +47,7 @@ run_pipeline <- function(
     utils::View(get("fao_data_raw", inherits = TRUE))
   }
 
-  invisible(TRUE)
+  return(invisible(TRUE))
 }
 
 if (isTRUE(getOption("fao.run_pipeline.auto", TRUE))) {
