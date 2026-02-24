@@ -497,7 +497,9 @@ load_harmonization_rules <- function(config) {
     harmonization_template_dt <- data.table::data.table(
       target_column = character(0),
       original_value = character(0),
-      harmonized_value = character(0)
+      harmonized_value = character(0),
+      rule_version = character(0),
+      active_flag = logical(0)
     )
 
     wb <- openxlsx::createWorkbook()
@@ -545,17 +547,21 @@ validate_harmonization_rules <- function(harmonization_dt) {
   required_columns <- c(
     "target_column",
     "original_value",
-    "harmonized_value"
+    "harmonized_value",
+    "rule_version",
+    "active_flag"
   )
 
   validate_rule_schema(harmonization_dt, required_columns, "harmonization")
 
-  duplicate_active <- harmonization_dt[, .N, by = .(target_column, original_value)][
+  active_rules <- harmonization_dt[as.logical(active_flag)]
+
+  duplicate_active <- active_rules[, .N, by = .(target_column, original_value)][
     N > 1
   ]
 
   if (nrow(duplicate_active) > 0) {
-    cli::cli_abort("harmonization rules contain duplicate mapping keys")
+    cli::cli_abort("harmonization rules contain duplicate active mapping keys")
   }
 
   return(invisible(TRUE))
@@ -577,7 +583,7 @@ validate_taxonomy_rules <- function(taxonomy_dt) {
 #' @param default_target_column character scalar target column used for legacy
 #' taxonomy-style mappings.
 #' @return harmonization mapping data.table with columns `target_column`,
-#' `original_value`, and `harmonized_value`.
+#' `original_value`, `harmonized_value`, `rule_version`, and `active_flag`.
 normalize_harmonization_rules <- function(rules_dt, default_target_column) {
   checkmate::assert_data_frame(rules_dt, min.rows = 0)
   checkmate::assert_string(default_target_column, min.chars = 1)
@@ -586,20 +592,29 @@ normalize_harmonization_rules <- function(rules_dt, default_target_column) {
   standard_columns <- c(
     "target_column",
     "original_value",
-    "harmonized_value"
+    "harmonized_value",
+    "rule_version",
+    "active_flag"
   )
 
   if (all(standard_columns %in% colnames(rules_dt))) {
     return(rules_dt[, ..standard_columns])
   }
 
-  legacy_columns <- c("entity_key", "canonical_entity")
+  legacy_columns <- c(
+    "entity_key",
+    "canonical_entity",
+    "rule_version",
+    "active_flag"
+  )
 
   if (all(legacy_columns %in% colnames(rules_dt))) {
     return(data.table::data.table(
       target_column = default_target_column,
       original_value = as.character(rules_dt$entity_key),
-      harmonized_value = as.character(rules_dt$canonical_entity)
+      harmonized_value = as.character(rules_dt$canonical_entity),
+      rule_version = as.character(rules_dt$rule_version),
+      active_flag = as.logical(rules_dt$active_flag)
     ))
   }
 
@@ -658,15 +673,22 @@ apply_harmonization_mapping <- function(cleaned_dt, harmonization_dt) {
   checkmate::assert_data_frame(harmonization_dt, min.rows = 1)
 
   mapped_dt <- data.table::copy(data.table::as.data.table(cleaned_dt))
-  active_rules <- data.table::as.data.table(harmonization_dt)
+  active_rules <- data.table::as.data.table(harmonization_dt)[as.logical(
+    active_flag
+  )]
 
   matched_count <- 0L
   unmatched_count <- 0L
 
-  target_columns <- intersect(unique(active_rules$target_column), colnames(mapped_dt))
+  target_columns <- intersect(
+    unique(active_rules$target_column),
+    colnames(mapped_dt)
+  )
 
   for (target_column in target_columns) {
-    column_rules <- data.table::copy(active_rules[target_column == ..target_column])
+    column_rules <- data.table::copy(active_rules[
+      target_column == ..target_column
+    ])
     column_rules[, original_key := normalize_string(original_value)]
     data.table::setkey(column_rules, original_key)
 
@@ -682,7 +704,9 @@ apply_harmonization_mapping <- function(cleaned_dt, harmonization_dt) {
     unmatched_count <- unmatched_count + length(unmatched_unique)
 
     if (any(is_matched)) {
-      replacement_values <- column_rules$harmonized_value[matched_index[is_matched]]
+      replacement_values <- column_rules$harmonized_value[matched_index[
+        is_matched
+      ]]
       mapped_dt[is_matched, (target_column) := replacement_values]
     }
   }
@@ -809,7 +833,10 @@ run_harmonization_layer <- function(cleaned_dt, config) {
     names(harmonization_rules),
     must.include = c("harmonization_rules", "template_created", "source_path")
   )
-  checkmate::assert_data_frame(harmonization_rules$harmonization_rules, min.rows = 0)
+  checkmate::assert_data_frame(
+    harmonization_rules$harmonization_rules,
+    min.rows = 0
+  )
   checkmate::assert_flag(harmonization_rules$template_created)
   checkmate::assert_string(harmonization_rules$source_path, min.chars = 1)
 
@@ -817,7 +844,12 @@ run_harmonization_layer <- function(cleaned_dt, config) {
     config,
     "harmonization",
     "target_column",
-    .default = purrr::pluck(config, "harmonization", "entity_column", .default = "country")
+    .default = purrr::pluck(
+      config,
+      "harmonization",
+      "entity_column",
+      .default = "country"
+    )
   )
 
   rules_dt <- normalize_harmonization_rules(
@@ -825,9 +857,47 @@ run_harmonization_layer <- function(cleaned_dt, config) {
     default_target_column = default_target_column
   )
 
+  active_rows <- !is.na(as.logical(rules_dt$active_flag)) &
+    as.logical(rules_dt$active_flag)
+
+  if (nrow(rules_dt) == 0 || !any(active_rows)) {
+    diagnostics <- build_layer_diagnostics(
+      layer_name = "harmonization",
+      rows_in = rows_in,
+      rows_out = rows_in,
+      matched_count = 0L,
+      unmatched_count = 0L,
+      idempotence_passed = TRUE,
+      validation_passed = TRUE,
+      status = "warn",
+      messages = "step skipped: no active rules in template"
+    )
+
+    diagnostics_path <- persist_layer_diagnostics(diagnostics, config)
+    attr(harmonized_dt, "layer_diagnostics") <- diagnostics
+    attr(harmonized_dt, "layer_diagnostics_path") <- diagnostics_path
+
+    return(harmonized_dt)
+  }
+
+  validate_harmonization_rules(rules_dt)
+
+  harmonization_rule_version <- unique(as.character(rules_dt$rule_version))[1]
+
+  already_harmonized <-
+    "_harmonized_flag" %in%
+    colnames(harmonized_dt) &&
+    "_harmonization_rule_version" %in% colnames(harmonized_dt) &&
+    all(isTRUE(harmonized_dt[["_harmonized_flag"]])) &&
+    all(
+      harmonized_dt[["_harmonization_rule_version"]] ==
+        harmonization_rule_version
+    )
+
   if (nrow(rules_dt) == 0) {
     diagnostics <- build_layer_diagnostics(
       layer_name = "harmonization",
+      rule_version_taxonomy = harmonization_rule_version,
       rows_in = rows_in,
       rows_out = rows_in,
       matched_count = 0L,
@@ -845,12 +915,15 @@ run_harmonization_layer <- function(cleaned_dt, config) {
     return(harmonized_dt)
   }
 
-  validate_harmonization_rules(rules_dt)
-
   harmonization_result <- apply_harmonization_mapping(harmonized_dt, rules_dt)
   harmonized_dt <- harmonization_result$data
 
   harmonized_dt[, `_harmonized_flag` := TRUE]
+  harmonized_dt[,
+    `_harmonization_rule_version` := paste(
+      harmonization_rule_version
+    )
+  ]
 
   unmatched_total <- harmonization_result$unmatched_count
 
@@ -872,6 +945,7 @@ run_harmonization_layer <- function(cleaned_dt, config) {
 
   diagnostics <- build_layer_diagnostics(
     layer_name = "harmonization",
+    rule_version_taxonomy = harmonization_rule_version,
     rows_in = rows_in,
     rows_out = rows_out,
     matched_count = harmonization_result$matched_count,
