@@ -108,7 +108,7 @@ run_import_pipeline <- function(config) {
 #' @importFrom cli cli_warn
 #' @examples
 #' run_import_pipeline_auto(auto_run = FALSE)
-run_import_pipeline_auto <- function(auto_run, env = parent.frame()) {
+run_import_pipeline_auto <- function(auto_run, env = .GlobalEnv) {
   checkmate::assert_flag(auto_run)
   checkmate::assert_environment(env)
 
@@ -117,7 +117,9 @@ run_import_pipeline_auto <- function(auto_run, env = parent.frame()) {
   }
 
   if (!exists("config", envir = env, inherits = TRUE)) {
-    cli::cli_warn("automatic import pipeline skipped: missing {.val config} in environment")
+    cli::cli_warn(
+      "automatic import pipeline skipped: missing {.val config} in environment"
+    )
     return(invisible(NULL))
   }
 
@@ -146,6 +148,5 @@ run_import_pipeline_auto <- function(auto_run, env = parent.frame()) {
 }
 
 run_import_pipeline_auto(
-  auto_run = isTRUE(getOption("fao.run_import_pipeline.auto", TRUE)),
-  env = parent.frame()
+  auto_run = isTRUE(getOption("fao.run_import_pipeline.auto", TRUE))
 )

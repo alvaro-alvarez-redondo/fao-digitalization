@@ -107,8 +107,7 @@ assert_read_result_contract <- function(read_result) {
 }
 
 #' @title normalize pipeline read result
-#' @description normalize the output of `safe_execute_read()` when reading a
-#' file so downstream aggregation can remain branch-free.
+#' @description normalize the output of `safe_execute_read()` when reading a file.
 #' @param read_result named list with `result` and `errors`.
 #' @return named list with `data` as `data.table` and `errors` as character
 #' vector.

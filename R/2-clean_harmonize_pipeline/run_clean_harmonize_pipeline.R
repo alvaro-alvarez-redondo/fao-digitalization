@@ -19,7 +19,7 @@ source(
 #' @importFrom cli cli_warn
 #' @examples
 #' run_clean_harmonize_pipeline_auto(auto_run = FALSE)
-run_clean_harmonize_pipeline_auto <- function(auto_run, env = parent.frame()) {
+run_clean_harmonize_pipeline_auto <- function(auto_run, env = .GlobalEnv) {
   checkmate::assert_flag(auto_run)
   checkmate::assert_environment(env)
 
@@ -46,8 +46,7 @@ run_clean_harmonize_pipeline_auto <- function(auto_run, env = parent.frame()) {
 
   fao_data_harmonized <- run_clean_harmonize_pipeline(
     raw_dt = fao_data_raw_value,
-    config = config_value,
-    aggregation = TRUE
+    config = config_value
   )
 
   assign("fao_data_harmonized", fao_data_harmonized, envir = env)
@@ -57,6 +56,5 @@ run_clean_harmonize_pipeline_auto <- function(auto_run, env = parent.frame()) {
 }
 
 run_clean_harmonize_pipeline_auto(
-  auto_run = isTRUE(getOption("fao.run_clean_harmonize_pipeline.auto", TRUE)),
-  env = parent.frame()
+  auto_run = isTRUE(getOption("fao.run_clean_harmonize_pipeline.auto", TRUE))
 )

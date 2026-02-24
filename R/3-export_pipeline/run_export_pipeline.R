@@ -9,7 +9,9 @@ export_scripts <- c(
 
 purrr::walk(
   export_scripts,
-  \(script_name) source(here::here("R", "3-export_pipeline", script_name), echo = FALSE)
+  \(script_name) {
+    source(here::here("R", "3-export_pipeline", script_name), echo = FALSE)
+  }
 )
 
 #' @title run export pipeline
@@ -83,7 +85,7 @@ run_export_pipeline <- function(fao_data_raw, config, overwrite = TRUE) {
 #' @importFrom cli cli_warn
 #' @examples
 #' run_export_pipeline_auto(auto_run = FALSE)
-run_export_pipeline_auto <- function(auto_run, env = parent.frame()) {
+run_export_pipeline_auto <- function(auto_run, env = .GlobalEnv) {
   checkmate::assert_flag(auto_run)
   checkmate::assert_environment(env)
 
@@ -92,12 +94,16 @@ run_export_pipeline_auto <- function(auto_run, env = parent.frame()) {
   }
 
   if (!exists("fao_data_raw", envir = env, inherits = TRUE)) {
-    cli::cli_warn("automatic export pipeline skipped: missing {.val fao_data_raw} in environment")
+    cli::cli_warn(
+      "automatic export pipeline skipped: missing {.val fao_data_raw} in environment"
+    )
     return(invisible(NULL))
   }
 
   if (!exists("config", envir = env, inherits = TRUE)) {
-    cli::cli_warn("automatic export pipeline skipped: missing {.val config} in environment")
+    cli::cli_warn(
+      "automatic export pipeline skipped: missing {.val config} in environment"
+    )
     return(invisible(NULL))
   }
 
@@ -116,6 +122,5 @@ run_export_pipeline_auto <- function(auto_run, env = parent.frame()) {
 }
 
 run_export_pipeline_auto(
-  auto_run = isTRUE(getOption("fao.run_export_pipeline.auto", TRUE)),
-  env = parent.frame()
+  auto_run = isTRUE(getOption("fao.run_export_pipeline.auto", TRUE))
 )

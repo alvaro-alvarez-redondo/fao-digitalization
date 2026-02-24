@@ -128,7 +128,6 @@ detect_duplicates_dt <- function(dt) {
 #' @title validate long data table
 #' @description run the complete long-table validation pipeline by applying
 #' mandatory field checks and duplicate detection, and return a validated table
-#' with aggregated error messages.
 #' @param long_dt data table or data frame containing long-format records.
 #' @param config named list containing `column_required` as a non-empty character
 #' vector.
