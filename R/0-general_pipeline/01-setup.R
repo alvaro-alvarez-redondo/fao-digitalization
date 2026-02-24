@@ -29,7 +29,7 @@ options(
 #' `raw_imports_mirror_dir` for easy direct access or recursive unlisting.
 #' @importFrom here here
 #' @importFrom fs dir_create path
-#' @importFrom checkmate assert_string assert_directory_exists
+#' @importFrom checkmate assert_list assert_string assert_directory_exists
 #' @importFrom cli cli_abort
 #' @importFrom purrr walk
 #' @examples
@@ -37,6 +37,7 @@ options(
 #' names(config)
 load_pipeline_config <- function(dataset_name = "fao_data_raw", ...) {
   optional_args <- list(...)
+  checkmate::assert_list(optional_args)
 
   inferred_dataset_name <- NULL
 
@@ -267,7 +268,7 @@ load_pipeline_config <- function(dataset_name = "fao_data_raw", ...) {
     min.chars = 1
   )
 
-  config
+  return(config)
 }
 
 #' @title create required directories
@@ -280,7 +281,7 @@ load_pipeline_config <- function(dataset_name = "fao_data_raw", ...) {
 #' missing values.
 #' @return invisible character vector of directories passed to
 #' `fs::dir_create()`.
-#' @importFrom checkmate assert_list assert_character
+#' @importFrom checkmate assert_list assert_character assert_string
 #' @importFrom fs dir_create path_file path_dir path_norm
 #' @importFrom purrr map_chr
 #' @examples
@@ -288,6 +289,7 @@ load_pipeline_config <- function(dataset_name = "fao_data_raw", ...) {
 #' create_required_directories(temp_paths)
 create_required_directories <- function(paths) {
   checkmate::assert_list(paths, min.len = 1)
+  checkmate::assert_string(paths$data$audit$audit_root_dir, min.chars = 1)
 
   all_paths <- paths |>
     unlist(recursive = TRUE, use.names = FALSE)
@@ -351,6 +353,7 @@ ensure_output_directories <- function(output_paths) {
   }
 
   output_directories <- unique(fs::path_dir(output_paths))
+  checkmate::assert_character(output_directories, any.missing = FALSE)
   fs::dir_create(output_directories, recurse = TRUE)
 
   invisible(output_directories)

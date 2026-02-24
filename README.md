@@ -68,4 +68,4 @@ testthat::test_dir(here::here("tests", "testthat"))
 ## orchestration artifacts
 
 - repository-wide integration report: `docs/repository_integration_report.md`
-- the report captures audit summary, risk matrix, compatibility posture, and migration notes.
+- the report captures indexed audit execution, cross-engine risk classification, compatibility posture, and migration notes aligned to the full repository orchestration sequence.

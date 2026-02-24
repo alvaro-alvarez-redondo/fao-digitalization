@@ -1,47 +1,50 @@
 # repository integration report
 
 ## 1. repository audit summary
-- repository layout follows a modular pipeline pattern: general setup, import, and export stages, with a top-level orchestrator (`run_pipeline`).
-- package metadata is present (`DESCRIPTION`, `NAMESPACE`) and declares `R (>= 4.1)`.
-- explicit namespace usage is consistently applied across executable scripts.
-- tests are present across setup, helpers, transformations, edge cases, and data integrity scopes.
+- step 1 repository indexing completed across package metadata, pipeline scripts, tests, and docs.
+- step 2 audit engines executed as static review over `description`, `namespace`, `r/`, and `tests/`.
+- architectural shape is a staged pipeline with orchestrators (`run_pipeline`, stage runners) and explicit namespace qualification.
+- runtime baseline and major governance constraints are mostly implemented (`r >= 4.1`, `checkmate`, `cli`, `here::here()`).
 
 ## 2. cross-engine risk matrix
-| engine | classification | rationale | impact |
+| engine | classification | evidence | effect |
 |---|---|---|---|
-| global static repository audit | medium | auto-execution side effects are present in sourced entry scripts and depend on options | reproducibility and interactive safety |
-| dependency governance auditor | medium | `renv` is described as required, but lockfile/bootstrap material is not committed in the repository root | environment drift risk |
-| api surface auditor | low | public function signatures appear stable and are covered by compatibility tests | low immediate break risk |
-| reproducibility auditor | medium | runtime behavior depends on local files and option flags; no project lock snapshot tracked | setup variance across machines |
-| memory analyzer | low | no obvious high-memory anti-patterns in orchestrator-level code | limited concern |
-| code quality metrics engine | low | style is mostly consistent with snake_case and explicit namespaces | low concern |
-| data contract validator | medium | contract validation exists but depends on external workbook shape assumptions | ingestion fragility |
-| call graph impact analyzer | medium | staged scripts are loaded dynamically via `source()`, increasing coupling and impact radius | change propagation risk |
+| global static repository audit | medium | auto-run guards are option-controlled but present in top-level scripts | sourcing side effects in non-controlled sessions |
+| dependency governance auditor | high | `renv` is declared in policy/readme but `renv.lock` is absent from repository root | reproducibility drift across environments |
+| api surface auditor | low | exported functions are explicit in `namespace` and covered by compatibility tests | low short-term api break risk |
+| reproducibility auditor | medium | deterministic tests exist, but runtime bootstrap still depends on local package state | environment variance risk |
+| memory analyzer | low | no unbounded object growth patterns were identified in orchestrators | low memory pressure concern |
+| code quality metrics engine | low | snake_case naming and explicit namespaces are consistent in core scripts | low style-governance risk |
+| data contract validator | medium | validation modules exist, but ingest contracts rely on workbook schema assumptions | input-shape fragility |
+| call graph impact analyzer | medium | dynamic `source()` chaining creates broad impact radius for stage changes | elevated regression propagation risk |
 
 ## 3. refactored files (if rewrite authorized)
-- no source rewrite performed.
-- authorized mutation scope limited to documentation normalization and integration reporting.
+- step 3 consolidation outcome: rewrite authorization **not granted** for runtime code.
+- step 4 authorized rewrite engine: no source rewrites applied.
+- permitted mutation scope in this cycle: documentation normalization only.
 
 ## 4. benchmark results (if applicable)
-- not applicable.
-- no performance-targeted code changes were introduced.
+- step 7 performance engine: not triggered.
+- step 8 benchmark: not applicable because no performance-targeted code changes were introduced.
 
 ## 5. generated or updated tests
-- no new tests generated in this cycle.
-- existing tests already cover happy path, edge/error handling, and compatibility checks for major runners.
+- step 6 test generation engine executed with gap review against existing `testthat` suites.
+- no new tests were added because coverage already includes happy-path, edge-case, error-case, and compatibility checks for pipeline runners.
 
 ## 6. dependency & api stability summary
-- api entry points (`run_pipeline`, stage runners) retain stable signatures in current tree.
-- dependency declarations are centralized in `DESCRIPTION`; runtime isolation remains policy-level until `renv` artifacts are committed.
+- dependency registry remains centralized in `description` imports/suggests.
+- missing `renv.lock` is the primary governance gap requiring remediation.
+- public api remains stable for exported audit functions and `run_pipeline`.
 
 ## 7. backward compatibility analysis
-- compatibility test coverage exists for runner signatures and return structures.
-- no signature or default changes were introduced in this cycle.
+- step 9 backward compatibility auditor result: no detected signature/default changes in current cycle.
+- compatibility posture remains stable under existing runner contract tests.
 
 ## 8. documentation & readme compliance summary
-- documentation baseline exists and repository-level README is present.
-- this report documents mandatory orchestration outputs and risk consolidation.
+- step 5 documentation normalizer executed by refreshing this repository integration report.
+- step 10 readme generator executed as compliance pass; existing `readme.md` remains structurally valid and aligned with pipeline scope.
 
 ## 9. integration & migration notes
-- recommended next migration action: commit `renv.lock` and bootstrap instructions to enforce reproducible environments.
-- maintain option-gated auto-run behavior when sourcing pipeline files in non-interactive contexts.
+- step 11 integration report assembly completed.
+- required migration action: commit a project `renv.lock` and bootstrap instructions to convert policy-level reproducibility into enforced reproducibility.
+- maintain option-gated auto-run defaults when sourcing orchestration scripts to reduce unintended side effects.
