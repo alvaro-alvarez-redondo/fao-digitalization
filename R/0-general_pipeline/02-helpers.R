@@ -23,7 +23,7 @@ assert_or_abort <- function(check_result) {
     cli::cli_abort(check_result)
   }
 
-  invisible(TRUE)
+  return(invisible(TRUE))
 }
 
 #' @title normalize free text into lowercase ascii
@@ -44,12 +44,12 @@ normalize_string <- function(string) {
     any.missing = TRUE
   ))
 
-  string |>
+  return(string |>
     as.character() |>
     stringr::str_to_lower() |>
     stringi::stri_trans_general("latin-ascii") |>
     stringr::str_replace_all("[^a-z0-9 ]", " ") |>
-    stringr::str_squish()
+    stringr::str_squish())
 }
 
 #' @title normalize file-friendly names
@@ -78,7 +78,7 @@ normalize_filename <- function(filename) {
     is.na(normalized_filename) | normalized_filename == ""
   ] <- "unknown"
 
-  normalized_filename
+  return(normalized_filename)
 }
 
 #' @title extract yearbook token from parsed name parts
@@ -103,7 +103,7 @@ extract_yearbook <- function(parts) {
     return(paste(parts[2:4], collapse = "_"))
   }
 
-  NA_character_
+  return(NA_character_)
 }
 
 #' @title extract product token suffix from parsed name parts
@@ -134,7 +134,7 @@ extract_product <- function(parts) {
     return(paste(product_parts, collapse = "_"))
   }
 
-  NA_character_
+  return(NA_character_)
 }
 
 #' @title ensure data.frame input is a data.table
@@ -154,7 +154,7 @@ ensure_data_table <- function(df) {
     return(data.table::as.data.table(df))
   }
 
-  df
+  return(df)
 }
 
 #' @title validate export-ready import data
@@ -172,7 +172,7 @@ validate_export_import <- function(df, base_name) {
   assert_or_abort(checkmate::check_data_frame(df, min.rows = 1))
   assert_or_abort(checkmate::check_string(base_name, min.chars = 1))
 
-  ensure_data_table(df)
+  return(ensure_data_table(df))
 }
 
 #' @title extract and validate string field from nested config list
@@ -206,7 +206,7 @@ get_config_string <- function(config, path, field_name) {
 
   assert_or_abort(checkmate::check_string(field_value, min.chars = 1))
 
-  field_value
+  return(field_value)
 }
 
 #' @title build normalized export path from pipeline config
@@ -281,7 +281,7 @@ generate_export_path <- function(
 
   fs::dir_create(output_folder)
 
-  fs::path(output_folder, paste0(normalize_filename(base_name), suffix))
+  return(fs::path(output_folder, paste0(normalize_filename(base_name), suffix)))
 }
 
 
@@ -298,7 +298,7 @@ generate_export_path <- function(
 #' `function(item, index, total_steps)` returning a character scalar progress
 #' message.
 #' @param enable_progress logical scalar indicating whether progress updates are
-#' emitted. defaults to `getOption("fao.progress.enabled", `TRUE`)`.
+#' emitted. defaults to `getOption("fao.progress.enabled", TRUE)`.
 #' @return list with one element per input item, matching `purrr::map()`
 #' semantics.
 #' @importFrom checkmate check_flag check_function check_list check_string
@@ -336,7 +336,7 @@ map_with_progress <- function(
     return(purrr::map(x, \(item) .f(item, ...)))
   }
 
-  progressr::with_progress({
+  return(progressr::with_progress({
     progress <- progressr::progressor(steps = total_steps)
 
     purrr::imap(x, \(item, index) {
@@ -356,7 +356,7 @@ map_with_progress <- function(
 
       .f(item, ...)
     })
-  })
+  }))
 }
 
 #' @title coerce to data.table
@@ -372,5 +372,5 @@ coerce_to_data_table <- function(x, min_rows = 0L) {
   assert_or_abort(checkmate::check_int(min_rows, lower = 0))
   assert_or_abort(checkmate::check_data_frame(x, min.rows = min_rows))
 
-  ensure_data_table(x)
+  return(ensure_data_table(x))
 }

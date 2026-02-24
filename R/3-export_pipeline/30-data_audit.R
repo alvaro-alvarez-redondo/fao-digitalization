@@ -37,12 +37,12 @@ prepare_audit_root <- function(audit_root_dir) {
 #' empty_audit_findings_dt()
 #' @export
 empty_audit_findings_dt <- function() {
-  data.table::data.table(
+  return(data.table::data.table(
     row_index = integer(),
     audit_column = character(),
     audit_type = character(),
     audit_message = character()
-  )
+  ))
 }
 
 #' @title load audit configuration
@@ -110,7 +110,7 @@ load_audit_config <- function(config) {
     min.chars = 1
   ))
 
-  invisible(TRUE)
+  return(invisible(TRUE))
 }
 
 #' @title resolve audit output paths
