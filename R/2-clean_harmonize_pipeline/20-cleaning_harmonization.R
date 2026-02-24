@@ -601,7 +601,12 @@ normalize_harmonization_rules <- function(rules_dt, default_target_column) {
     return(rules_dt[, ..standard_columns])
   }
 
-  legacy_columns <- c("entity_key", "canonical_entity", "rule_version", "active_flag")
+  legacy_columns <- c(
+    "entity_key",
+    "canonical_entity",
+    "rule_version",
+    "active_flag"
+  )
 
   if (all(legacy_columns %in% colnames(rules_dt))) {
     return(data.table::data.table(
@@ -632,9 +637,7 @@ validate_conversion_rules <- function(conversion_dt) {
     "from_unit",
     "to_unit",
     "factor",
-    "offset",
-    "rule_version",
-    "active_flag"
+    "offset"
   )
 
   validate_rule_schema(
@@ -643,18 +646,13 @@ validate_conversion_rules <- function(conversion_dt) {
     "harmonization conversion"
   )
 
-  active_conversion <- conversion_dt[as.logical(active_flag)]
+  duplicate_rows <- conversion_dt[, .N, by = .(from_unit, to_unit)][N > 1]
 
-  duplicate_active <- active_conversion[,
-    .N,
-    by = .(from_unit, to_unit, rule_version)
-  ][N > 1]
-
-  if (nrow(duplicate_active) > 0) {
-    cli::cli_abort("conversion rules contain duplicate active unit pairs")
+  if (nrow(duplicate_rows) > 0) {
+    cli::cli_abort("conversion rules contain duplicate unit pairs")
   }
 
-  if (any(!is.finite(as.numeric(active_conversion$factor)))) {
+  if (any(!is.finite(as.numeric(conversion_dt$factor)))) {
     cli::cli_abort("conversion factor values must be finite")
   }
 
@@ -675,15 +673,22 @@ apply_harmonization_mapping <- function(cleaned_dt, harmonization_dt) {
   checkmate::assert_data_frame(harmonization_dt, min.rows = 1)
 
   mapped_dt <- data.table::copy(data.table::as.data.table(cleaned_dt))
-  active_rules <- data.table::as.data.table(harmonization_dt)[as.logical(active_flag)]
+  active_rules <- data.table::as.data.table(harmonization_dt)[as.logical(
+    active_flag
+  )]
 
   matched_count <- 0L
   unmatched_count <- 0L
 
-  target_columns <- intersect(unique(active_rules$target_column), colnames(mapped_dt))
+  target_columns <- intersect(
+    unique(active_rules$target_column),
+    colnames(mapped_dt)
+  )
 
   for (target_column in target_columns) {
-    column_rules <- data.table::copy(active_rules[target_column == ..target_column])
+    column_rules <- data.table::copy(active_rules[
+      target_column == ..target_column
+    ])
     column_rules[, original_key := normalize_string(original_value)]
     data.table::setkey(column_rules, original_key)
 
@@ -699,7 +704,9 @@ apply_harmonization_mapping <- function(cleaned_dt, harmonization_dt) {
     unmatched_count <- unmatched_count + length(unmatched_unique)
 
     if (any(is_matched)) {
-      replacement_values <- column_rules$harmonized_value[matched_index[is_matched]]
+      replacement_values <- column_rules$harmonized_value[matched_index[
+        is_matched
+      ]]
       mapped_dt[is_matched, (target_column) := replacement_values]
     }
   }
@@ -758,9 +765,7 @@ apply_numeric_harmonization <- function(
   }
 
   harmonized_dt <- data.table::copy(data.table::as.data.table(mapped_dt))
-  active_conversion <- data.table::as.data.table(conversion_dt)[as.logical(
-    active_flag
-  )]
+  active_conversion <- data.table::as.data.table(conversion_dt)
 
   active_conversion[, from_unit_normalized := normalize_string(from_unit)]
   data.table::setkey(active_conversion, from_unit_normalized)
@@ -828,7 +833,10 @@ run_harmonization_layer <- function(cleaned_dt, config) {
     names(harmonization_rules),
     must.include = c("harmonization_rules", "template_created", "source_path")
   )
-  checkmate::assert_data_frame(harmonization_rules$harmonization_rules, min.rows = 0)
+  checkmate::assert_data_frame(
+    harmonization_rules$harmonization_rules,
+    min.rows = 0
+  )
   checkmate::assert_flag(harmonization_rules$template_created)
   checkmate::assert_string(harmonization_rules$source_path, min.chars = 1)
 
@@ -836,7 +844,12 @@ run_harmonization_layer <- function(cleaned_dt, config) {
     config,
     "harmonization",
     "target_column",
-    .default = purrr::pluck(config, "harmonization", "entity_column", .default = "country")
+    .default = purrr::pluck(
+      config,
+      "harmonization",
+      "entity_column",
+      .default = "country"
+    )
   )
 
   rules_dt <- normalize_harmonization_rules(
@@ -881,7 +894,7 @@ run_harmonization_layer <- function(cleaned_dt, config) {
         harmonization_rule_version
     )
 
-  if (already_harmonized) {
+  if (nrow(rules_dt) == 0) {
     diagnostics <- build_layer_diagnostics(
       layer_name = "harmonization",
       rule_version_taxonomy = harmonization_rule_version,
@@ -892,7 +905,7 @@ run_harmonization_layer <- function(cleaned_dt, config) {
       idempotence_passed = TRUE,
       validation_passed = TRUE,
       status = "warn",
-      messages = "harmonization skipped because identical rule versions are already applied"
+      messages = "step skipped: no harmonization mapping rows found"
     )
 
     diagnostics_path <- persist_layer_diagnostics(diagnostics, config)
