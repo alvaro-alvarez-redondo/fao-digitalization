@@ -72,7 +72,11 @@ build_layer_diagnostics <- function(
 
   diagnostics <- list(
     layer_name = layer_name,
-    execution_timestamp_utc = format(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC"),
+    execution_timestamp_utc = format(
+      Sys.time(),
+      "%Y-%m-%dT%H:%M:%SZ",
+      tz = "UTC"
+    ),
     rule_version_cleaning = as.character(rule_version_cleaning)[1],
     rule_version_taxonomy = as.character(rule_version_taxonomy)[1],
     rule_version_conversion = as.character(rule_version_conversion)[1],
@@ -168,38 +172,6 @@ read_rule_table <- function(file_path) {
   cli::cli_abort("unsupported rule file extension for {.file {file_path}}")
 }
 
-#' @title scaffold rule template workbook
-#' @description create a timestamped xlsx template with required columns.
-#' @param output_dir character scalar directory path.
-#' @param file_prefix character scalar prefix.
-#' @param columns character vector required column names.
-#' @return character scalar template file path.
-#' @importFrom checkmate assert_string assert_character
-#' @importFrom fs dir_create path
-#' @importFrom openxlsx write.xlsx
-scaffold_rule_template <- function(output_dir, file_prefix, columns) {
-  checkmate::assert_string(output_dir, min.chars = 1)
-  checkmate::assert_string(file_prefix, min.chars = 1)
-  checkmate::assert_character(columns, min.len = 1, any.missing = FALSE)
-
-  fs::dir_create(output_dir, recurse = TRUE)
-
-  template_file <- fs::path(
-    output_dir,
-    paste0(
-      file_prefix,
-      "_template_",
-      format(Sys.time(), "%Y%m%d_%H%M%S", tz = "UTC"),
-      ".xlsx"
-    )
-  )
-
-  template_dt <- data.table::as.data.table(setNames(vector("list", length(columns)), columns))
-  openxlsx::write.xlsx(template_dt, template_file, overwrite = TRUE)
-
-  return(template_file)
-}
-
 #' @title validate required rule schema
 #' @description enforce required columns and missingness checks for rule tables.
 #' @param rules_dt data.table rule table.
@@ -211,7 +183,11 @@ scaffold_rule_template <- function(output_dir, file_prefix, columns) {
 #' validate_rule_schema(data.table::data.table(a = 1), "a", "example")
 validate_rule_schema <- function(rules_dt, required_columns, layer_name) {
   checkmate::assert_data_frame(rules_dt, min.rows = 1)
-  checkmate::assert_character(required_columns, min.len = 1, any.missing = FALSE)
+  checkmate::assert_character(
+    required_columns,
+    min.len = 1,
+    any.missing = FALSE
+  )
   checkmate::assert_string(layer_name, min.chars = 1)
 
   missing_columns <- setdiff(required_columns, colnames(rules_dt))
@@ -250,7 +226,6 @@ load_cleaning_rules <- function(config) {
   checkmate::assert_string(config$paths$data$imports$cleaning, min.chars = 1)
 
   cleaning_dir <- config$paths$data$imports$cleaning
-  fs::dir_create(cleaning_dir, recurse = TRUE)
 
   candidate_files <- fs::dir_ls(
     cleaning_dir,
@@ -260,29 +235,13 @@ load_cleaning_rules <- function(config) {
   )
 
   if (length(candidate_files) == 0) {
-    template_file <- scaffold_rule_template(
-      output_dir = cleaning_dir,
-      file_prefix = "cleaning_rules",
-      columns = c("target_column", "original_value", "cleaned_value", "rule_version", "active_flag")
-    )
-
-    cli::cli_alert_info(
-      "created cleaning template file at {.file {template_file}} because no rule files were found"
-    )
-
-    candidate_files <- fs::dir_ls(
-      cleaning_dir,
-      regexp = "\\.(csv|xlsx|xls)$",
-      type = "file",
-      recurse = FALSE
-    )
+    cli::cli_abort("no cleaning rule files found under {.path {cleaning_dir}}")
   }
 
   selected_file <- candidate_files[1]
 
   return(read_rule_table(selected_file))
 }
-
 
 #' @title validate cleaning rules
 #' @description validate schema, active-key uniqueness, and target column
@@ -297,18 +256,23 @@ validate_cleaning_rules <- function(rules_dt, target_columns) {
   checkmate::assert_data_frame(rules_dt, min.rows = 1)
   checkmate::assert_character(target_columns, min.len = 1, any.missing = FALSE)
 
-  required_columns <- c("target_column", "original_value", "cleaned_value", "rule_version", "active_flag")
+  required_columns <- c(
+    "target_column",
+    "original_value",
+    "cleaned_value",
+    "rule_version",
+    "active_flag"
+  )
   validate_rule_schema(rules_dt, required_columns, "cleaning")
 
   active_rules <- rules_dt[as.logical(active_flag)]
 
   if (nrow(active_rules) == 0) {
-    cli::cli_warn("cleaning rule file has no active rows")
-    return(invisible(TRUE))
+    cli::cli_abort("cleaning rules contain no active rows")
   }
 
-  duplicate_keys <- active_rules[
-    , .N,
+  duplicate_keys <- active_rules[,
+    .N,
     by = .(target_column, original_value, rule_version)
   ][N > 1]
 
@@ -328,7 +292,6 @@ validate_cleaning_rules <- function(rules_dt, target_columns) {
   return(invisible(TRUE))
 }
 
-
 #' @title apply cleaning rules
 #' @description apply deterministic one-to-one cleaning mappings for each target
 #' column using normalized join keys.
@@ -339,7 +302,11 @@ validate_cleaning_rules <- function(rules_dt, target_columns) {
 #' @importFrom checkmate assert_data_frame assert_character
 #' @examples
 #' \dontrun{apply_cleaning_rules(dataset_dt, rules_dt, c("document"))}
-apply_cleaning_rules <- function(dataset_dt, rules_dt, key_columns = character()) {
+apply_cleaning_rules <- function(
+  dataset_dt,
+  rules_dt,
+  key_columns = character()
+) {
   checkmate::assert_data_frame(dataset_dt, min.rows = 0)
   checkmate::assert_data_frame(rules_dt, min.rows = 1)
   checkmate::assert_character(key_columns, any.missing = FALSE)
@@ -350,7 +317,10 @@ apply_cleaning_rules <- function(dataset_dt, rules_dt, key_columns = character()
   matched_count <- 0L
   unmatched_count <- 0L
 
-  target_columns <- intersect(unique(active_rules$target_column), colnames(cleaned_dt))
+  target_columns <- intersect(
+    unique(active_rules$target_column),
+    colnames(cleaned_dt)
+  )
 
   for (target_column in target_columns) {
     column_rules <- active_rules[target_column == ..target_column]
@@ -370,7 +340,9 @@ apply_cleaning_rules <- function(dataset_dt, rules_dt, key_columns = character()
     unmatched_count <- unmatched_count + length(unmatched_unique)
 
     if (any(is_matched)) {
-      replacement_values <- column_rules$cleaned_value[matched_index[is_matched]]
+      replacement_values <- column_rules$cleaned_value[matched_index[
+        is_matched
+      ]]
       cleaned_dt[is_matched, (target_column) := replacement_values]
     }
   }
@@ -401,32 +373,11 @@ run_cleaning_layer <- function(dataset_dt, config) {
   cleaning_rules <- load_cleaning_rules(config)
   validate_cleaning_rules(cleaning_rules, colnames(cleaned_dt))
 
-  active_cleaning_rules <- cleaning_rules[as.logical(active_flag)]
-
-  if (nrow(active_cleaning_rules) == 0) {
-    diagnostics <- build_layer_diagnostics(
-      layer_name = "cleaning",
-      rows_in = rows_in,
-      rows_out = rows_in,
-      matched_count = 0L,
-      unmatched_count = 0L,
-      idempotence_passed = TRUE,
-      validation_passed = TRUE,
-      status = "warn",
-      messages = "step skipped: no active rules in template"
-    )
-
-    diagnostics_path <- persist_layer_diagnostics(diagnostics, config)
-    attr(cleaned_dt, "layer_diagnostics") <- diagnostics
-    attr(cleaned_dt, "layer_diagnostics_path") <- diagnostics_path
-
-    return(cleaned_dt)
-  }
-
-  cleaning_rule_version <- unique(as.character(active_cleaning_rules$rule_version))[1]
+  cleaning_rule_version <- unique(as.character(cleaning_rules$rule_version))[1]
 
   already_cleaned <-
-    "_cleaned_flag" %in% colnames(cleaned_dt) &&
+    "_cleaned_flag" %in%
+    colnames(cleaned_dt) &&
     "_cleaning_rule_version" %in% colnames(cleaned_dt) &&
     all(isTRUE(cleaned_dt[["_cleaned_flag"]])) &&
     all(cleaned_dt[["_cleaning_rule_version"]] == cleaning_rule_version)
@@ -476,7 +427,11 @@ run_cleaning_layer <- function(dataset_dt, config) {
     cli::cli_abort("cleaning unmatched_count is non-zero under fail policy")
   }
 
-  diagnostics_status <- if (cleaning_result$unmatched_count > 0) "warn" else "pass"
+  diagnostics_status <- if (cleaning_result$unmatched_count > 0) {
+    "warn"
+  } else {
+    "pass"
+  }
 
   diagnostics <- build_layer_diagnostics(
     layer_name = "cleaning",
@@ -499,7 +454,6 @@ run_cleaning_layer <- function(dataset_dt, config) {
   return(cleaned_dt)
 }
 
-
 #' @title load harmonization rules
 #' @description load taxonomy and conversion rule tables from harmonization
 #' imports folder.
@@ -511,10 +465,12 @@ run_cleaning_layer <- function(dataset_dt, config) {
 #' \dontrun{load_harmonization_rules(config)}
 load_harmonization_rules <- function(config) {
   checkmate::assert_list(config, min.len = 1)
-  checkmate::assert_string(config$paths$data$imports$harmonization, min.chars = 1)
+  checkmate::assert_string(
+    config$paths$data$imports$harmonization,
+    min.chars = 1
+  )
 
   harmonization_dir <- config$paths$data$imports$harmonization
-  fs::dir_create(harmonization_dir, recurse = TRUE)
 
   candidate_files <- fs::dir_ls(
     harmonization_dir,
@@ -523,28 +479,9 @@ load_harmonization_rules <- function(config) {
     recurse = FALSE
   )
 
-  if (length(candidate_files) == 0) {
-    taxonomy_template <- scaffold_rule_template(
-      output_dir = harmonization_dir,
-      file_prefix = "taxonomy_rules",
-      columns = c("entity_key", "canonical_entity", "taxonomy_code", "hierarchy_level", "rule_version", "active_flag")
-    )
-
-    conversion_template <- scaffold_rule_template(
-      output_dir = harmonization_dir,
-      file_prefix = "conversion_rules",
-      columns = c("from_unit", "to_unit", "factor", "offset", "rule_version", "active_flag")
-    )
-
-    cli::cli_alert_info(
-      "created harmonization templates at {.file {taxonomy_template}} and {.file {conversion_template}}"
-    )
-
-    candidate_files <- fs::dir_ls(
-      harmonization_dir,
-      regexp = "\\.(csv|xlsx|xls)$",
-      type = "file",
-      recurse = FALSE
+  if (length(candidate_files) < 2) {
+    cli::cli_abort(
+      "harmonization imports must include at least taxonomy and conversion rule files"
     )
   }
 
@@ -554,28 +491,10 @@ load_harmonization_rules <- function(config) {
   taxonomy_index <- grep("taxonomy", file_names)[1]
   conversion_index <- grep("conversion|unit", file_names)[1]
 
-  if (is.na(taxonomy_index)) {
-    taxonomy_template <- scaffold_rule_template(
-      output_dir = harmonization_dir,
-      file_prefix = "taxonomy_rules",
-      columns = c("entity_key", "canonical_entity", "taxonomy_code", "hierarchy_level", "rule_version", "active_flag")
+  if (is.na(taxonomy_index) || is.na(conversion_index)) {
+    cli::cli_abort(
+      "could not identify taxonomy and conversion rule files in harmonization imports"
     )
-    cli::cli_alert_info("created missing taxonomy template at {.file {taxonomy_template}}")
-    candidate_files <- c(candidate_files, taxonomy_template)
-    file_names <- basename(candidate_files) |> tolower()
-    taxonomy_index <- grep("taxonomy", file_names)[1]
-  }
-
-  if (is.na(conversion_index)) {
-    conversion_template <- scaffold_rule_template(
-      output_dir = harmonization_dir,
-      file_prefix = "conversion_rules",
-      columns = c("from_unit", "to_unit", "factor", "offset", "rule_version", "active_flag")
-    )
-    cli::cli_alert_info("created missing conversion template at {.file {conversion_template}}")
-    candidate_files <- c(candidate_files, conversion_template)
-    file_names <- basename(candidate_files) |> tolower()
-    conversion_index <- grep("conversion|unit", file_names)[1]
   }
 
   taxonomy_rules <- read_rule_table(candidate_files[taxonomy_index])
@@ -586,7 +505,6 @@ load_harmonization_rules <- function(config) {
     conversion_rules = conversion_rules
   ))
 }
-
 
 #' @title validate taxonomy rules
 #' @description validate taxonomy rule table schema and active-key uniqueness.
@@ -611,7 +529,9 @@ validate_taxonomy_rules <- function(taxonomy_dt) {
 
   active_taxonomy <- taxonomy_dt[as.logical(active_flag)]
 
-  duplicate_active <- active_taxonomy[, .N, by = .(entity_key, rule_version)][N > 1]
+  duplicate_active <- active_taxonomy[, .N, by = .(entity_key, rule_version)][
+    N > 1
+  ]
 
   if (nrow(duplicate_active) > 0) {
     cli::cli_abort("taxonomy rules contain duplicate active entity keys")
@@ -639,11 +559,18 @@ validate_conversion_rules <- function(conversion_dt) {
     "active_flag"
   )
 
-  validate_rule_schema(conversion_dt, required_columns, "harmonization conversion")
+  validate_rule_schema(
+    conversion_dt,
+    required_columns,
+    "harmonization conversion"
+  )
 
   active_conversion <- conversion_dt[as.logical(active_flag)]
 
-  duplicate_active <- active_conversion[, .N, by = .(from_unit, to_unit, rule_version)][N > 1]
+  duplicate_active <- active_conversion[,
+    .N,
+    by = .(from_unit, to_unit, rule_version)
+  ][N > 1]
 
   if (nrow(duplicate_active) > 0) {
     cli::cli_abort("conversion rules contain duplicate active unit pairs")
@@ -671,11 +598,15 @@ apply_taxonomy_mapping <- function(cleaned_dt, taxonomy_dt, entity_column) {
   checkmate::assert_string(entity_column, min.chars = 1)
 
   if (!entity_column %in% colnames(cleaned_dt)) {
-    cli::cli_abort("entity column {.val {entity_column}} is missing from cleaned data")
+    cli::cli_abort(
+      "entity column {.val {entity_column}} is missing from cleaned data"
+    )
   }
 
   mapped_dt <- data.table::copy(data.table::as.data.table(cleaned_dt))
-  active_taxonomy <- data.table::as.data.table(taxonomy_dt)[as.logical(active_flag)]
+  active_taxonomy <- data.table::as.data.table(taxonomy_dt)[as.logical(
+    active_flag
+  )]
 
   active_taxonomy[, entity_key_normalized := normalize_rule_key(entity_key)]
   data.table::setkey(active_taxonomy, entity_key_normalized)
@@ -689,12 +620,27 @@ apply_taxonomy_mapping <- function(cleaned_dt, taxonomy_dt, entity_column) {
   mapped_dt[, hierarchy_level := NA_character_]
 
   if (any(is_matched)) {
-    mapped_dt[is_matched, canonical_entity := active_taxonomy$canonical_entity[matched_index[is_matched]]]
-    mapped_dt[is_matched, taxonomy_code := active_taxonomy$taxonomy_code[matched_index[is_matched]]]
-    mapped_dt[is_matched, hierarchy_level := as.character(active_taxonomy$hierarchy_level[matched_index[is_matched]])]
+    mapped_dt[
+      is_matched,
+      canonical_entity := active_taxonomy$canonical_entity[matched_index[
+        is_matched
+      ]]
+    ]
+    mapped_dt[
+      is_matched,
+      taxonomy_code := active_taxonomy$taxonomy_code[matched_index[is_matched]]
+    ]
+    mapped_dt[
+      is_matched,
+      hierarchy_level := as.character(active_taxonomy$hierarchy_level[matched_index[
+        is_matched
+      ]])
+    ]
   }
 
-  unmatched_count <- length(unique(data_entity_key[!is_matched & data_entity_key != ""]))
+  unmatched_count <- length(unique(data_entity_key[
+    !is_matched & data_entity_key != ""
+  ]))
 
   return(list(
     data = mapped_dt,
@@ -714,7 +660,12 @@ apply_taxonomy_mapping <- function(cleaned_dt, taxonomy_dt, entity_column) {
 #' @importFrom checkmate assert_data_frame assert_string
 #' @examples
 #' \dontrun{apply_numeric_harmonization(mapped_dt, conversion_dt, "unit", "value")}
-apply_numeric_harmonization <- function(mapped_dt, conversion_dt, unit_column, value_column) {
+apply_numeric_harmonization <- function(
+  mapped_dt,
+  conversion_dt,
+  unit_column,
+  value_column
+) {
   checkmate::assert_data_frame(mapped_dt, min.rows = 0)
   checkmate::assert_data_frame(conversion_dt, min.rows = 1)
   checkmate::assert_string(unit_column, min.chars = 1)
@@ -729,7 +680,9 @@ apply_numeric_harmonization <- function(mapped_dt, conversion_dt, unit_column, v
   }
 
   harmonized_dt <- data.table::copy(data.table::as.data.table(mapped_dt))
-  active_conversion <- data.table::as.data.table(conversion_dt)[as.logical(active_flag)]
+  active_conversion <- data.table::as.data.table(conversion_dt)[as.logical(
+    active_flag
+  )]
 
   active_conversion[, from_unit_normalized := normalize_rule_key(from_unit)]
   data.table::setkey(active_conversion, from_unit_normalized)
@@ -741,20 +694,33 @@ apply_numeric_harmonization <- function(mapped_dt, conversion_dt, unit_column, v
   numeric_values <- suppressWarnings(as.numeric(harmonized_dt[[value_column]]))
 
   if (any(is.na(numeric_values) & !is.na(harmonized_dt[[value_column]]))) {
-    cli::cli_abort("value column contains non-numeric values that cannot be harmonized")
+    cli::cli_abort(
+      "value column contains non-numeric values that cannot be harmonized"
+    )
   }
 
   if (any(is_matched)) {
-    matched_factors <- as.numeric(active_conversion$factor[matched_index[is_matched]])
-    matched_offsets <- as.numeric(active_conversion$offset[matched_index[is_matched]])
+    matched_factors <- as.numeric(active_conversion$factor[matched_index[
+      is_matched
+    ]])
+    matched_offsets <- as.numeric(active_conversion$offset[matched_index[
+      is_matched
+    ]])
 
-    numeric_values[is_matched] <- numeric_values[is_matched] * matched_factors + matched_offsets
-    harmonized_dt[is_matched, (unit_column) := active_conversion$to_unit[matched_index[is_matched]]]
+    numeric_values[is_matched] <- numeric_values[is_matched] *
+      matched_factors +
+      matched_offsets
+    harmonized_dt[
+      is_matched,
+      (unit_column) := active_conversion$to_unit[matched_index[is_matched]]
+    ]
   }
 
   harmonized_dt[, (value_column) := numeric_values]
 
-  unmatched_count <- length(unique(source_units[!is_matched & source_units != ""]))
+  unmatched_count <- length(unique(source_units[
+    !is_matched & source_units != ""
+  ]))
 
   return(list(
     data = harmonized_dt,
@@ -786,37 +752,20 @@ run_harmonization_layer <- function(cleaned_dt, config) {
   validate_taxonomy_rules(taxonomy_rules)
   validate_conversion_rules(conversion_rules)
 
-  active_taxonomy_rules <- taxonomy_rules[as.logical(active_flag)]
-  active_conversion_rules <- conversion_rules[as.logical(active_flag)]
-
-  if (nrow(active_taxonomy_rules) == 0 || nrow(active_conversion_rules) == 0) {
-    diagnostics <- build_layer_diagnostics(
-      layer_name = "harmonization",
-      rows_in = rows_in,
-      rows_out = rows_in,
-      matched_count = 0L,
-      unmatched_count = 0L,
-      idempotence_passed = TRUE,
-      validation_passed = TRUE,
-      status = "warn",
-      messages = "step skipped: no active rules in template"
-    )
-
-    diagnostics_path <- persist_layer_diagnostics(diagnostics, config)
-    attr(harmonized_dt, "layer_diagnostics") <- diagnostics
-    attr(harmonized_dt, "layer_diagnostics_path") <- diagnostics_path
-
-    return(harmonized_dt)
-  }
-
-  taxonomy_rule_version <- unique(as.character(active_taxonomy_rules$rule_version))[1]
-  conversion_rule_version <- unique(as.character(active_conversion_rules$rule_version))[1]
+  taxonomy_rule_version <- unique(as.character(taxonomy_rules$rule_version))[1]
+  conversion_rule_version <- unique(as.character(
+    conversion_rules$rule_version
+  ))[1]
 
   already_harmonized <-
-    "_harmonized_flag" %in% colnames(harmonized_dt) &&
+    "_harmonized_flag" %in%
+    colnames(harmonized_dt) &&
     "_harmonization_rule_version" %in% colnames(harmonized_dt) &&
     all(isTRUE(harmonized_dt[["_harmonized_flag"]])) &&
-    all(harmonized_dt[["_harmonization_rule_version"]] == paste(taxonomy_rule_version, conversion_rule_version, sep = "|"))
+    all(
+      harmonized_dt[["_harmonization_rule_version"]] ==
+        paste(taxonomy_rule_version, conversion_rule_version, sep = "|")
+    )
 
   if (already_harmonized) {
     diagnostics <- build_layer_diagnostics(
@@ -840,20 +789,51 @@ run_harmonization_layer <- function(cleaned_dt, config) {
     return(harmonized_dt)
   }
 
-  entity_column <- purrr::pluck(config, "harmonization", "entity_column", .default = "country")
-  unit_column <- purrr::pluck(config, "harmonization", "unit_column", .default = "unit")
-  value_column <- purrr::pluck(config, "harmonization", "value_column", .default = "value")
+  entity_column <- purrr::pluck(
+    config,
+    "harmonization",
+    "entity_column",
+    .default = "country"
+  )
+  unit_column <- purrr::pluck(
+    config,
+    "harmonization",
+    "unit_column",
+    .default = "unit"
+  )
+  value_column <- purrr::pluck(
+    config,
+    "harmonization",
+    "value_column",
+    .default = "value"
+  )
 
-  taxonomy_result <- apply_taxonomy_mapping(harmonized_dt, taxonomy_rules, entity_column)
+  taxonomy_result <- apply_taxonomy_mapping(
+    harmonized_dt,
+    taxonomy_rules,
+    entity_column
+  )
   harmonized_dt <- taxonomy_result$data
 
-  conversion_result <- apply_numeric_harmonization(harmonized_dt, conversion_rules, unit_column, value_column)
+  conversion_result <- apply_numeric_harmonization(
+    harmonized_dt,
+    conversion_rules,
+    unit_column,
+    value_column
+  )
   harmonized_dt <- conversion_result$data
 
   harmonized_dt[, `_harmonized_flag` := TRUE]
-  harmonized_dt[, `_harmonization_rule_version` := paste(taxonomy_rule_version, conversion_rule_version, sep = "|")]
+  harmonized_dt[,
+    `_harmonization_rule_version` := paste(
+      taxonomy_rule_version,
+      conversion_rule_version,
+      sep = "|"
+    )
+  ]
 
-  unmatched_total <- taxonomy_result$unmatched_count + conversion_result$unmatched_count
+  unmatched_total <- taxonomy_result$unmatched_count +
+    conversion_result$unmatched_count
 
   unmatched_policy <- purrr::pluck(
     config,
@@ -864,7 +844,9 @@ run_harmonization_layer <- function(cleaned_dt, config) {
   checkmate::assert_choice(unmatched_policy, c("report", "fail"))
 
   if (unmatched_policy == "fail" && unmatched_total > 0) {
-    cli::cli_abort("harmonization unmatched_count is non-zero under fail policy")
+    cli::cli_abort(
+      "harmonization unmatched_count is non-zero under fail policy"
+    )
   }
 
   rows_out <- as.integer(nrow(harmonized_dt))
@@ -875,7 +857,8 @@ run_harmonization_layer <- function(cleaned_dt, config) {
     rule_version_conversion = conversion_rule_version,
     rows_in = rows_in,
     rows_out = rows_out,
-    matched_count = taxonomy_result$matched_count + conversion_result$matched_count,
+    matched_count = taxonomy_result$matched_count +
+      conversion_result$matched_count,
     unmatched_count = unmatched_total,
     idempotence_passed = TRUE,
     validation_passed = TRUE,
@@ -891,7 +874,6 @@ run_harmonization_layer <- function(cleaned_dt, config) {
   return(harmonized_dt)
 }
 
-
 #' @title aggregate harmonized data
 #' @description aggregate harmonized rows into unique analytical units when
 #' enabled by `aggregation = TRUE`.
@@ -902,7 +884,11 @@ run_harmonization_layer <- function(cleaned_dt, config) {
 #' @importFrom checkmate assert_data_frame assert_list assert_flag assert_character
 #' @examples
 #' \dontrun{aggregate_harmonized_data(harmonized_dt, config, aggregation = TRUE)}
-aggregate_harmonized_data <- function(harmonized_dt, config, aggregation = TRUE) {
+aggregate_harmonized_data <- function(
+  harmonized_dt,
+  config,
+  aggregation = TRUE
+) {
   checkmate::assert_data_frame(harmonized_dt, min.rows = 0)
   checkmate::assert_list(config, min.len = 1)
   checkmate::assert_flag(aggregation)
@@ -917,7 +903,14 @@ aggregate_harmonized_data <- function(harmonized_dt, config, aggregation = TRUE)
     config,
     "harmonization",
     "aggregation_keys",
-    .default = c("continent", "country", "canonical_entity", "taxonomy_code", "unit", "year")
+    .default = c(
+      "continent",
+      "country",
+      "canonical_entity",
+      "taxonomy_code",
+      "unit",
+      "year"
+    )
   )
 
   value_columns <- purrr::pluck(
@@ -940,14 +933,22 @@ aggregate_harmonized_data <- function(harmonized_dt, config, aggregation = TRUE)
     cli::cli_abort("aggregation value columns are missing from harmonized data")
   }
 
-  final_dt[, (value_columns) := lapply(.SD, as.numeric), .SDcols = value_columns]
+  final_dt[,
+    (value_columns) := lapply(.SD, as.numeric),
+    .SDcols = value_columns
+  ]
 
-  if (any(vapply(final_dt[, ..value_columns], function(x) any(!is.finite(x) & !is.na(x)), logical(1)))) {
+  if (
+    any(vapply(
+      final_dt[, ..value_columns],
+      function(x) any(!is.finite(x) & !is.na(x)),
+      logical(1)
+    ))
+  ) {
     cli::cli_abort("aggregation value columns must be finite numeric values")
   }
 
-  aggregated_dt <- final_dt[
-    ,
+  aggregated_dt <- final_dt[,
     lapply(.SD, function(column_values) sum(column_values, na.rm = TRUE)),
     by = grouping_keys,
     .SDcols = value_columns
@@ -958,7 +959,13 @@ aggregate_harmonized_data <- function(harmonized_dt, config, aggregation = TRUE)
     cli::cli_abort("post-aggregation uniqueness assertion failed")
   }
 
-  if (any(vapply(aggregated_dt[, ..value_columns], function(x) any(is.infinite(x)), logical(1)))) {
+  if (
+    any(vapply(
+      aggregated_dt[, ..value_columns],
+      function(x) any(is.infinite(x)),
+      logical(1)
+    ))
+  ) {
     cli::cli_abort("post-aggregation overflow/underflow check failed")
   }
 
@@ -986,10 +993,22 @@ run_clean_harmonize_pipeline <- function(raw_dt, config, aggregation = TRUE) {
   cleaning_path <- attr(cleaned_dt, "layer_diagnostics_path", exact = TRUE)
 
   harmonized_dt <- run_harmonization_layer(cleaned_dt, config)
-  harmonization_diagnostics <- attr(harmonized_dt, "layer_diagnostics", exact = TRUE)
-  harmonization_path <- attr(harmonized_dt, "layer_diagnostics_path", exact = TRUE)
+  harmonization_diagnostics <- attr(
+    harmonized_dt,
+    "layer_diagnostics",
+    exact = TRUE
+  )
+  harmonization_path <- attr(
+    harmonized_dt,
+    "layer_diagnostics_path",
+    exact = TRUE
+  )
 
-  final_dt <- aggregate_harmonized_data(harmonized_dt, config, aggregation = aggregation)
+  final_dt <- aggregate_harmonized_data(
+    harmonized_dt,
+    config,
+    aggregation = aggregation
+  )
 
   aggregation_diagnostics <- build_layer_diagnostics(
     layer_name = "aggregation",
@@ -1011,8 +1030,16 @@ run_clean_harmonize_pipeline <- function(raw_dt, config, aggregation = TRUE) {
     aggregation = aggregation_diagnostics
   )
 
-  if (any(vapply(all_diagnostics, function(x) identical(x$status, "fail"), logical(1)))) {
-    cli::cli_abort("cleaning and harmonization pipeline aborted due to failed diagnostics status")
+  if (
+    any(vapply(
+      all_diagnostics,
+      function(x) identical(x$status, "fail"),
+      logical(1)
+    ))
+  ) {
+    cli::cli_abort(
+      "cleaning and harmonization pipeline aborted due to failed diagnostics status"
+    )
   }
 
   attr(final_dt, "pipeline_diagnostics") <- all_diagnostics
