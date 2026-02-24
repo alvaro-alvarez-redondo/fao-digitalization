@@ -2,6 +2,23 @@
 # description: discover all .xlsx files, validate file names,
 # and extract product/yearbook metadata in a tidy, vectorized style
 
+#' @title build empty file metadata table
+#' @description create a zero-row metadata tibble with the stable schema used by
+#' file discovery helpers.
+#' @return a zero-row tibble with columns `file_path`, `file_name`, `product`,
+#' `yearbook`, `is_ascii`, and `error_message`.
+#' @importFrom tibble tibble
+build_empty_file_metadata <- function() {
+  return(tibble::tibble(
+    file_path = character(),
+    file_name = character(),
+    product = character(),
+    yearbook = character(),
+    is_ascii = logical(),
+    error_message = character()
+  ))
+}
+
 #' @title extract file metadata
 #' @description build a standardized metadata table from a character vector of
 #' file paths. the function validates inputs, extracts file names, flags non-ascii
@@ -30,7 +47,7 @@ extract_file_metadata <- function(file_paths) {
     min.len = 1
   ))
 
-  tibble::tibble(file_path = file_paths) |>
+  metadata <- tibble::tibble(file_path = file_paths) |>
     dplyr::mutate(
       file_name = fs::path_file(file_path),
       is_ascii = stringi::stri_enc_isascii(file_name),
@@ -51,6 +68,8 @@ extract_file_metadata <- function(file_paths) {
       is_ascii,
       error_message
     )
+
+  return(metadata)
 }
 
 #' @title discover files
@@ -64,7 +83,6 @@ extract_file_metadata <- function(file_paths) {
 #' @importFrom checkmate check_string check_directory_exists
 #' @importFrom fs dir_ls
 #' @importFrom cli cli_warn
-#' @importFrom tibble tibble
 #' @examples
 #' temp_import_folder <- tempfile("imports_")
 #' fs::dir_create(temp_import_folder)
@@ -87,17 +105,12 @@ discover_files <- function(import_folder) {
       "i" = "folder: {import_folder}"
     ))
 
-    return(tibble::tibble(
-      file_path = character(),
-      file_name = character(),
-      product = character(),
-      yearbook = character(),
-      is_ascii = logical(),
-      error_message = character()
-    ))
+    return(build_empty_file_metadata())
   }
 
-  extract_file_metadata(files_found)
+  metadata <- extract_file_metadata(files_found)
+
+  return(metadata)
 }
 
 #' @title discover pipeline files
@@ -134,5 +147,7 @@ discover_pipeline_files <- function(config) {
   assert_or_abort(checkmate::check_string(import_folder, min.chars = 1))
   assert_or_abort(checkmate::check_directory_exists(import_folder))
 
-  discover_files(import_folder)
+  metadata <- discover_files(import_folder)
+
+  return(metadata)
 }
