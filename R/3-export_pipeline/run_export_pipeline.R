@@ -25,9 +25,6 @@ purrr::walk(
 #' @return named list with two character scalars: processed_path and lists_path.
 #' @importFrom checkmate assert_data_frame assert_list assert_flag
 #' @importFrom progressr handlers handler_txtprogressbar with_progress progressor
-#' @importFrom purrr walk
-#' @importFrom here here
-#' @importFrom cli cli_abort
 #' @examples
 #' config <- list(
 #'   output_dir = tempdir(),
@@ -75,18 +72,50 @@ run_export_pipeline <- function(fao_data_raw, config, overwrite = TRUE) {
   return(export_result)
 }
 
-if (!exists("fao_data_raw")) {
-  cli::cli_abort(
-    "fao_data_raw not found in the environment. make sure the import pipeline has run."
+#' @title run export pipeline automatically
+#' @description execute `run_export_pipeline()` when automatic mode is enabled
+#' and required objects are available in the environment.
+#' @param auto_run logical scalar controlling automatic execution.
+#' @param env environment used to resolve and assign stage objects.
+#' @return invisible list with `processed_path` and `lists_path` when executed,
+#' otherwise invisible `NULL` when skipped.
+#' @importFrom checkmate assert_flag assert_environment
+#' @importFrom cli cli_warn
+#' @examples
+#' run_export_pipeline_auto(auto_run = FALSE)
+run_export_pipeline_auto <- function(auto_run, env = parent.frame()) {
+  checkmate::assert_flag(auto_run)
+  checkmate::assert_environment(env)
+
+  if (!isTRUE(auto_run)) {
+    return(invisible(NULL))
+  }
+
+  if (!exists("fao_data_raw", envir = env, inherits = TRUE)) {
+    cli::cli_warn("automatic export pipeline skipped: missing {.val fao_data_raw} in environment")
+    return(invisible(NULL))
+  }
+
+  if (!exists("config", envir = env, inherits = TRUE)) {
+    cli::cli_warn("automatic export pipeline skipped: missing {.val config} in environment")
+    return(invisible(NULL))
+  }
+
+  fao_data_raw_value <- get("fao_data_raw", envir = env, inherits = TRUE)
+  config_value <- get("config", envir = env, inherits = TRUE)
+
+  export_paths <- run_export_pipeline(
+    fao_data_raw = fao_data_raw_value,
+    config = config_value,
+    overwrite = TRUE
   )
+
+  assign("export_paths", export_paths, envir = env)
+
+  return(invisible(export_paths))
 }
 
-if (!exists("config")) {
-  cli::cli_abort(
-    "config not found in the environment. make sure configuration has been loaded."
-  )
-}
-
-if (isTRUE(getOption("fao.run_export_pipeline.auto", TRUE))) {
-  export_paths <- run_export_pipeline(fao_data_raw, config, overwrite = TRUE)
-}
+run_export_pipeline_auto(
+  auto_run = isTRUE(getOption("fao.run_export_pipeline.auto", TRUE)),
+  env = parent.frame()
+)
