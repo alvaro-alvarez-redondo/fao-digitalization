@@ -2,7 +2,6 @@
 # description: source export components and run the export workflow for data and unique lists.
 
 export_scripts <- c(
-  "30-data_audit.R",
   "31-export_data.R",
   "32-export_lists.R"
 )
@@ -15,9 +14,8 @@ purrr::walk(
 )
 
 #' @title run export pipeline
-#' @description run the export pipeline by executing audit output generation,
-#' writing the processed dataset, and writing configured unique-value lists,
-#' then return both output paths.
+#' @description run the export pipeline by writing the processed dataset and
+#' configured unique-value lists, then return both output paths.
 #' @param fao_data_raw data frame containing records to export; validated with
 #' `checkmate::assert_data_frame`.
 #' @param config named list containing export configuration values consumed by downstream
@@ -43,7 +41,7 @@ run_export_pipeline <- function(fao_data_raw, config, overwrite = TRUE) {
   checkmate::assert_flag(overwrite)
 
   fao_data_raw <- ensure_data_table(fao_data_raw)
-  total_steps <- 3
+  total_steps <- 2
 
   progressr::handlers(progressr::handler_txtprogressbar(
     style = 3,
@@ -53,9 +51,6 @@ run_export_pipeline <- function(fao_data_raw, config, overwrite = TRUE) {
 
   export_result <- progressr::with_progress({
     progress <- progressr::progressor(along = seq_len(total_steps))
-
-    fao_data_raw <- audit_data_output(fao_data_raw, config)
-    progress("export pipeline: running audit output")
 
     processed_path <- export_processed_data(
       fao_data_raw,

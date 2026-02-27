@@ -83,11 +83,28 @@ normalize_filename <- function(filename) {
   return(normalized_filename)
 }
 
+#' @title coerce vector values to numeric safely
+#' @description converts an atomic vector to numeric using a stable character
+#' intermediary. empty strings are treated as missing values and non-numeric
+#' values are converted to `NA_real_` without raising warnings.
+#' @param x atomic vector with length greater than or equal to one. validated
+#' with `checkmate::check_atomic(min.len = 1, any.missing = TRUE)`.
+#' @return numeric vector with the same length as `x`.
+#' @importFrom checkmate check_atomic
+#' @examples
+#' coerce_numeric_safe(c("1", " 2.5 ", "", "abc"))
 coerce_numeric_safe <- function(x) {
+  assert_or_abort(checkmate::check_atomic(
+    x,
+    min.len = 1,
+    any.missing = TRUE
+  ))
+
   x_chr <- as.character(x)
   x_chr <- trimws(x_chr)
-  x_chr[x_chr == ""] <- NA
-  suppressWarnings(as.numeric(x_chr))
+  x_chr[x_chr == ""] <- NA_character_
+
+  return(suppressWarnings(as.numeric(x_chr)))
 }
 
 #' @title extract yearbook token from parsed name parts

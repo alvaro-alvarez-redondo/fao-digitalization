@@ -1,4 +1,4 @@
-source(here::here("R/3-export_pipeline/30-data_audit.R"), echo = FALSE)
+source(here::here("R/2-post_processing_pipeline/20-data_audit.R"), echo = FALSE)
 
 testthat::test_that("prepare_audit_root deletes existing directory and returns TRUE", {
   audit_root_dir <- fs::path(withr::local_tempdir(), "audit-root")
