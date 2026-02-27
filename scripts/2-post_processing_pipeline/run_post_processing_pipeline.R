@@ -57,6 +57,10 @@ source_post_processing_scripts <- function(
     pipeline_root,
     "24-standardize_data.R"
   ))
+  source_post_processing_script(fs::path(
+    pipeline_root,
+    "25-post_processing_diagnostics.R"
+  ))
 
   return(invisible(TRUE))
 }
@@ -114,6 +118,15 @@ run_post_processing_pipeline_batch <- function(
   checkmate::assert_string(unit_column, min.chars = 1)
   checkmate::assert_string(value_column, min.chars = 1)
   checkmate::assert_string(product_column, min.chars = 1)
+
+  ensure_post_processing_templates(config)
+
+  preflight_result <- collect_post_processing_preflight(
+    config = config,
+    dataset_columns = colnames(raw_dt),
+    expected_columns = c(unit_column, value_column, product_column)
+  )
+  assert_post_processing_preflight(preflight_result)
 
   pipeline_result <- tryCatch(
     {

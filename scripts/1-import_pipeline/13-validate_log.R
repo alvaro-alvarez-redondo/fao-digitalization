@@ -10,14 +10,16 @@
 #' vector.
 #' @return named list with `errors` as a character vector and `data` as a data
 #' table with normalized mandatory columns.
-#' @importFrom checkmate assert_data_frame assert_string assert_list assert_character
-#' @importFrom data.table as.data.table
-#' @importFrom tidyr pivot_longer
-#' @importFrom tidyselect all_of
-#' @importFrom dplyr filter mutate
+#' @importFrom checkmate assert_data_frame assert_list assert_character
+#' @importFrom data.table as.data.table copy melt
 #' @examples
-#' dt_example <- data.frame(product = "a", variable = "b", year = "2020", value = "", document
-#' = "doc.xlsx")
+#' dt_example <- data.frame(
+#'   product = "a",
+#'   variable = "b",
+#'   year = "2020",
+#'   value = "",
+#'   document = "doc.xlsx"
+#' )
 #' config_example <- list(column_required = c("product", "variable", "year", "value"))
 #' validate_mandatory_fields_dt(dt_example, config_example)
 validate_mandatory_fields_dt <- function(dt, config) {
@@ -29,42 +31,46 @@ validate_mandatory_fields_dt <- function(dt, config) {
     min.len = 1
   )
 
-  dt <- data.table::as.data.table(dt)
+  dt_work <- data.table::copy(data.table::as.data.table(dt))
   mandatory_cols <- config$column_required
 
-  missing_mandatory_cols <- setdiff(mandatory_cols, colnames(dt))
+  missing_mandatory_cols <- setdiff(mandatory_cols, colnames(dt_work))
 
   if (length(missing_mandatory_cols) > 0) {
-    dt[, (missing_mandatory_cols) := NA_character_]
+    dt_work[, (missing_mandatory_cols) := NA_character_]
   }
 
-  if (!("document" %in% colnames(dt))) {
-    dt[, document := "unknown_document"]
+  if (!"document" %in% colnames(dt_work)) {
+    dt_work[, document := "unknown_document"]
   }
 
-  missing_long <- dt[, row_id := .I][] |>
-    tidyr::pivot_longer(
-      cols = tidyselect::all_of(mandatory_cols),
-      names_to = "column_name",
-      values_to = "column_value"
-    ) |>
-    dplyr::filter(is.na(column_value) | column_value == "") |>
-    dplyr::mutate(
-      error_message = paste0(
-        "missing mandatory value in document '",
-        document,
-        "', row_id '",
-        row_id,
-        "', column '",
-        column_name,
-        "'"
-      )
-    )
+  dt_eval <- data.table::copy(dt_work)
+  dt_eval[, row_id := .I]
 
-  errors <- unique(missing_long$error_message)
-  dt[, row_id := NULL]
+  missing_long <- data.table::melt(
+    dt_eval,
+    id.vars = c("row_id", "document"),
+    measure.vars = mandatory_cols,
+    variable.name = "column_name",
+    value.name = "column_value",
+    variable.factor = FALSE
+  )[is.na(column_value) | column_value == ""]
 
-  list(errors = errors, data = dt)
+  errors <- if (nrow(missing_long) > 0) {
+    unique(paste0(
+      "missing mandatory value in document '",
+      missing_long$document,
+      "', row_id '",
+      missing_long$row_id,
+      "', column '",
+      missing_long$column_name,
+      "'"
+    ))
+  } else {
+    character(0)
+  }
+
+  return(list(errors = errors, data = dt_work))
 }
 
 #' @title detect duplicates data table
@@ -78,11 +84,11 @@ validate_mandatory_fields_dt <- function(dt, config) {
 #' @importFrom data.table as.data.table
 #' @examples
 #' dt_example <- data.frame(
-#'   product = c(...),
-#'   variable = c(...),
-#'   year = c(...),
-#'   value = c(...),
-#'   document = c(...)
+#'   product = c("wheat", "wheat"),
+#'   variable = c("production", "production"),
+#'   year = c("2020", "2020"),
+#'   value = c("100", "100"),
+#'   document = c("doc.xlsx", "doc.xlsx")
 #' )
 #' detect_duplicates_dt(dt_example)
 detect_duplicates_dt <- function(dt) {
@@ -93,9 +99,9 @@ detect_duplicates_dt <- function(dt) {
     what = "names(dt)"
   )
 
-  dt <- data.table::as.data.table(dt)
+  dt_work <- data.table::as.data.table(dt)
 
-  dup_counts <- dt[,
+  dup_counts <- dt_work[,
     .(duplicate_count = .N),
     by = .(product, variable, year, value, document)
   ]
@@ -122,7 +128,7 @@ detect_duplicates_dt <- function(dt) {
     character(0)
   }
 
-  list(errors = errors, data = dt)
+  return(list(errors = errors, data = dt_work))
 }
 
 #' @title validate long data table
@@ -133,11 +139,15 @@ detect_duplicates_dt <- function(dt) {
 #' vector.
 #' @return named list with `data` as a data table and `errors` as a character
 #' vector of validation issues.
-#' @importFrom checkmate assert_data_frame assert_string assert_list assert_character
-#' @importFrom data.table as.data.table
+#' @importFrom checkmate assert_data_frame assert_list assert_character
 #' @examples
-#' long_dt_example <- data.frame(product = "a", variable = "b", year = "2020", value = "1",
-#' document = "doc.xlsx")
+#' long_dt_example <- data.frame(
+#'   product = "a",
+#'   variable = "b",
+#'   year = "2020",
+#'   value = "1",
+#'   document = "doc.xlsx"
+#' )
 #' config_example <- list(column_required = c("product", "variable", "year", "value"))
 #' validate_long_dt(long_dt_example, config_example)
 validate_long_dt <- function(long_dt, config) {
@@ -149,13 +159,11 @@ validate_long_dt <- function(long_dt, config) {
     min.len = 1
   )
 
-  dt <- data.table::as.data.table(long_dt)
-
-  mandatory_result <- validate_mandatory_fields_dt(dt, config)
+  mandatory_result <- validate_mandatory_fields_dt(long_dt, config)
   duplicate_result <- detect_duplicates_dt(mandatory_result$data)
 
-  list(
+  return(list(
     data = mandatory_result$data,
     errors = c(mandatory_result$errors, duplicate_result$errors)
-  )
+  ))
 }

@@ -10,6 +10,7 @@
 #' @importFrom checkmate assert_list assert_string
 #' @importFrom fs dir_ls dir_create path
 #' @importFrom openxlsx createWorkbook addWorksheet writeData saveWorkbook
+#' @importFrom here here
 #' @importFrom purrr map
 #' @examples
 #' \dontrun{load_harmonization_rules(config)}
@@ -18,7 +19,9 @@ load_harmonization_rules <- function(config) {
   checkmate::assert_string(config$paths$data$imports$harmonization, min.chars = 1)
 
   harmonization_dir <- config$paths$data$imports$harmonization
+  template_dir <- here::here("data", "exports", "templates")
   fs::dir_create(harmonization_dir, recurse = TRUE)
+  fs::dir_create(template_dir, recurse = TRUE)
 
   files <- fs::dir_ls(
     harmonization_dir,
@@ -27,7 +30,7 @@ load_harmonization_rules <- function(config) {
   )
 
   if (length(files) == 0) {
-    template_path <- fs::path(harmonization_dir, "harmonization_template.xlsx")
+    template_path <- fs::path(template_dir, "harmonization_template.xlsx")
 
     if (!file.exists(template_path)) {
       cli::cli_alert_info("No harmonization files found, creating template...")
