@@ -16,8 +16,6 @@ purrr::walk(
 #' @title run export pipeline
 #' @description run the export pipeline by writing the processed dataset and
 #' configured unique-value lists, then return both output paths.
-#' @description run the export pipeline by writing the processed dataset and
-#' configured unique-value lists, then return both output paths.
 #' @param fao_data_raw data frame containing records to export; validated with
 #' `checkmate::assert_data_frame`.
 #' @param config named list containing export configuration values consumed by downstream
@@ -44,7 +42,6 @@ run_export_pipeline <- function(fao_data_raw, config, overwrite = TRUE) {
 
   fao_data_raw <- ensure_data_table(fao_data_raw)
   total_steps <- 2
-  total_steps <- 2
 
   progressr::handlers(progressr::handler_txtprogressbar(
     style = 3,
@@ -69,7 +66,51 @@ run_export_pipeline <- function(fao_data_raw, config, overwrite = TRUE) {
     list(processed_path = processed_path, lists_path = lists_path)
   })
 
+  assert_export_paths_contract(export_result)
+
   return(export_result)
+}
+
+
+#' @title assert export paths contract
+#' @description validate the stable output structure returned by
+#' `run_export_pipeline()`.
+#' @param export_result named list expected to include `processed_path` and
+#' `lists_path` as non-empty character scalars.
+#' @return invisible `TRUE` when the contract is valid.
+#' @importFrom checkmate assert_list assert_names assert_string
+assert_export_paths_contract <- function(export_result) {
+  checkmate::assert_list(export_result, any.missing = FALSE)
+  checkmate::assert_names(
+    names(export_result),
+    must.include = c("processed_path", "lists_path")
+  )
+  checkmate::assert_string(export_result$processed_path, min.chars = 1)
+  checkmate::assert_string(export_result$lists_path, min.chars = 1)
+
+  return(invisible(TRUE))
+}
+
+#' @title get environment object if present
+#' @description retrieve an object from an environment if it exists; otherwise,
+#' emit a warning and return `NULL`.
+#' @param object_name character scalar object name to fetch.
+#' @param env environment used for lookup.
+#' @return object value when found; otherwise `NULL`.
+#' @importFrom checkmate assert_string assert_environment
+#' @importFrom cli cli_warn
+get_env_object_or_null <- function(object_name, env) {
+  checkmate::assert_string(object_name, min.chars = 1)
+  checkmate::assert_environment(env)
+
+  if (!exists(object_name, envir = env, inherits = TRUE)) {
+    cli::cli_warn(
+      "automatic export pipeline skipped: missing {.val {object_name}} in environment"
+    )
+    return(NULL)
+  }
+
+  return(get(object_name, envir = env, inherits = TRUE))
 }
 
 #' @title run export pipeline automatically
@@ -91,22 +132,12 @@ run_export_pipeline_auto <- function(auto_run, env = .GlobalEnv) {
     return(invisible(NULL))
   }
 
-  if (!exists("fao_data_raw", envir = env, inherits = TRUE)) {
-    cli::cli_warn(
-      "automatic export pipeline skipped: missing {.val fao_data_raw} in environment"
-    )
+  fao_data_raw_value <- get_env_object_or_null("fao_data_raw", env)
+  config_value <- get_env_object_or_null("config", env)
+
+  if (is.null(fao_data_raw_value) || is.null(config_value)) {
     return(invisible(NULL))
   }
-
-  if (!exists("config", envir = env, inherits = TRUE)) {
-    cli::cli_warn(
-      "automatic export pipeline skipped: missing {.val config} in environment"
-    )
-    return(invisible(NULL))
-  }
-
-  fao_data_raw_value <- get("fao_data_raw", envir = env, inherits = TRUE)
-  config_value <- get("config", envir = env, inherits = TRUE)
 
   export_paths <- run_export_pipeline(
     fao_data_raw = fao_data_raw_value,

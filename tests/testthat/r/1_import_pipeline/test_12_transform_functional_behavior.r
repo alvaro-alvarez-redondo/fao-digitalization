@@ -329,3 +329,30 @@ testthat::test_that("validate_output_column_order rejects incomplete schema", {
     class = "rlang_error"
   )
 })
+
+
+testthat::test_that("assert_transform_result_contract enforces schema", {
+  valid_result <- list(
+    wide_raw = data.table::data.table(a = 1L),
+    long_raw = data.table::data.table(a = 1L)
+  )
+
+  output <- assert_transform_result_contract(valid_result)
+  testthat::expect_true(isTRUE(output))
+
+  testthat::expect_error(
+    assert_transform_result_contract(list(wide_raw = data.table::data.table(a = 1L))),
+    class = "rlang_error"
+  )
+})
+
+
+testthat::test_that("build_empty_transform_result returns stable empty schema", {
+  output <- build_empty_transform_result()
+
+  testthat::expect_named(output, c("wide_raw", "long_raw"))
+  testthat::expect_true(data.table::is.data.table(output$wide_raw))
+  testthat::expect_true(data.table::is.data.table(output$long_raw))
+  testthat::expect_identical(nrow(output$wide_raw), 0L)
+  testthat::expect_identical(nrow(output$long_raw), 0L)
+})
