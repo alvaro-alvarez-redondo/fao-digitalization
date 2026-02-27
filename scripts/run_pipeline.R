@@ -13,7 +13,7 @@
 #' @export
 run_pipeline <- function(
   show_view = interactive(),
-  pipeline_root = here::here("R")
+  pipeline_root = here::here("scripts")
 ) {
   checkmate::assert_flag(show_view)
   checkmate::assert_string(pipeline_root, na.ok = FALSE, min.chars = 1)
@@ -25,7 +25,11 @@ run_pipeline <- function(
   pipeline_files <- c(
     file.path(pipeline_root, "0-general_pipeline", "run_general_pipeline.R"),
     file.path(pipeline_root, "1-import_pipeline", "run_import_pipeline.R"),
-    file.path(pipeline_root, "2-post_processing_pipeline", "run_post_processing_pipeline.R"),
+    file.path(
+      pipeline_root,
+      "2-post_processing_pipeline",
+      "run_post_processing_pipeline.R"
+    ),
     file.path(pipeline_root, "3-export_pipeline", "run_export_pipeline.R")
   )
 

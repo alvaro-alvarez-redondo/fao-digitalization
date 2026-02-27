@@ -130,7 +130,7 @@ load_dependencies <- function(packages) {
 #' @description scan project scripts for namespace-qualified calls (`pkg::fn`) and
 #' return the unique package names referenced.
 #' @param scripts_root character scalar path to the script root directory.
-#' defaults to `here::here("R")`.
+#' defaults to `here::here("scripts")`.
 #' @return character vector of unique package names discovered in script files.
 #' @importFrom checkmate check_string check_directory_exists
 #' @importFrom fs dir_ls
@@ -138,8 +138,13 @@ load_dependencies <- function(packages) {
 #' \dontrun{
 #' collect_namespaced_dependencies()
 #' }
-collect_namespaced_dependencies <- function(scripts_root = here::here("R")) {
-  abort_on_checkmate_failure(checkmate::check_string(scripts_root, min.chars = 1))
+collect_namespaced_dependencies <- function(
+  scripts_root = here::here("scripts")
+) {
+  abort_on_checkmate_failure(checkmate::check_string(
+    scripts_root,
+    min.chars = 1
+  ))
   abort_on_checkmate_failure(checkmate::check_directory_exists(scripts_root))
 
   script_files <- fs::dir_ls(
@@ -187,14 +192,17 @@ collect_namespaced_dependencies <- function(scripts_root = here::here("R")) {
 #' }
 audit_dependency_registry <- function(
   packages = required_packages,
-  scripts_root = here::here("R")
+  scripts_root = here::here("scripts")
 ) {
   abort_on_checkmate_failure(checkmate::check_character(
     packages,
     any.missing = FALSE,
     min.len = 1
   ))
-  abort_on_checkmate_failure(checkmate::check_string(scripts_root, min.chars = 1))
+  abort_on_checkmate_failure(checkmate::check_string(
+    scripts_root,
+    min.chars = 1
+  ))
   abort_on_checkmate_failure(checkmate::check_directory_exists(scripts_root))
 
   declared_packages <- sort(unique(packages))

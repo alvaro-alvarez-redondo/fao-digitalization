@@ -6,7 +6,7 @@ FAO Digitalization Pipeline
 
 ## 2. Short Technical Description
 
-This repository implements a script-oriented R data pipeline for ingestion, transformation, validation, post-processing (cleaning and harmonization), audit artifact generation, and export of FAO workbook data. Execution is stage-based and orchestrated through `R/run_pipeline.R`.
+This repository implements a script-oriented R data pipeline for ingestion, transformation, validation, post-processing (cleaning and harmonization), audit artifact generation, and export of FAO workbook data. Execution is stage-based and orchestrated through `scripts/run_pipeline.R`.
 
 ## 3. Installation
 
@@ -32,12 +32,12 @@ renv::install(c(
 ```r
 renv::activate()
 # this repository is script-first; source scripts directly for development
-source(here::here("R", "run_pipeline.R"), local = TRUE)
+source(here::here("scripts", "run_pipeline.R"), local = TRUE)
 ```
 
 ## 4. Dependency Management
 
-- Runtime dependencies are centralized in `R/0-general_pipeline/00-dependencies.R` (`required_packages`, `check_dependencies()`, `load_dependencies()`).
+- Runtime dependencies are centralized in `scripts/0-general_pipeline/00-dependencies.R` (`required_packages`, `check_dependencies()`, `load_dependencies()`).
 - Dependency auditing is available via:
   - `collect_namespaced_dependencies()`
   - `audit_dependency_registry()`
@@ -48,7 +48,7 @@ source(here::here("R", "run_pipeline.R"), local = TRUE)
 
 ```r
 # deterministic invocation from repository root
-source(here::here("R", "run_pipeline.R"), local = TRUE)
+source(here::here("scripts", "run_pipeline.R"), local = TRUE)
 
 options(
   fao.run_pipeline.auto = FALSE,
@@ -60,7 +60,7 @@ options(
 
 run_pipeline(
   show_view = FALSE,
-  pipeline_root = here::here("R")
+  pipeline_root = here::here("scripts")
 )
 ```
 
@@ -68,7 +68,7 @@ run_pipeline(
 
 ### Top-level orchestration
 
-- `run_pipeline(show_view = interactive(), pipeline_root = here::here("R"))`: Runs all stages in order.
+- `run_pipeline(show_view = interactive(), pipeline_root = here::here("scripts"))`: Runs all stages in order.
 
 ### General stage
 
@@ -101,12 +101,12 @@ run_pipeline(
 
 ### Repository layout
 
-- `R/0-general_pipeline/`: Dependency checks, setup, shared helpers, general bootstrap.
-- `R/1-import_pipeline/`: File discovery, reading, transformation, validation, import output assembly.
-- `R/2-post_processing_pipeline/`: Audit, cleaning, categorical harmonization, numeric unit standardization, stage orchestration.
-- `R/3-export_pipeline/`: Data export and unique-list export.
-- `R/run_pipeline.R`: Global stage orchestrator.
-- `tests/testthat/r/`: Stage-scoped and cross-stage tests.
+- `scripts/0-general_pipeline/`: Dependency checks, setup, shared helpers, general bootstrap.
+- `scripts/1-import_pipeline/`: File discovery, reading, transformation, validation, import output assembly.
+- `scripts/2-post_processing_pipeline/`: Audit, cleaning, categorical harmonization, numeric unit standardization, stage orchestration.
+- `scripts/3-export_pipeline/`: Data export and unique-list export.
+- `scripts/run_pipeline.R`: Global stage orchestrator.
+- `tests/testthat/scripts/`: Stage-scoped and cross-stage tests.
 
 ### Separation of concerns
 
@@ -155,7 +155,7 @@ source(here::here("tests", "testthat", "test_all.r"), echo = FALSE)
 or:
 
 ```r
-testthat::test_dir(here::here("tests", "testthat", "r"), reporter = "summary")
+testthat::test_dir(here::here("tests", "testthat", "scripts"), reporter = "summary")
 ```
 
 ### Coverage status

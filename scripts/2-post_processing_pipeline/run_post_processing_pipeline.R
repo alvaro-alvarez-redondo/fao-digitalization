@@ -12,10 +12,10 @@ source_post_processing_script <- function(script_path) {
   checkmate::assert_string(script_path, min.chars = 1)
 
   if (!file.exists(script_path)) {
-    cli::cli_abort("required post-processing script not found: {.path {script_path}}")
+    cli::cli_abort(
+      "required post-processing script not found: {.path {script_path}}"
+    )
   }
-
-  cli::cli_alert_info("sourcing post-processing script: {.file {basename(script_path)}}")
 
   tryCatch(
     {
@@ -38,14 +38,25 @@ source_post_processing_script <- function(script_path) {
 #' @param pipeline_root character scalar path to post-processing script folder.
 #' @return invisible `TRUE` when all scripts are sourced.
 #' @importFrom checkmate assert_string
-source_post_processing_scripts <- function(pipeline_root = here::here("R", "2-post_processing_pipeline")) {
+source_post_processing_scripts <- function(
+  pipeline_root = here::here("scripts", "2-post_processing_pipeline")
+) {
   checkmate::assert_string(pipeline_root, min.chars = 1)
 
   source_post_processing_script(fs::path(pipeline_root, "20-data_audit.R"))
-  source_post_processing_script(fs::path(pipeline_root, "21-post_processing_utilities.R"))
+  source_post_processing_script(fs::path(
+    pipeline_root,
+    "21-post_processing_utilities.R"
+  ))
   source_post_processing_script(fs::path(pipeline_root, "22-clean_data.R"))
-  source_post_processing_script(fs::path(pipeline_root, "23-standardize_units.R"))
-  source_post_processing_script(fs::path(pipeline_root, "24-standardize_data.R"))
+  source_post_processing_script(fs::path(
+    pipeline_root,
+    "23-standardize_units.R"
+  ))
+  source_post_processing_script(fs::path(
+    pipeline_root,
+    "24-standardize_data.R"
+  ))
 
   return(invisible(TRUE))
 }

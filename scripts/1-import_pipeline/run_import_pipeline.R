@@ -12,7 +12,7 @@ import_scripts <- c(
 purrr::walk(
   import_scripts,
   \(script_name) {
-    source(here::here("R/1-import_pipeline", script_name), echo = FALSE)
+    source(here::here("scripts/1-import_pipeline", script_name), echo = FALSE)
   }
 )
 

@@ -5,7 +5,7 @@
 
 #' @title source general scripts
 #' @description validates a character vector of script names, resolves each
-#' script path from `r/0-general_pipeline`, validates file existence, sources
+#' script path from `scripts/0-general_pipeline`, validates file existence, sources
 #' each script, and returns sourced paths invisibly.
 #' @param script_names character vector with one or more script filenames,
 #' validated with `checkmate::assert_character(any.missing = false, min.len = 1)`.
@@ -21,7 +21,7 @@ source_general_scripts <- function(script_names) {
 
   script_paths <- script_names |>
     purrr::map_chr(function(script_name) {
-      here::here("R", "0-general_pipeline", script_name)
+      here::here("scripts", "0-general_pipeline", script_name)
     })
 
   script_paths |>

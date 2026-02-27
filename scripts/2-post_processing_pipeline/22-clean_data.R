@@ -124,9 +124,11 @@ apply_cleaning_mapping <- function(
 
       column_rules <- active_rules[
         column_source == src_col & column_target == tgt_col,
-        .(source_key = normalize_string(original_value_source),
+        .(
+          source_key = normalize_string(original_value_source),
           target_key = normalize_string(original_value_target),
-          cleaned_value_target)
+          cleaned_value_target
+        )
       ]
 
       join_input <- data.table::data.table(
@@ -143,11 +145,16 @@ apply_cleaning_mapping <- function(
       is_matched <- !is.na(join_result$source_key)
 
       if (any(is_matched)) {
-        current_dt[is_matched, (tgt_col) := join_result$cleaned_value_target[is_matched]]
+        current_dt[
+          is_matched,
+          (tgt_col) := join_result$cleaned_value_target[is_matched]
+        ]
       }
 
       matched_delta <- as.integer(sum(is_matched))
-      unmatched_delta <- as.integer(sum(!is_matched & !is.na(current_dt[[src_col]])))
+      unmatched_delta <- as.integer(sum(
+        !is_matched & !is.na(current_dt[[src_col]])
+      ))
 
       return(list(
         data = current_dt,
