@@ -1,7 +1,6 @@
 # script: numeric harmonization stage functions
 # description: validate and apply numeric unit conversions and run numeric harmonization.
 
-
 #' @title validate conversion rules
 #' @description validate numeric conversion rule schema and active uniqueness.
 #' @param conversion_dt conversion rules data.table.
@@ -56,9 +55,12 @@ load_numeric_harmonization_rules <- function(config) {
   harmonization_dir <- config$paths$data$imports$harmonization
   fs::dir_create(harmonization_dir, recurse = TRUE)
 
-  file_path <- fs::path(harmonization_dir, "numeric_harmonization.xlsx")
+  template_path <- fs::path(
+    harmonization_dir,
+    "numeric_harmonization_template.xlsx"
+  )
 
-  if (!file.exists(file_path)) {
+  if (!file.exists(template_path)) {
     cli::cli_alert_info("Creating numeric harmonization template...")
     numeric_template <- data.table::data.table(
       product = character(0),
@@ -70,12 +72,12 @@ load_numeric_harmonization_rules <- function(config) {
     wb <- openxlsx::createWorkbook()
     openxlsx::addWorksheet(wb, "number_harmonization")
     openxlsx::writeData(wb, "number_harmonization", numeric_template)
-    openxlsx::saveWorkbook(wb, file_path, overwrite = FALSE)
+    openxlsx::saveWorkbook(wb, template_path, overwrite = FALSE)
   }
 
   list(
-    layer_rules = read_rule_table(file_path),
-    source_path = file_path
+    layer_rules = read_rule_table(template_path),
+    source_path = template_path
   )
 }
 

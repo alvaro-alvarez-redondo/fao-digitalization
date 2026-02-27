@@ -1,7 +1,6 @@
 # script: general harmonization stage functions
 # description: load and apply categorical harmonization mappings and run the harmonization layer.
 
-
 #' @title load harmonization rules
 #' @description load value-renaming harmonization mapping from harmonization
 #' imports folder. legacy taxonomy-style mappings are normalized to the same
@@ -25,19 +24,25 @@ load_harmonization_rules <- function(config) {
   )
 
   if (length(files) == 0) {
-    cli::cli_alert_info("No harmonization files found, creating template...")
     template_path <- fs::path(harmonization_dir, "harmonization_template.xlsx")
-    harmonization_template <- data.table::data.table(
-      column_source = character(0),
-      column_target = character(0),
-      original_value_source = character(0),
-      original_value_target = character(0),
-      harmonized_value_target = character(0)
-    )
-    wb <- openxlsx::createWorkbook()
-    openxlsx::addWorksheet(wb, "harmonization_mapping")
-    openxlsx::writeData(wb, "harmonization_mapping", harmonization_template)
-    openxlsx::saveWorkbook(wb, template_path, overwrite = FALSE)
+
+    if (!file.exists(template_path)) {
+      cli::cli_alert_info("No harmonization files found, creating template...")
+
+      harmonization_template <- data.table::data.table(
+        column_source = character(0),
+        column_target = character(0),
+        original_value_source = character(0),
+        original_value_target = character(0),
+        harmonized_value_target = character(0)
+      )
+
+      wb <- openxlsx::createWorkbook()
+      openxlsx::addWorksheet(wb, "harmonization_mapping")
+      openxlsx::writeData(wb, "harmonization_mapping", harmonization_template)
+      openxlsx::saveWorkbook(wb, template_path, overwrite = FALSE)
+    }
+
     files <- template_path
   }
 
@@ -187,4 +192,3 @@ run_harmonization_layer_batch <- function(cleaned_dt, config) {
   attr(harmonized_dt, "layer_diagnostics") <- all_diagnostics
   return(harmonized_dt)
 }
-

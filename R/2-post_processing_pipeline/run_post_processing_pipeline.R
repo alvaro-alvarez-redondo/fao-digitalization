@@ -4,16 +4,19 @@
 
 post_processing_scripts <- c(
   "20-data_audit.R",
-  "21-io_and_utilities.R",
+  "21-post_processing_utilities.R",
   "22-clean_data.R",
-  "23-standardize_data.R",
-  "24-standardize_units.R"
+  "23-standardize_units.R",
+  "24-standardize_data.R"
 )
 
 purrr::walk(
   post_processing_scripts,
   \(script_name) {
-    source(here::here("R", "2-post_processing_pipeline", script_name), echo = FALSE)
+    source(
+      here::here("R", "2-post_processing_pipeline", script_name),
+      echo = FALSE
+    )
   }
 )
 
@@ -114,7 +117,13 @@ run_post_processing_pipeline_auto <- function(auto_run, env = .GlobalEnv) {
     return(invisible(NULL))
   }
 
-  if (!exists("run_post_processing_pipeline_batch", mode = "function", inherits = TRUE)) {
+  if (
+    !exists(
+      "run_post_processing_pipeline_batch",
+      mode = "function",
+      inherits = TRUE
+    )
+  ) {
     cli::cli_warn(
       "automatic post-processing pipeline skipped: missing {.val run_post_processing_pipeline_batch} function"
     )
