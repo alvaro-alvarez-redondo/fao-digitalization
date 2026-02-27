@@ -44,13 +44,15 @@ run_clean_harmonize_pipeline_auto <- function(auto_run, env = .GlobalEnv) {
   fao_data_raw_value <- get("fao_data_raw", envir = env, inherits = TRUE)
   config_value <- get("config", envir = env, inherits = TRUE)
 
-  fao_data_harmonized <- run_clean_harmonize_pipeline(
-    raw_dt = fao_data_raw_value,
-    config = config_value
+  fao_data_harmonized <- run_clean_harmonize_pipeline_batch(
+    raw_dt = fao_data_raw,
+    config = config,
+    unit_column = "unit_name",
+    value_column = "quantity",
+    product_column = "item"
   )
 
   assign("fao_data_harmonized", fao_data_harmonized, envir = env)
-  assign("fao_data_raw", fao_data_harmonized, envir = env)
 
   return(invisible(fao_data_harmonized))
 }

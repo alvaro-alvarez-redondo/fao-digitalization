@@ -50,19 +50,6 @@ empty_audit_findings_dt <- function() {
 #' @param config named list containing required configuration elements.
 #' @return invisible TRUE when validation succeeds.
 #' @examples
-#' config <- list(
-#'   column_order = c("document", "value"),
-#'   audit_columns = "document",
-#'   paths = list(
-#'     data = list(
-#'       imports = list(raw = tempdir()),
-#'       audit = list(
-#'         audit_file_path = fs::path(tempdir(), "audit.xlsx"),
-#'         raw_imports_mirror_dir = fs::path(tempdir(), "mirror")
-#'       )
-#'     )
-#'   )
-#' )
 #' load_audit_config(config)
 #' @export
 load_audit_config <- function(config) {
@@ -303,19 +290,6 @@ run_master_validation <- function(
 #' @param config named list with audit configuration.
 #' @return named list mapping audit types to column names.
 #' @examples
-#' config <- list(
-#'   column_order = c("document", "value"),
-#'   audit_columns = "document",
-#'   paths = list(
-#'     data = list(
-#'       imports = list(raw = tempdir()),
-#'       audit = list(
-#'         audit_file_path = fs::path(tempdir(), "audit.xlsx"),
-#'         raw_imports_mirror_dir = fs::path(tempdir(), "mirror")
-#'       )
-#'     )
-#'   )
-#' )
 #' resolve_audit_columns_by_type(config)
 #' @export
 resolve_audit_columns_by_type <- function(config) {
@@ -349,21 +323,6 @@ resolve_audit_columns_by_type <- function(config) {
 #' @param findings_dt data table with row_index and audit_column.
 #' @param output_path character scalar destination path for the excel file.
 #' @return character scalar with written output path (or NULL if nothing written).
-#' @examples
-#' config <- list(
-#'   column_order = c("document", "value"),
-#'   audit_columns = "document",
-#'   export_config = list(styles = list(error_highlight = list(fgFill = "#ffff00"))),
-#'   paths = list(
-#'     data = list(
-#'       imports = list(raw = tempdir()),
-#'       audit = list(
-#'         audit_file_path = fs::path(tempdir(), "audit.xlsx"),
-#'         raw_imports_mirror_dir = fs::path(tempdir(), "mirror")
-#'       )
-#'     )
-#'   )
-#' )
 #' audit_dt <- data.frame(document = "a.xlsx", stringsAsFactors = FALSE)
 #' export_validation_audit_report(audit_dt, config, output_path = fs::path(tempdir(), "audit.xlsx"))
 #' @export
@@ -483,7 +442,6 @@ export_validation_audit_report <- function(
   return(output_path)
 }
 
-
 #' @title mirror raw import errors
 #' @description copy raw import files associated with invalid audit records
 #' into a mirror directory while preserving relative folder structure.
@@ -568,21 +526,6 @@ mirror_raw_import_errors <- function(
 #' @param config audit configuration.
 #' @return data.table.
 #' @examples
-#' config <- list(
-#'   column_order = c("document", "value"),
-#'   audit_columns = "document",
-#'   export_config = list(styles = list(error_highlight = list(fgFill = "#ffff00"))),
-#'   paths = list(
-#'     data = list(
-#'       imports = list(raw = tempdir()),
-#'       audit = list(
-#'         audit_root_dir = fs::path(tempdir(), "audit"),
-#'         audit_file_path = fs::path(tempdir(), "audit", "report.xlsx"),
-#'         raw_imports_mirror_dir = fs::path(tempdir(), "audit", "mirror")
-#'       )
-#'     )
-#'   )
-#' )
 #' dataset_dt <- data.frame(document = "a.xlsx", value = "10", stringsAsFactors = FALSE)
 #' audit_data_output(dataset_dt, config)
 #' @export

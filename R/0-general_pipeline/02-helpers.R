@@ -44,12 +44,14 @@ normalize_string <- function(string) {
     any.missing = TRUE
   ))
 
-  return(string |>
-    as.character() |>
-    stringr::str_to_lower() |>
-    stringi::stri_trans_general("latin-ascii") |>
-    stringr::str_replace_all("[^a-z0-9 ]", " ") |>
-    stringr::str_squish())
+  return(
+    string |>
+      as.character() |>
+      stringr::str_to_lower() |>
+      stringi::stri_trans_general("latin-ascii") |>
+      stringr::str_replace_all("[^a-z0-9 ]", " ") |>
+      stringr::str_squish()
+  )
 }
 
 #' @title normalize file-friendly names
@@ -79,6 +81,13 @@ normalize_filename <- function(filename) {
   ] <- "unknown"
 
   return(normalized_filename)
+}
+
+coerce_numeric_safe <- function(x) {
+  x_chr <- as.character(x)
+  x_chr <- trimws(x_chr)
+  x_chr[x_chr == ""] <- NA
+  suppressWarnings(as.numeric(x_chr))
 }
 
 #' @title extract yearbook token from parsed name parts
