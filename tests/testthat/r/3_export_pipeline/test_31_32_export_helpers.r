@@ -1,4 +1,4 @@
-source(here::here("R/3-export_pipeline/32-export_lists.R"), echo = FALSE)
+source(here::here("R/3-export_pipeline/31-export_lists.R"), echo = FALSE)
 
 testthat::test_that("get_unique_column returns sorted unique values", {
   sample_df <- data.frame(country = c("brazil", "argentina", "brazil"))
@@ -42,4 +42,26 @@ testthat::test_that("export function signatures remain backward compatible", {
   )
   testthat::expect_identical(formals(export_single_column_list)$overwrite, TRUE)
   testthat::expect_identical(formals(export_selected_unique_lists)$overwrite, TRUE)
+})
+
+testthat::test_that("export_selected_unique_lists rejects missing configured columns", {
+  sample_df <- data.frame(country = c("brazil", "argentina"))
+  config <- list(
+    paths = list(
+      data = list(
+        exports = list(lists = tempdir())
+      )
+    ),
+    export_config = list(
+      data_suffix = ".xlsx",
+      list_suffix = "_unique.xlsx",
+      lists_to_export = c("country", "product"),
+      lists_workbook_name = "fao_unique_lists_raw"
+    )
+  )
+
+  testthat::expect_error(
+    export_selected_unique_lists(sample_df, config, overwrite = TRUE),
+    "must be a subset"
+  )
 })

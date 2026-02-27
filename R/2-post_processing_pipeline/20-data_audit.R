@@ -75,13 +75,24 @@ load_audit_config <- function(config) {
       min.len = 1,
       any.missing = FALSE
     ))
-    purrr::walk(config$audit_columns_by_type, function(x) {
-      assert_or_abort(checkmate::check_character(
-        x,
-        min.len = 1,
-        any.missing = FALSE
-      ))
-    })
+
+    audit_columns_valid <- vapply(
+      config$audit_columns_by_type,
+      function(audit_columns) {
+        isTRUE(checkmate::check_character(
+          audit_columns,
+          min.len = 1,
+          any.missing = FALSE
+        ))
+      },
+      logical(1)
+    )
+
+    if (!all(audit_columns_valid)) {
+      cli::cli_abort(
+        "all elements in {.arg config$audit_columns_by_type} must be non-empty character vectors"
+      )
+    }
   }
 
   assert_or_abort(checkmate::check_string(
@@ -189,6 +200,56 @@ audit_numeric_string <- function(dataset_dt, column_name = "value") {
   ))
 }
 
+#' @title build audit validation plan
+#' @description convert a named mapping of audit types and columns into a
+#' two-column plan table with one row per audit-type/column combination.
+#' @param audit_columns_by_type named list that maps audit types to character
+#' vectors of column names.
+#' @param supported character vector of supported audit types.
+#' @return data.table with columns `audit_type` and `column_name`.
+#' @importFrom checkmate check_list check_character
+#' @importFrom cli cli_abort
+#' @importFrom data.table data.table
+#' @examples
+#' build_audit_validation_plan(list(character_non_empty = c("document")), "character_non_empty")
+#' @export
+build_audit_validation_plan <- function(audit_columns_by_type, supported) {
+  assert_or_abort(checkmate::check_list(audit_columns_by_type, min.len = 1))
+  assert_or_abort(checkmate::check_character(
+    supported,
+    min.len = 1,
+    any.missing = FALSE
+  ))
+
+  supported_columns <- audit_columns_by_type[supported]
+
+  valid_columns <- vapply(
+    supported_columns,
+    function(column_names) {
+      isTRUE(checkmate::check_character(
+        column_names,
+        min.len = 1,
+        any.missing = FALSE
+      ))
+    },
+    logical(1)
+  )
+
+  if (!all(valid_columns)) {
+    cli::cli_abort(
+      "each supported audit type must map to a non-empty character vector of columns"
+    )
+  }
+
+  audit_type_vector <- rep(supported, times = lengths(supported_columns))
+  column_name_vector <- unlist(supported_columns, use.names = FALSE)
+
+  return(data.table::data.table(
+    audit_type = audit_type_vector,
+    column_name = column_name_vector
+  ))
+}
+
 #' @title run master validation
 #' @description execute configured validators.
 #' @param dataset_dt data frame.
@@ -217,6 +278,7 @@ run_master_validation <- function(
     character_non_empty = audit_character_non_empty,
     numeric_string = audit_numeric_string
   )
+  stopifnot(is.list(registry))
 
   if (!is.null(selected_validations)) {
     assert_or_abort(checkmate::check_character(
@@ -249,26 +311,14 @@ run_master_validation <- function(
     ))
   }
 
-  supported_columns <- audit_columns_by_type[supported]
-
-  purrr::map2(
-    supported,
-    supported_columns,
-    \(audit_type, column_names) {
-      assert_or_abort(checkmate::check_character(
-        column_names,
-        min.len = 1,
-        any.missing = FALSE
-      ))
-    }
+  validation_plan <- build_audit_validation_plan(
+    audit_columns_by_type = audit_columns_by_type,
+    supported = supported
   )
 
-  audit_type_vector <- rep(supported, times = lengths(supported_columns))
-  column_name_vector <- unlist(supported_columns, use.names = FALSE)
-
   findings <- purrr::map2(
-    audit_type_vector,
-    column_name_vector,
+    validation_plan$audit_type,
+    validation_plan$column_name,
     \(audit_type, column_name) registry[[audit_type]](dataset_dt, column_name)
   )
 
@@ -323,8 +373,25 @@ resolve_audit_columns_by_type <- function(config) {
 #' @param findings_dt data table with row_index and audit_column.
 #' @param output_path character scalar destination path for the excel file.
 #' @return character scalar with written output path (or NULL if nothing written).
+#' @examples
+#' \dontrun{
 #' audit_dt <- data.frame(document = "a.xlsx", stringsAsFactors = FALSE)
-#' export_validation_audit_report(audit_dt, config, output_path = fs::path(tempdir(), "audit.xlsx"))
+#' config <- list(
+#'   column_order = c("document"),
+#'   audit_columns = c("document"),
+#'   paths = list(
+#'     data = list(
+#'       imports = list(raw = tempdir()),
+#'       audit = list(
+#'         audit_file_path = fs::path(tempdir(), "audit.xlsx"),
+#'         raw_imports_mirror_dir = fs::path(tempdir(), "mirror")
+#'       )
+#'     )
+#'   ),
+#'   export_config = list(styles = list(error_highlight = list(fgFill = "#FFC7CE")))
+#' )
+#' export_validation_audit_report(audit_dt, config)
+#' }
 #' @export
 export_validation_audit_report <- function(
   audit_dt,

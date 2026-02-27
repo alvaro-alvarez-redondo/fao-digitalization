@@ -2,23 +2,55 @@
 # description: source post-processing scripts and execute cleaning, data
 # standardization, and unit standardization stages between import and export.
 
-post_processing_scripts <- c(
-  "20-data_audit.R",
-  "21-post_processing_utilities.R",
-  "22-clean_data.R",
-  "23-standardize_units.R",
-  "24-standardize_data.R"
-)
+#' @title source one post-processing script
+#' @description source a single script file with structured error handling.
+#' @param script_path character scalar absolute/relative path to script.
+#' @return invisible `TRUE` when sourcing succeeds.
+#' @importFrom checkmate assert_string
+#' @importFrom cli cli_abort cli_alert_info
+source_post_processing_script <- function(script_path) {
+  checkmate::assert_string(script_path, min.chars = 1)
 
-purrr::walk(
-  post_processing_scripts,
-  \(script_name) {
-    source(
-      here::here("R", "2-post_processing_pipeline", script_name),
-      echo = FALSE
-    )
+  if (!file.exists(script_path)) {
+    cli::cli_abort("required post-processing script not found: {.path {script_path}}")
   }
-)
+
+  cli::cli_alert_info("sourcing post-processing script: {.file {basename(script_path)}}")
+
+  tryCatch(
+    {
+      source(script_path, echo = FALSE)
+      return(invisible(TRUE))
+    },
+    error = function(error_condition) {
+      cli::cli_abort(c(
+        "failed while sourcing post-processing script",
+        "x" = "script: {.path {script_path}}",
+        "x" = "details: {error_condition$message}"
+      ))
+    }
+  )
+}
+
+#' @title source post-processing scripts in deterministic order
+#' @description source all required post-processing stage scripts in the fixed
+#' orchestration order expected by the pipeline.
+#' @param pipeline_root character scalar path to post-processing script folder.
+#' @return invisible `TRUE` when all scripts are sourced.
+#' @importFrom checkmate assert_string
+source_post_processing_scripts <- function(pipeline_root = here::here("R", "2-post_processing_pipeline")) {
+  checkmate::assert_string(pipeline_root, min.chars = 1)
+
+  source_post_processing_script(fs::path(pipeline_root, "20-data_audit.R"))
+  source_post_processing_script(fs::path(pipeline_root, "21-post_processing_utilities.R"))
+  source_post_processing_script(fs::path(pipeline_root, "22-clean_data.R"))
+  source_post_processing_script(fs::path(pipeline_root, "23-standardize_units.R"))
+  source_post_processing_script(fs::path(pipeline_root, "24-standardize_data.R"))
+
+  return(invisible(TRUE))
+}
+
+source_post_processing_scripts()
 
 #' @title get required object from environment or skip auto-run
 #' @description validate whether a required object exists in an environment for
@@ -58,6 +90,7 @@ get_required_object_or_null <- function(object_name, env) {
 #' @return final post-processed data.table with `pipeline_diagnostics`
 #' attribute.
 #' @importFrom checkmate assert_data_frame assert_list assert_string
+#' @importFrom cli cli_abort
 run_post_processing_pipeline_batch <- function(
   raw_dt,
   config,
@@ -71,30 +104,39 @@ run_post_processing_pipeline_batch <- function(
   checkmate::assert_string(value_column, min.chars = 1)
   checkmate::assert_string(product_column, min.chars = 1)
 
-  audited_dt <- audit_data_output(raw_dt, config)
+  pipeline_result <- tryCatch(
+    {
+      audited_dt <- audit_data_output(raw_dt, config)
+      cleaned_dt <- run_cleaning_layer_batch(audited_dt, config)
+      standardized_dt <- run_harmonization_layer_batch(cleaned_dt, config)
+      unit_standardized_dt <- run_number_harmonization_layer_batch(
+        standardized_dt,
+        config,
+        unit_column,
+        value_column,
+        product_column
+      )
 
-  cleaned_dt <- run_cleaning_layer_batch(audited_dt, config)
+      pipeline_diagnostics <- list(
+        audit = NULL,
+        cleaning = attr(cleaned_dt, "layer_diagnostics"),
+        data_standardization = attr(standardized_dt, "layer_diagnostics"),
+        unit_standardization = attr(unit_standardized_dt, "layer_diagnostics")
+      )
 
-  standardized_dt <- run_harmonization_layer_batch(cleaned_dt, config)
+      attr(unit_standardized_dt, "pipeline_diagnostics") <- pipeline_diagnostics
 
-  unit_standardized_dt <- run_number_harmonization_layer_batch(
-    standardized_dt,
-    config,
-    unit_column,
-    value_column,
-    product_column
+      return(unit_standardized_dt)
+    },
+    error = function(error_condition) {
+      cli::cli_abort(c(
+        "post-processing pipeline execution failed",
+        "x" = "details: {error_condition$message}"
+      ))
+    }
   )
 
-  pipeline_diagnostics <- list(
-    audit = NULL,
-    cleaning = attr(cleaned_dt, "layer_diagnostics"),
-    data_standardization = attr(standardized_dt, "layer_diagnostics"),
-    unit_standardization = attr(unit_standardized_dt, "layer_diagnostics")
-  )
-
-  attr(unit_standardized_dt, "pipeline_diagnostics") <- pipeline_diagnostics
-
-  return(unit_standardized_dt)
+  return(pipeline_result)
 }
 
 # backward-compatible alias

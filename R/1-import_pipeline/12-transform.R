@@ -27,7 +27,9 @@ identify_year_columns <- function(df, config) {
     setdiff(config$column_order, c("year", "value"))
   )
 
-  candidate_cols[grepl("^\\d{4}(-\\d{4})?$", candidate_cols)]
+  year_columns <- candidate_cols[grepl("^\\d{4}(-\\d{4})?$", candidate_cols)]
+
+  return(year_columns)
 }
 
 #' @title normalize key fields
@@ -40,7 +42,6 @@ identify_year_columns <- function(df, config) {
 #' vector.
 #' @return data frame with required columns present and normalized key text fields.
 #' @importFrom checkmate check_character check_data_frame check_list check_string
-#' @importFrom dplyr mutate
 #' @examples
 #' df_example <- data.frame(variable = "yield", continent = "asia", country = "india")
 #' config_example <- list(column_required = c("product", "variable", "continent", "country"))
@@ -55,16 +56,20 @@ normalize_key_fields <- function(df, product_name, config) {
     min.len = 1
   ))
 
+  data_dt <- ensure_data_table(df)
   base_cols <- config$column_required
-  df[, setdiff(base_cols, colnames(df))] <- NA_character_
+  missing_cols <- setdiff(base_cols, colnames(data_dt))
 
-  df |>
-    dplyr::mutate(
-      product = normalize_string(product_name),
-      variable = normalize_string(variable),
-      continent = normalize_string(continent),
-      country = normalize_string(country)
-    )
+  if (length(missing_cols) > 0) {
+    data_dt[, (missing_cols) := NA_character_]
+  }
+
+  data_dt[, product := normalize_string(product_name)]
+  data_dt[, variable := normalize_string(variable)]
+  data_dt[, continent := normalize_string(continent)]
+  data_dt[, country := normalize_string(country)]
+
+  return(data_dt)
 }
 
 #' @title convert year columns
@@ -101,7 +106,7 @@ convert_year_columns <- function(df, config) {
     df[, (year_cols) := lapply(.SD, as.character), .SDcols = year_cols]
   }
 
-  df
+  return(df)
 }
 
 #' @title reshape to long
@@ -139,7 +144,7 @@ reshape_to_long <- function(df, config) {
     cli::cli_abort("no year columns were identified for reshaping")
   }
 
-  data.table::melt(
+  long_dt <- data.table::melt(
     data = df,
     id.vars = column_id,
     measure.vars = year_cols,
@@ -147,6 +152,8 @@ reshape_to_long <- function(df, config) {
     value.name = "value",
     variable.factor = FALSE
   )
+
+  return(long_dt)
 }
 
 #' @title add metadata
@@ -159,8 +166,6 @@ reshape_to_long <- function(df, config) {
 #' scalar and may be `na_character_` when notes are intentionally missing.
 #' @return data table with metadata columns added.
 #' @importFrom checkmate check_character check_data_frame check_list check_string
-#' @importFrom dplyr mutate
-#' @importFrom data.table as.data.table
 #' @examples
 #' df_example <- data.frame(country = "x", year = "2020", value = "1")
 #' config_example <- list(defaults = list(notes_value = NA_character_))
@@ -174,14 +179,13 @@ add_metadata <- function(fao_data_long_raw, file_name, yearbook, config) {
   assert_or_abort(checkmate::check_character(config$defaults$notes_value, len = 1))
 
   notes_value <- config$defaults$notes_value
+  data_dt <- ensure_data_table(fao_data_long_raw)
 
-  fao_data_long_raw |>
-    dplyr::mutate(
-      document = file_name,
-      notes = notes_value,
-      yearbook = yearbook
-    ) |>
-    data.table::as.data.table()
+  data_dt[, document := file_name]
+  data_dt[, notes := notes_value]
+  data_dt[, yearbook := yearbook]
+
+  return(data_dt)
 }
 
 #' @title transform file data table
@@ -211,7 +215,10 @@ transform_file_dt <- function(df, file_name, yearbook, product_name, config) {
     reshape_to_long(config) |>
     add_metadata(file_name, yearbook, config)
 
-  list(wide_raw = df_norm, long_raw = fao_data_long_raw)
+  transform_result <- list(wide_raw = df_norm, long_raw = fao_data_long_raw)
+  assert_transform_result_contract(transform_result)
+
+  return(transform_result)
 }
 
 #' @title resolve product name from file metadata
@@ -252,7 +259,43 @@ resolve_product_name <- function(file_row, config) {
     return("unknown")
   }
 
-  product_name
+  return(product_name)
+}
+
+#' @title build empty transform result
+#' @description create a stable empty output structure for transform list
+#' operations.
+#' @return named list with empty `wide_raw` and `long_raw` data tables.
+#' @importFrom data.table data.table
+build_empty_transform_result <- function() {
+  transform_result <- list(
+    wide_raw = data.table::data.table(),
+    long_raw = data.table::data.table()
+  )
+
+  assert_transform_result_contract(transform_result)
+
+  return(transform_result)
+}
+
+
+#' @title assert transform result contract
+#' @description validate the stable transform output structure used across import
+#' pipeline stages.
+#' @param transform_result named list expected to include data.table elements
+#' `wide_raw` and `long_raw`.
+#' @return invisible `TRUE` when the contract is valid.
+#' @importFrom checkmate check_list check_names check_data_table
+assert_transform_result_contract <- function(transform_result) {
+  assert_or_abort(checkmate::check_list(transform_result, any.missing = FALSE))
+  assert_or_abort(checkmate::check_names(
+    names(transform_result),
+    must.include = c("wide_raw", "long_raw")
+  ))
+  assert_or_abort(checkmate::check_data_table(transform_result$wide_raw))
+  assert_or_abort(checkmate::check_data_table(transform_result$long_raw))
+
+  return(invisible(TRUE))
 }
 
 #' @title transform single file
@@ -286,13 +329,15 @@ transform_single_file <- function(file_row, df_wide, config) {
 
   product_name <- resolve_product_name(file_row, config)
 
-  transform_file_dt(
+  transformed <- transform_file_dt(
     df = df_wide,
     file_name = file_row$file_name,
     yearbook = file_row$yearbook,
     product_name = product_name,
     config = config
   )
+
+  return(transformed)
 }
 
 #' @title process files
@@ -335,7 +380,7 @@ process_files <- function(file_list_dt, read_data_list, config) {
     ))
   }
 
-  map_with_progress(
+  results <- map_with_progress(
     x = seq_len(expected_items),
     .f = \(index) {
       file_row <- file_list_dt[index, ]
@@ -345,6 +390,8 @@ process_files <- function(file_list_dt, read_data_list, config) {
     message_template = "import pipeline: processing file %s/%s"
   ) |>
     purrr::compact()
+
+  return(results)
 }
 
 #' @title transform files list
@@ -375,22 +422,16 @@ transform_files_list <- function(file_list_dt, read_data_list, config) {
   }
 
   if (nrow(file_list_dt) == 0) {
-    return(list(
-      wide_raw = data.table::data.table(),
-      long_raw = data.table::data.table()
-    ))
+    return(build_empty_transform_result())
   }
 
   results <- process_files(file_list_dt, read_data_list, config)
 
   if (length(results) == 0) {
-    return(list(
-      wide_raw = data.table::data.table(),
-      long_raw = data.table::data.table()
-    ))
+    return(build_empty_transform_result())
   }
 
-  list(
+  transformed <- list(
     wide_raw = results |>
       purrr::map("wide_raw") |>
       data.table::rbindlist(fill = TRUE),
@@ -398,4 +439,8 @@ transform_files_list <- function(file_list_dt, read_data_list, config) {
       purrr::map("long_raw") |>
       data.table::rbindlist(fill = TRUE)
   )
+
+  assert_transform_result_contract(transformed)
+
+  return(transformed)
 }

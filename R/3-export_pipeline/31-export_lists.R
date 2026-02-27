@@ -1,14 +1,38 @@
-# script: 32-export_lists.r
+# script: 31-export_lists.r
 # description: export unique values from selected columns into excel list outputs.
 
+#' @title validate export lists config
+#' @description validate the nested configuration required by list-export helpers.
+#' @param config named list expected to contain a named `export_config` sub-list
+#' with `lists_to_export` and `lists_workbook_name` fields.
+#' @return invisible `TRUE` when configuration is valid.
+#' @importFrom checkmate check_list check_character check_string
+validate_export_lists_config <- function(config) {
+  assert_or_abort(checkmate::check_list(config, names = "named"))
+  assert_or_abort(checkmate::check_list(config$export_config, names = "named"))
+  assert_or_abort(checkmate::check_character(
+    config$export_config$lists_to_export,
+    min.len = 1,
+    any.missing = FALSE
+  ))
+  assert_or_abort(checkmate::check_string(
+    config$export_config$lists_workbook_name,
+    min.chars = 1
+  ))
+
+  return(invisible(TRUE))
+}
+
 #' @title get unique column values
-#' @description extract, de-duplicate, and sort values from a selected column in a data frame.
+#' @description extract, de-duplicate, and sort values from a selected column in
+#' a data frame.
 #' @param df data frame containing the source records; validated with
 #' `checkmate::check_data_frame(min.rows = 1)`.
 #' @param col_name single character string naming an existing column in df;
 #' validated with `checkmate::check_string(min.chars = 1)` and a membership
 #' check against available column names.
-#' @return atomic vector containing sorted unique values from the selected column.
+#' @return atomic vector containing sorted unique values from the selected
+#' column.
 #' @importFrom checkmate check_data_frame check_string check_choice
 #' @examples
 #' data_example <- data.frame(country = c("argentina", "brazil", "argentina"))
@@ -17,15 +41,15 @@ get_unique_column <- function(df, col_name) {
   assert_or_abort(checkmate::check_data_frame(df, min.rows = 1))
   assert_or_abort(checkmate::check_string(col_name, min.chars = 1))
 
-  df <- ensure_data_table(df)
-  assert_or_abort(checkmate::check_choice(col_name, choices = colnames(df)))
+  data_dt <- ensure_data_table(df)
+  assert_or_abort(checkmate::check_choice(col_name, choices = colnames(data_dt)))
 
-  return(sort(unique(df[[col_name]])))
+  return(sort(unique(data_dt[[col_name]])))
 }
 
 #' @title export single column list
-#' @description export sorted unique values from one selected column to an excel file and
-#' return the output path.
+#' @description export sorted unique values from one selected column to an excel
+#' file and return the output path.
 #' @param df data frame containing the source records; validated with
 #' `checkmate::check_data_frame(min.rows = 1)`.
 #' @param col_name single character string naming an existing column in df;
@@ -35,7 +59,8 @@ get_unique_column <- function(df, col_name) {
 #' `checkmate::check_list(names = "named")`.
 #' @param overwrite logical flag indicating whether an existing file should be
 #' replaced; validated with `checkmate::check_flag()`.
-#' @return character scalar containing the generated file path for the exported excel file.
+#' @return character scalar containing the generated file path for the exported
+#' excel file.
 #' @importFrom checkmate check_data_frame check_string check_list check_flag
 #' @importFrom openxlsx createWorkbook addWorksheet writeData saveWorkbook
 #' @examples
@@ -51,22 +76,23 @@ export_single_column_list <- function(df, col_name, config, overwrite = TRUE) {
   validate_export_import(df, col_name)
 
   values <- get_unique_column(df, col_name)
-  path <- generate_export_path(config, col_name, type = "lists")
+  export_path <- generate_export_path(config, col_name, type = "lists")
 
-  wb <- openxlsx::createWorkbook()
-  openxlsx::addWorksheet(wb, "data")
-  openxlsx::writeData(wb, "data", values)
-  openxlsx::saveWorkbook(wb, path, overwrite = overwrite)
+  workbook <- openxlsx::createWorkbook()
+  openxlsx::addWorksheet(workbook, "data")
+  openxlsx::writeData(workbook, "data", values)
+  openxlsx::saveWorkbook(workbook, export_path, overwrite = overwrite)
 
-  return(path)
+  return(export_path)
 }
 
 #' @title normalize sheet name
-#' @description normalize column names into excel-safe worksheet names limited to thirty-one
-#' characters.
+#' @description normalize column names into excel-safe worksheet names limited to
+#' thirty-one characters.
 #' @param col_name atomic vector of column names to normalize; validated with
-#' `checkmate::check_atomic_vector(min.len = 1, any.missing = `TRUE`)`.
-#' @return character vector of normalized worksheet names with empty values replaced by unknown.
+#' `checkmate::check_atomic_vector(min.len = 1, any.missing = TRUE)`.
+#' @return character vector of normalized worksheet names with empty values
+#' replaced by unknown.
 #' @importFrom checkmate check_atomic_vector
 #' @importFrom stringr str_sub
 #' @examples
@@ -79,6 +105,7 @@ normalize_sheet_name <- function(col_name) {
   ))
 
   sheet_name <- col_name |>
+    as.character() |>
     normalize_filename() |>
     stringr::str_sub(1, 31)
 
@@ -88,16 +115,17 @@ normalize_sheet_name <- function(col_name) {
 }
 
 #' @title export selected unique lists
-#' @description export unique values from configured columns into one workbook with one
-#' worksheet per column.
+#' @description export unique values from configured columns into one workbook
+#' with one worksheet per column.
 #' @param df data frame containing the source records; validated with
 #' `checkmate::check_data_frame(min.rows = 1)`.
 #' @param config named list containing export configuration, list columns, and
 #' workbook name; validated with `checkmate::check_list(names = "named")`.
 #' @param overwrite logical flag indicating whether an existing file should be
 #' replaced; validated with `checkmate::check_flag()`.
-#' @return character scalar containing the generated file path for the exported workbook.
-#' @importFrom checkmate check_data_frame check_list check_flag check_character check_string
+#' @return character scalar containing the generated file path for the exported
+#' workbook.
+#' @importFrom checkmate check_data_frame check_list check_flag check_subset
 #' @importFrom purrr walk
 #' @importFrom openxlsx createWorkbook addWorksheet writeData saveWorkbook
 #' @examples
@@ -112,38 +140,30 @@ normalize_sheet_name <- function(col_name) {
 #' export_selected_unique_lists(data_example, config, overwrite = TRUE)
 export_selected_unique_lists <- function(df, config, overwrite = TRUE) {
   assert_or_abort(checkmate::check_data_frame(df, min.rows = 1))
-  assert_or_abort(checkmate::check_list(config, names = "named"))
   assert_or_abort(checkmate::check_flag(overwrite))
-  assert_or_abort(checkmate::check_list(config$export_config, names = "named"))
-  assert_or_abort(checkmate::check_character(
-    config$export_config$lists_to_export,
-    min.len = 1,
-    any.missing = FALSE
-  ))
-  assert_or_abort(checkmate::check_string(
-    config$export_config$lists_workbook_name,
-    min.chars = 1
-  ))
+  validate_export_lists_config(config)
+
+  columns_to_export <- config$export_config$lists_to_export
+  assert_or_abort(checkmate::check_subset(columns_to_export, choices = names(df)))
 
   validate_export_import(df, "fao_unique_lists_raw")
 
-  cols_to_export <- config$export_config$lists_to_export
   workbook_path <- generate_export_path(
     config,
     config$export_config$lists_workbook_name,
     type = "lists"
   )
 
-  wb <- openxlsx::createWorkbook()
+  workbook <- openxlsx::createWorkbook()
 
-  purrr::walk(cols_to_export, function(col_name) {
+  purrr::walk(columns_to_export, function(col_name) {
     values <- get_unique_column(df, col_name)
     sheet_name <- normalize_sheet_name(col_name)
-    openxlsx::addWorksheet(wb, sheet_name)
-    openxlsx::writeData(wb, sheet_name, values)
+    openxlsx::addWorksheet(workbook, sheet_name)
+    openxlsx::writeData(workbook, sheet_name, values)
   })
 
-  openxlsx::saveWorkbook(wb, workbook_path, overwrite = overwrite)
+  openxlsx::saveWorkbook(workbook, workbook_path, overwrite = overwrite)
 
   return(workbook_path)
 }

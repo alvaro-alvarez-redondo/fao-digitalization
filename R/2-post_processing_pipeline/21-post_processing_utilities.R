@@ -167,13 +167,50 @@ validate_rule_schema <- function(layer_rules, required_columns, layer_name) {
   }
 
   required_subset <- layer_rules[, ..required_columns]
+  columns_with_missing <- required_columns[
+    vapply(required_columns, function(column_name) {
+      any(is.na(required_subset[[column_name]]))
+    }, logical(1))
+  ]
 
-  for (column_name in required_columns) {
-    if (any(is.na(required_subset[[column_name]]))) {
-      cli::cli_abort(
-        "{layer_name} rule table contains missing values in required column {.val {column_name}}"
-      )
-    }
+  if (length(columns_with_missing) > 0) {
+    cli::cli_abort(c(
+      "{layer_name} rule table contains missing values in required columns",
+      "x" = paste(columns_with_missing, collapse = ", ")
+    ))
+  }
+
+  return(invisible(TRUE))
+}
+
+
+#' @title warn for unknown mapping columns
+#' @description emit standardized warnings when source or target mapping columns
+#' are missing from the dataset schema.
+#' @param layer_rules data.table mapping rules.
+#' @param dataset_columns character vector with dataset column names.
+#' @param layer_name character scalar layer name for warning messages.
+#' @return invisible `TRUE`.
+#' @importFrom checkmate assert_data_table assert_character assert_string
+warn_unknown_mapping_columns <- function(layer_rules, dataset_columns, layer_name) {
+  checkmate::assert_data_table(layer_rules)
+  checkmate::assert_character(dataset_columns, any.missing = FALSE)
+  checkmate::assert_string(layer_name, min.chars = 1)
+
+  unknown_sources <- setdiff(unique(layer_rules$column_source), dataset_columns)
+  if (length(unknown_sources) > 0) {
+    cli::cli_warn(c(
+      "{layer_name} rules contain source columns not present in dataset",
+      "i" = paste(unknown_sources, collapse = ", ")
+    ))
+  }
+
+  unknown_targets <- setdiff(unique(layer_rules$column_target), dataset_columns)
+  if (length(unknown_targets) > 0) {
+    cli::cli_warn(c(
+      "{layer_name} rules contain target columns not present in dataset",
+      "i" = paste(unknown_targets, collapse = ", ")
+    ))
   }
 
   return(invisible(TRUE))
@@ -182,11 +219,15 @@ validate_rule_schema <- function(layer_rules, required_columns, layer_name) {
 
 #' @title validate mapping rules
 #' @description validate schema, active-key uniqueness, and target column
-#' availability for cleaning mappings.
-#' @param layer_rules data.table cleaning rules.
-#' @param column_targets character vector of dataset columns to clean.
+#' availability for cleaning and harmonization mappings.
+#' @param layer_rules data.table cleaning or harmonization rules.
+#' @param dataset_columns optional character vector with dataset columns used for
+#' source/target validation.
+#' @param value_column single string in
+#' `c("cleaned_value_target", "harmonized_value_target")`.
+#' @param layer_name character scalar layer label for diagnostics.
 #' @return invisible true.
-#' @importFrom checkmate assert_data_frame assert_character
+#' @importFrom checkmate assert_data_frame assert_character assert_string
 #' @examples
 #' \dontrun{validate_mapping_rules(layer_rules, c("country", "unit"))}
 validate_mapping_rules <- function(
@@ -195,12 +236,15 @@ validate_mapping_rules <- function(
   value_column = c("cleaned_value_target", "harmonized_value_target"),
   layer_name = "mapping"
 ) {
-  # value_column can be "cleaned_value_target" or "harmonized_value_target"
   value_column <- match.arg(value_column)
 
   checkmate::assert_data_frame(layer_rules, min.rows = 1)
+  checkmate::assert_string(layer_name, min.chars = 1)
 
-  # Required columns
+  if (!is.null(dataset_columns)) {
+    checkmate::assert_character(dataset_columns, any.missing = FALSE)
+  }
+
   required_columns <- c(
     "column_source",
     "column_target",
@@ -209,12 +253,10 @@ validate_mapping_rules <- function(
     value_column
   )
 
-  # Validate schema
   validate_rule_schema(layer_rules, required_columns, layer_name)
 
   layer_rules <- data.table::as.data.table(layer_rules)
 
-  # Check for duplicates
   duplicate_active <- layer_rules[,
     .N,
     by = .(
@@ -232,31 +274,9 @@ validate_mapping_rules <- function(
     ))
   }
 
-  # Warn about unknown columns in dataset
   if (!is.null(dataset_columns)) {
-    unknown_sources <- setdiff(
-      unique(layer_rules$column_source),
-      dataset_columns
-    )
-    if (length(unknown_sources) > 0) {
-      cli::cli_warn(c(
-        "{layer_name} rules contain source columns not present in dataset",
-        "i" = paste(unknown_sources, collapse = ", ")
-      ))
-    }
-
-    unknown_targets <- setdiff(
-      unique(layer_rules$column_target),
-      dataset_columns
-    )
-    if (length(unknown_targets) > 0) {
-      cli::cli_warn(c(
-        "{layer_name} rules contain target columns not present in dataset",
-        "i" = paste(unknown_targets, collapse = ", ")
-      ))
-    }
+    warn_unknown_mapping_columns(layer_rules, dataset_columns, layer_name)
   }
 
   return(invisible(TRUE))
 }
-

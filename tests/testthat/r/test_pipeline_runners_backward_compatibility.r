@@ -118,3 +118,68 @@ testthat::test_that("run_export_pipeline preserves signature defaults and return
   testthat::expect_identical(output$processed_path, "processed.xlsx")
   testthat::expect_identical(output$lists_path, "lists.xlsx")
 })
+
+
+testthat::test_that("run_export_pipeline validates output contract", {
+  withr::local_options(fao.run_export_pipeline.auto = FALSE)
+
+  assign("fao_data_raw", data.frame(x = 1L), envir = .GlobalEnv)
+  assign("config", list(), envir = .GlobalEnv)
+  on.exit(rm("fao_data_raw", "config", envir = .GlobalEnv), add = TRUE)
+
+  source(here::here("R/3-export_pipeline/run_export_pipeline.R"), local = TRUE)
+
+  testthat::expect_error(
+    testthat::with_mocked_bindings(
+      ensure_data_table = function(df) data.table::as.data.table(df),
+      export_processed_data = function(...) "",
+      export_selected_unique_lists = function(...) "lists.xlsx",
+      .env = environment(run_export_pipeline),
+      {
+        run_export_pipeline(data.frame(x = 1L), list(dummy = TRUE), overwrite = TRUE)
+      }
+    )
+  )
+})
+
+
+testthat::test_that("assert_export_paths_contract enforces export schema", {
+  withr::local_options(fao.run_export_pipeline.auto = FALSE)
+
+  assign("fao_data_raw", data.frame(x = 1L), envir = .GlobalEnv)
+  assign("config", list(), envir = .GlobalEnv)
+  on.exit(rm("fao_data_raw", "config", envir = .GlobalEnv), add = TRUE)
+
+  source(here::here("R/3-export_pipeline/run_export_pipeline.R"), local = TRUE)
+
+  output <- assert_export_paths_contract(list(
+    processed_path = "processed.xlsx",
+    lists_path = "lists.xlsx"
+  ))
+
+  testthat::expect_true(isTRUE(output))
+
+  testthat::expect_error(
+    assert_export_paths_contract(list(processed_path = "processed.xlsx")),
+    class = "simpleError"
+  )
+})
+
+testthat::test_that("get_env_object_or_null returns null for missing objects", {
+  withr::local_options(fao.run_export_pipeline.auto = FALSE)
+
+  assign("fao_data_raw", data.frame(x = 1L), envir = .GlobalEnv)
+  assign("config", list(), envir = .GlobalEnv)
+  on.exit(rm("fao_data_raw", "config", envir = .GlobalEnv), add = TRUE)
+
+  source(here::here("R/3-export_pipeline/run_export_pipeline.R"), local = TRUE)
+
+  temp_env <- new.env(parent = emptyenv())
+  temp_env$present <- 42L
+
+  found <- get_env_object_or_null("present", temp_env)
+  missing <- get_env_object_or_null("absent", temp_env)
+
+  testthat::expect_identical(found, 42L)
+  testthat::expect_null(missing)
+})

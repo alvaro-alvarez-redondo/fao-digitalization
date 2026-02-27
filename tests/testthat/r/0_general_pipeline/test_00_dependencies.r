@@ -129,3 +129,44 @@ testthat::test_that("required_packages excludes unused heavy and test-only packa
   testthat::expect_false("progress" %in% required_packages)
   testthat::expect_false("testthat" %in% required_packages)
 })
+
+
+testthat::test_that("collect_namespaced_dependencies returns unique sorted package names", {
+  temp_root <- withr::local_tempdir()
+  fs::dir_create(file.path(temp_root, "nested"))
+
+  writeLines(
+    c(
+      "dplyr::mutate(data, x = 1)",
+      "purrr::map(x, identity)",
+      "dplyr::select(data, x)"
+    ),
+    con = file.path(temp_root, "nested", "script_a.R")
+  )
+
+  dependencies <- collect_namespaced_dependencies(temp_root)
+
+  testthat::expect_identical(dependencies, c("dplyr", "purrr"))
+})
+
+testthat::test_that("audit_dependency_registry reports unused and missing dependencies", {
+  temp_root <- withr::local_tempdir()
+
+  writeLines(
+    c(
+      "dplyr::mutate(data, x = 1)",
+      "stringr::str_trim(x)"
+    ),
+    con = file.path(temp_root, "script_b.R")
+  )
+
+  audit_result <- audit_dependency_registry(
+    packages = c("dplyr", "purrr"),
+    scripts_root = temp_root
+  )
+
+  testthat::expect_identical(audit_result$declared, c("dplyr", "purrr"))
+  testthat::expect_identical(audit_result$used, c("dplyr", "stringr"))
+  testthat::expect_identical(audit_result$unused, c("purrr"))
+  testthat::expect_identical(audit_result$missing, c("stringr"))
+})
