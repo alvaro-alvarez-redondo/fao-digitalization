@@ -1,14 +1,15 @@
-# script: compatibility shim for modular clean-harmonize functions
-# description: sources modular clean-harmonize stage scripts.
+# script: compatibility shim for modular post-processing functions
+# description: sources modular post-processing stage scripts.
 
 purrr::walk(
   c(
-    "21-common_clean_harmonize_functions.R",
-    "22-run_cleaning_stage.R",
-    "24-run_general_harmonization_stage.R",
-    "23-run_numeric_harmonization_stage.R"
+    "20-data_audit.R",
+    "21-io_and_utilities.R",
+    "22-clean_data.R",
+    "23-standardize_data.R",
+    "24-standardize_units.R"
   ),
   \(script_name) {
-    source(here::here("R", "2-clean_harmonize_pipeline", script_name), echo = FALSE)
+    source(here::here("R", "2-post_processing_pipeline", script_name), echo = FALSE)
   }
 )

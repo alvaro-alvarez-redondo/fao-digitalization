@@ -1,5 +1,5 @@
 #' @title run full project pipeline
-#' @description run the general, import, and export pipelines in sequence.
+#' @description run the general, import, post-processing, and export pipelines in sequence.
 #'
 #' @param show_view logical flag. if `TRUE`, show `fao_data_raw` in the rstudio
 #'   viewer when it exists in the current environment.
@@ -25,7 +25,7 @@ run_pipeline <- function(
   pipeline_files <- c(
     file.path(pipeline_root, "0-general_pipeline", "run_general_pipeline.R"),
     file.path(pipeline_root, "1-import_pipeline", "run_import_pipeline.R"),
-    file.path(pipeline_root, "2-clean_harmonize_pipeline", "run_clean_harmonize_pipeline.R"),
+    file.path(pipeline_root, "2-post_processing_pipeline", "run_post_processing_pipeline.R"),
     file.path(pipeline_root, "3-export_pipeline", "run_export_pipeline.R")
   )
 

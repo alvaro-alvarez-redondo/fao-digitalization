@@ -20,7 +20,7 @@ test_that("run_pipeline sources scripts in sequence", {
   expect_true(isTRUE(result))
   expect_equal(
     basename(source_calls),
-    c("run_general_pipeline.R", "run_import_pipeline.R", "run_export_pipeline.R")
+    c("run_general_pipeline.R", "run_import_pipeline.R", "run_post_processing_pipeline.R", "run_export_pipeline.R")
   )
 })
 

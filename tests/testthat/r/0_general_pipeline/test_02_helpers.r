@@ -30,6 +30,22 @@ testthat::test_that("normalize_filename replaces missing and empty values with u
   )
 })
 
+testthat::test_that("coerce_numeric_safe converts values and normalizes blanks", {
+  output <- coerce_numeric_safe(c("1", " 2.5 ", "", "abc", NA_character_))
+
+  testthat::expect_identical(
+    output,
+    c(1, 2.5, NA_real_, NA_real_, NA_real_)
+  )
+})
+
+testthat::test_that("coerce_numeric_safe validates atomic input", {
+  testthat::expect_error(
+    coerce_numeric_safe(list("1", "2")),
+    class = "rlang_error"
+  )
+})
+
 testthat::test_that("extract_yearbook returns expected token window", {
   parts <- c("fao", "yb", "2020", "2021", "foo")
 

@@ -1,4 +1,4 @@
-source(here::here("R/3-export_pipeline/30-data_audit.R"), echo = FALSE)
+source(here::here("R/2-post_processing_pipeline/20-data_audit.R"), echo = FALSE)
 
 testthat::test_that("identify_audit_errors returns empty table when audit columns have no missing values", {
   input_dt <- data.table::data.table(
