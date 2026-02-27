@@ -80,6 +80,7 @@ validate_conversion_rules <- function(conversion_dt) {
 #' @importFrom checkmate assert_list assert_string
 #' @importFrom fs dir_create path
 #' @importFrom openxlsx createWorkbook addWorksheet writeData saveWorkbook
+#' @importFrom here here
 #' @examples
 #' \\dontrun{load_numeric_harmonization_rules(config)}
 load_numeric_harmonization_rules <- function(config) {
@@ -87,10 +88,12 @@ load_numeric_harmonization_rules <- function(config) {
   checkmate::assert_string(config$paths$data$imports$harmonization, min.chars = 1)
 
   harmonization_dir <- config$paths$data$imports$harmonization
+  template_dir <- here::here("data", "exports", "templates")
   fs::dir_create(harmonization_dir, recurse = TRUE)
+  fs::dir_create(template_dir, recurse = TRUE)
 
   template_path <- fs::path(
-    harmonization_dir,
+    template_dir,
     "numeric_harmonization_template.xlsx"
   )
 

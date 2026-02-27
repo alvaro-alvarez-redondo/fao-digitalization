@@ -201,10 +201,8 @@ read_excel_sheet <- function(file_path, sheet_name, config) {
     read_dt[, (missing_base) := NA_character_]
   }
 
-  keep_row <- read_dt[,
-    rowSums(!is.na(as.matrix(.SD)) & trimws(as.matrix(.SD)) != "") > 0,
-    .SDcols = base_cols
-  ]
+  base_matrix <- as.matrix(read_dt[, ..base_cols])
+  keep_row <- rowSums(!is.na(base_matrix) & trimws(base_matrix) != "") > 0
 
   filtered_dt <- read_dt[keep_row]
   filtered_dt[, variable := sheet_name]
