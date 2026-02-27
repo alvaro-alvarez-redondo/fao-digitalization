@@ -2,8 +2,8 @@
 # description: source export components and run the export workflow for data and unique lists.
 
 export_scripts <- c(
-  "31-export_data.R",
-  "32-export_lists.R"
+  "30-export_data.R",
+  "31-export_lists.R"
 )
 
 purrr::walk(

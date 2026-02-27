@@ -1,7 +1,6 @@
 # script: cleaning stage functions
 # description: load and apply text/data cleaning mappings and run the cleaning layer.
 
-
 #' @title load cleaning rules
 #' @description discover and load one cleaning mapping file from configured
 #' cleaning imports directory.
@@ -23,19 +22,26 @@ load_cleaning_rules <- function(config) {
   )
 
   if (length(files) == 0) {
-    cli::cli_alert_info("No cleaning files found, creating template...")
     template_path <- fs::path(cleaning_dir, "cleaning_template.xlsx")
-    cleaning_template <- data.table::data.table(
-      column_source = character(0),
-      column_target = character(0),
-      original_value_source = character(0),
-      original_value_target = character(0),
-      cleaned_value_target = character(0)
-    )
-    wb <- openxlsx::createWorkbook()
-    openxlsx::addWorksheet(wb, "cleaning_mapping")
-    openxlsx::writeData(wb, "cleaning_mapping", cleaning_template)
-    openxlsx::saveWorkbook(wb, template_path, overwrite = FALSE)
+
+    # Only create the template if it doesn't already exist
+    if (!file.exists(template_path)) {
+      cli::cli_alert_info("No cleaning files found, creating template...")
+
+      cleaning_template <- data.table::data.table(
+        column_source = character(0),
+        column_target = character(0),
+        original_value_source = character(0),
+        original_value_target = character(0),
+        cleaned_value_target = character(0)
+      )
+
+      wb <- openxlsx::createWorkbook()
+      openxlsx::addWorksheet(wb, "cleaning_mapping")
+      openxlsx::writeData(wb, "cleaning_mapping", cleaning_template)
+      openxlsx::saveWorkbook(wb, template_path, overwrite = FALSE)
+    }
+
     files <- template_path
   }
 
@@ -193,4 +199,3 @@ run_cleaning_layer_batch <- function(dataset_dt, config) {
   attr(cleaned_dt, "layer_diagnostics") <- all_diagnostics
   return(cleaned_dt)
 }
-
