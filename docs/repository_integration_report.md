@@ -11,7 +11,11 @@
 - Stage modules:
   - `R/0-general_pipeline/`
   - `R/1-import_pipeline/`
+<<<<<<< HEAD
   - `R/2-post_processing_pipeline/`
+=======
+  - `R/2-clean_harmonize_pipeline/`
+>>>>>>> main
   - `R/3-export_pipeline/`
 - Tests:
   - `tests/testthat.R`
