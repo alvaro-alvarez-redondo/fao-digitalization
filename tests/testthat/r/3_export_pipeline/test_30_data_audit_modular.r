@@ -1,4 +1,4 @@
-source(here::here("R/3-export_pipeline/30-data_audit.R"), echo = FALSE)
+source(here::here("R/2-post_processing_pipeline/20-data_audit.R"), echo = FALSE)
 
 test_that("audit_character_non_empty returns findings for missing and blank rows", {
   dataset_dt <- data.frame(

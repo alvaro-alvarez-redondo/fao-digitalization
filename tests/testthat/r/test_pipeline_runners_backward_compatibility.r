@@ -101,9 +101,6 @@ testthat::test_that("run_export_pipeline preserves signature defaults and return
     ensure_data_table = function(df) {
       data.table::as.data.table(df)
     },
-    audit_data_output = function(fao_data_raw, config) {
-      fao_data_raw
-    },
     export_processed_data = function(fao_data_raw, config, base_name = "data_export", overwrite = TRUE) {
       "processed.xlsx"
     },

@@ -1,67 +1,98 @@
-# Repository Audit Summary
+# 1. Repository Audit Summary
 
-## Scope and method
-- Scope: repository structure, all R scripts under `R/`, and test scripts under `tests/testthat`.
-- Method: static analysis only (no runtime mutation of pipeline code).
-- Execution note: R runtime was not available in this environment, so test execution could not be performed.
+## Scope
+- Reviewed repository structure, all scripts under `R/`, test files under `tests/testthat/`, and root project metadata files.
+- Audit mode was read-only for source code (no pipeline/function refactor performed).
 
 ## Repository Structure Overview
-- Root orchestration entrypoints:
-  - `fao-digitalization.R` (sources `R/run_pipeline.R`).
-  - `R/run_pipeline.R` (top-level pipeline orchestrator).
-- Stage modules under `R/`:
-  - `0-general_pipeline` (dependencies, setup, helpers, stage runner).
-  - `1-import_pipeline` (file discovery, reading, transform, validation, output, stage runner).
-  - `2-clean_harmonize_pipeline` (cleaning/harmonization logic + auto-run wrapper).
-  - `3-export_pipeline` (audit + export logic + stage runner).
+- Pipeline entrypoints:
+  - `fao-digitalization.R`
+  - `R/run_pipeline.R`
+- Stage modules:
+  - `R/0-general_pipeline/`
+  - `R/1-import_pipeline/`
+  - `R/2-post_processing_pipeline/`
+  - `R/3-export_pipeline/`
 - Tests:
-  - `tests/testthat/r/**` granular stage-level tests.
-  - `tests/testthat/test_all.r` aggregate runner.
-  - `tests/testthat.R` root test bootstrap.
+  - `tests/testthat.R`
+  - `tests/testthat/test_all.r`
+  - stage-focused suites under `tests/testthat/r/**`
+- Documentation:
+  - `README.md`
+  - `docs/repository_integration_report.md`
 
-## Violations & Risk Matrix
+## Rewrite Necessity Classification
+- **Classification:** targeted hardening recommended; full rewrite not necessary.
+- **Rationale:** module boundaries are clear and test surface is broad, but standards drift remains in metadata, explicit-return consistency, and one undocumented helper.
+
+---
+
+# 2. Violations & Risk Matrix
 
 | ID | Area | Severity | Finding | Evidence |
 |---|---|---|---|---|
-| V1 | Dependency/repository metadata | Major | `README.md` documents `DESCRIPTION`, `NAMESPACE`, and lockfile expectations, but these files are absent from repository root. | `README.md` dependency section and orchestration notes references package-style metadata and lockfile assumptions. |
-| V2 | Testing/backward compatibility | Major | `run_pipeline` now sources 4 stage runners, but existing unit test still asserts only 3 sourced scripts. | `R/run_pipeline.R` includes clean-harmonize stage; `tests/testthat/r/test_run_pipeline.r` expects only general/import/export. |
-| V3 | Architecture/hidden dependency | Critical | `run_clean_harmonize_pipeline_auto()` resolves environment objects into `*_value` variables but calls batch runner with different symbols (`fao_data_raw`, `config`) that are not the resolved locals. | `R/2-clean_harmonize_pipeline/run_clean_harmonize_pipeline.R` lines 44-49. |
-| V4 | Documentation/roxygen completeness | Minor | `coerce_numeric_safe()` lacks roxygen block while neighboring helpers are documented. | `R/0-general_pipeline/02-helpers.R` function appears without roxygen preamble. |
-| V5 | Validation convention | Minor | Multiple functions return implicit last-expression values instead of explicit `return()`, violating stated strict explicit-return convention. | Several helpers in import/validation modules omit explicit `return()`. |
-| V6 | Testing completeness | Major | Placeholder TODO tests are present and skipped for setup and file IO modules. | `tests/testthat/r/0_general_pipeline/test_01_setup_todo.r`; `tests/testthat/r/1_import_pipeline/test_10_file_io_todo.r`. |
+| V1 | Dependency metadata | **Major** | Repository references package metadata/dependency lock approach, but `DESCRIPTION`, `NAMESPACE`, and `renv.lock` are absent at root. | `README.md` documents package-style dependency declarations and lockfile expectations that are not present in repository root. |
+| V2 | Documentation | **Minor** | `coerce_numeric_safe()` has no roxygen block while neighboring helpers are documented. | `R/0-general_pipeline/02-helpers.R` function declaration appears without `#'` docs. |
+| V3 | Validation convention | **Major** | Multiple functions still rely on implicit final-expression returns, violating strict explicit `return()` convention requested for this audit standard. | Across import/clean-harmonize/export helpers, several function bodies omit `return(...)` in terminal paths. |
+| V4 | Execution reproducibility | **Major** | Runtime test execution could not be validated in this environment due missing R runtime binary (`Rscript`). | Command execution returned `bash: command not found: Rscript`. |
 
 ## Architectural Risk Assessment
+- **Coupling risk: Medium** — orchestration still relies on sourcing stage scripts with option-driven auto-run behavior.
+- **Cohesion risk: Low-Medium** — stage files are cohesive by concern (read/transform/validate/export).
+- **Hidden dependency risk: Medium** — auto-run wrappers depend on environment state (`config`, `fao_data_raw`) and option flags.
+- **Performance risk: Low-Medium** — use of `data.table`/vectorized operations is prevalent; no obvious high-cost nested anti-patterns observed in static scan.
+- **Testing risk: Medium** — test inventory is strong, but deterministic execution status in this environment is unverified.
 
-- **Coupling risk: Medium-High**
-  - Pipeline stages rely on sourcing scripts with side effects and global environment assignment patterns.
-  - Auto-run behavior controlled by options can trigger stage execution on source, increasing accidental coupling.
+---
 
-- **Cohesion risk: Medium**
-  - Functional decomposition is generally strong inside stage files.
-  - However, orchestration and global assignment behavior in runners mixes control flow and environment management concerns.
+# 3. Refactored Files (if authorized)
 
-- **Hidden dependency risk: High**
-  - Clean-harmonize auto wrapper has a variable-resolution mismatch that can fail depending on calling environment.
+- **Not performed.** Mutation/refactor phase was not explicitly authorized in this run.
 
-- **Testing risk: Medium-High**
-  - Good breadth of tests exists, but critical setup/file IO modules retain TODO skips.
-  - Runtime verification was not possible in this environment.
+---
 
-- **Performance risk: Low-Medium**
-  - Heavy use of `data.table` and vectorized operations is present.
-  - No immediate anti-pattern hotspots detected from static read-only scan.
+# 4. Benchmark Results (if applicable)
 
-## Rewrite Necessity Classification
+- Not applicable in this run (no performance-critical rewrite authorized/executed).
 
-- **Classification:** Targeted refactor recommended (not full rewrite).
-- **Rationale:**
-  1. Architecture is modular by stage and mostly recoverable.
-  2. Highest-value fixes are focused (auto-run variable mismatch, test expectation drift, documentation/return-style consistency).
-  3. No evidence from static review that a complete repository rewrite is required.
+---
 
-## Recommended next authorized mutation batch
-1. Fix clean-harmonize auto wrapper variable usage bug.
-2. Align `test_run_pipeline` expected sourced scripts with current 4-stage orchestration.
-3. Add missing roxygen for `coerce_numeric_safe()`.
-4. Replace skipped TODO tests with deterministic unit coverage for setup and file IO helpers.
-5. Optionally normalize metadata docs (`README`) to match actual non-package script-repo layout or add missing package metadata files.
+# 5. Generated or Updated Tests
+
+- No test files were added or modified in this run.
+- Existing test suites were inventoried but not executed due missing `Rscript` runtime.
+
+---
+
+# 6. Dependency & API Stability Summary
+
+- API surface appears stable across pipeline entrypoints and staged helper naming.
+- Dependency usage is explicit in namespaces (`pkg::fun`) across scripts.
+- Repository-level dependency governance artifacts are incomplete for package-style reproducibility (`DESCRIPTION`/`NAMESPACE`/`renv.lock` absent).
+
+---
+
+# 7. Backward Compatibility Analysis
+
+- No code mutation was applied; therefore runtime behavior compatibility is unchanged.
+- Backward compatibility risk remains tied to current environment-dependent auto-run patterns rather than newly introduced changes.
+
+---
+
+# 8. Documentation & README Compliance Summary
+
+- README provides clear pipeline narrative and setup guidance.
+- Documentation-to-repository mismatch remains for package metadata expectations.
+- One helper-level roxygen omission remains (`coerce_numeric_safe`).
+
+---
+
+# 9. Integration & Migration Notes
+
+Recommended next authorized mutation batch:
+1. Add missing repository metadata strategy:
+   - either create `DESCRIPTION`/`NAMESPACE`/`renv.lock`,
+   - or revise `README.md` to reflect script-repository (non-package) operation.
+2. Add roxygen documentation for `coerce_numeric_safe()`.
+3. Normalize explicit `return()` usage in functions that currently rely on implicit returns.
+4. Re-run full test suite in an R-enabled environment (`Rscript` + `testthat`) and record deterministic results.

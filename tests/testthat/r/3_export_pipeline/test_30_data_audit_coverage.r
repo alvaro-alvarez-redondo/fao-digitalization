@@ -1,4 +1,4 @@
-source(here::here("R/3-export_pipeline/30-data_audit.R"), echo = FALSE)
+source(here::here("R/2-post_processing_pipeline/20-data_audit.R"), echo = FALSE)
 
 testthat::test_that("load_audit_config accepts valid config and remains backward compatible", {
   config <- load_pipeline_config("fao_data_raw")
