@@ -1,6 +1,41 @@
 # script: numeric harmonization stage functions
 # description: validate and apply numeric unit conversions and run numeric harmonization.
 
+
+#' @title Validate required rule-table columns
+#' @description Validates presence and non-missingness of required columns.
+#' @param rule_dt Data.frame/data.table containing rule rows.
+#' @param required_columns Character vector of required column names.
+#' @param rule_label Character scalar label used in error messages.
+#' @return Invisibly returns `TRUE`.
+#' @importFrom checkmate assert_data_frame assert_character assert_string
+validate_rule_schema <- function(rule_dt, required_columns, rule_label) {
+  checkmate::assert_data_frame(rule_dt, min.rows = 1)
+  checkmate::assert_character(required_columns, min.len = 1, any.missing = FALSE)
+  checkmate::assert_string(rule_label, min.chars = 1)
+
+  missing_columns <- setdiff(required_columns, names(rule_dt))
+  if (length(missing_columns) > 0) {
+    cli::cli_abort(c(
+      "Missing required columns in {.val {rule_label}} rules.",
+      "x" = paste(missing_columns, collapse = ", ")
+    ))
+  }
+
+  columns_with_na <- required_columns[vapply(required_columns, function(column_name) {
+    anyNA(rule_dt[[column_name]])
+  }, logical(1))]
+
+  if (length(columns_with_na) > 0) {
+    cli::cli_abort(c(
+      "Found missing values in required {.val {rule_label}} rule columns.",
+      "x" = paste(columns_with_na, collapse = ", ")
+    ))
+  }
+
+  return(invisible(TRUE))
+}
+
 #' @title validate conversion rules
 #' @description validate numeric conversion-rule schema, uniqueness, and
 #' deterministic idempotency constraints.

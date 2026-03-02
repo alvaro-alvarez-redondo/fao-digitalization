@@ -195,6 +195,36 @@ run_post_processing_pipeline_batch <- function(
 # backward-compatible alias
 run_clean_harmonize_pipeline_batch <- run_post_processing_pipeline_batch
 
+# backward-compatible wrapper for legacy symbol
+run_clean_data <- function(dataset_dt, config, dataset_name = "fao_data_raw") {
+  return(run_cleaning_layer_batch(dataset_dt, config, dataset_name))
+}
+
+# backward-compatible wrapper for legacy symbol
+run_harmonize_data <- function(dataset_dt, config, dataset_name = "fao_data_raw") {
+  return(run_harmonize_layer_batch(dataset_dt, config, dataset_name))
+}
+
+# backward-compatible wrapper for legacy symbol
+persist_stage_audit_workbook <- function(
+  clean_audit_dt,
+  harmonize_audit_dt,
+  dataset_name,
+  execution_timestamp_utc,
+  config
+) {
+  return(persist_post_processing_audit(
+    clean_audit_dt = clean_audit_dt,
+    harmonize_audit_dt = harmonize_audit_dt,
+    dataset_name = dataset_name,
+    execution_timestamp_utc = execution_timestamp_utc,
+    config = config
+  ))
+}
+
+# backward-compatible wrapper for legacy symbol
+persist_post_processing_diagnostics <- persist_stage_audit_workbook
+
 #' @title Run post-processing pipeline automatically
 #' @description Runs post-processing when enabled and required objects exist.
 #' @param auto_run Logical scalar auto-run flag.
