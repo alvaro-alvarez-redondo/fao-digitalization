@@ -6,32 +6,11 @@
 #' @description Discovers cleaning rule files and returns deterministic payloads.
 #' @param config Named configuration list.
 #' @return List of payloads with `rule_file_id` and `raw_rules`.
-#' @importFrom checkmate assert_list assert_string
-#' @importFrom fs dir_ls dir_create path_file
-#' @importFrom purrr map
+#' @importFrom checkmate assert_list
 load_cleaning_rule_payloads <- function(config) {
   checkmate::assert_list(config, min.len = 1)
-  checkmate::assert_string(config$paths$data$imports$cleaning, min.chars = 1)
 
-  cleaning_dir <- config$paths$data$imports$cleaning
-  fs::dir_create(cleaning_dir, recurse = TRUE)
-
-  rule_files <- fs::dir_ls(
-    path = cleaning_dir,
-    regexp = "^cleaning_.*\\.(xlsx|xls|csv)$",
-    type = "file"
-  )
-
-  ordered_files <- sort(rule_files)
-
-  payloads <- purrr::map(ordered_files, function(file_path) {
-    list(
-      rule_file_id = fs::path_file(file_path),
-      raw_rules = read_rule_table(file_path)
-    )
-  })
-
-  return(payloads)
+  return(load_stage_rule_payloads(config = config, stage_name = "clean"))
 }
 
 #' @title Run cleaning layer batch

@@ -103,7 +103,7 @@ run_pipeline(
 
 - `scripts/0-general_pipeline/`: Dependency checks, setup, shared helpers, general bootstrap.
 - `scripts/1-import_pipeline/`: File discovery, reading, transformation, validation, import output assembly.
-- `scripts/2-post_processing_pipeline/`: Audit, cleaning, categorical harmonization, numeric unit standardization, stage orchestration.
+- `scripts/2-post_processing_pipeline/`: Audit, cleaning, categorical harmonization, numeric unit harmonization, stage orchestration.
 - `scripts/3-export_pipeline/`: Data export and unique-list export.
 - `scripts/run_pipeline.R`: Global stage orchestrator.
 - `tests/testthat/scripts/`: Stage-scoped and cross-stage tests.

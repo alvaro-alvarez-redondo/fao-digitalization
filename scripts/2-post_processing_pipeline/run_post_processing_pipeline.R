@@ -1,6 +1,6 @@
 # script: run post-processing pipeline
 # description: source post-processing scripts and execute deterministic clean and
-# standardize harmonization with structured audit persistence.
+# harmonize stages with structured audit persistence.
 
 #' @title Source one post-processing script
 #' @description Sources a single script with deterministic error handling.
@@ -30,7 +30,7 @@ source_post_processing_script <- function(script_path) {
 }
 
 #' @title Source post-processing scripts in deterministic order
-#' @description Sources required scripts for clean and standardize workflow.
+#' @description Sources required scripts for clean and harmonize workflow.
 #' @param pipeline_root Character scalar path to post-processing script folder.
 #' @return Invisibly returns `TRUE`.
 #' @importFrom checkmate assert_string
@@ -42,7 +42,7 @@ source_post_processing_scripts <- function(
   script_names <- c(
     "21-post_processing_utilities.R",
     "22-clean_data.R",
-    "24-standardize_data.R",
+    "24-harmonize_data.R",
     "25-post_processing_diagnostics.R"
   )
 
@@ -105,8 +105,8 @@ persist_post_processed_dataset <- function(dataset_dt, config, dataset_name) {
 }
 
 #' @title Run post-processing pipeline batch
-#' @description Runs deterministic preflight, clean harmonization, standardize
-#' harmonization, and persistence of dataset and audit artifacts.
+#' @description Runs deterministic preflight, clean stage, harmonize stage, and
+#' persistence of dataset and audit artifacts.
 #' @param raw_dt Raw dataset.
 #' @param config Named configuration list.
 #' @param dataset_name Character scalar dataset identifier.
@@ -120,6 +120,13 @@ run_post_processing_pipeline_batch <- function(
   checkmate::assert_data_frame(raw_dt, min.rows = 0)
   checkmate::assert_list(config, min.len = 1)
   checkmate::assert_string(dataset_name, min.chars = 1)
+
+  audit_paths <- initialize_post_processing_audit_root(config)
+
+  template_paths <- generate_post_processing_rule_templates(
+    config = config,
+    overwrite = TRUE
+  )
 
   preflight_result <- collect_post_processing_preflight(
     config = config,
@@ -136,40 +143,48 @@ run_post_processing_pipeline_batch <- function(
     dataset_name = dataset_name
   )
 
-  standardized_dt <- run_harmonization_layer_batch(
+  harmonized_dt <- run_harmonize_layer_batch(
     dataset_dt = cleaned_dt,
     config = config,
     dataset_name = dataset_name
   )
 
   clean_audit <- attr(cleaned_dt, "layer_audit")
-  standardize_audit <- attr(standardized_dt, "layer_audit")
+  harmonize_audit <- attr(harmonized_dt, "layer_audit")
 
   audit_output_path <- persist_post_processing_audit(
     clean_audit_dt = clean_audit,
-    standardize_audit_dt = standardize_audit,
+    harmonize_audit_dt = harmonize_audit,
     dataset_name = dataset_name,
-    execution_timestamp_utc = execution_timestamp_utc
+    execution_timestamp_utc = execution_timestamp_utc,
+    config = config
   )
 
   dataset_output_path <- persist_post_processed_dataset(
-    dataset_dt = standardized_dt,
+    dataset_dt = harmonized_dt,
     config = config,
     dataset_name = dataset_name
   )
 
   diagnostics <- list(
     clean = attr(cleaned_dt, "layer_diagnostics"),
-    standardize = attr(standardized_dt, "layer_diagnostics"),
+    harmonize = attr(harmonized_dt, "layer_diagnostics"),
     outputs = list(
       dataset_output_path = dataset_output_path,
-      audit_output_path = audit_output_path
+      audit_output_path = audit_output_path,
+      audit_root_dir = audit_paths$audit_root_dir,
+      clean_audit_dir = audit_paths$clean_dir,
+      harmonize_audit_dir = audit_paths$harmonize_dir,
+      diagnostics_dir = audit_paths$diagnostics_dir,
+      templates_dir = audit_paths$templates_dir,
+      clean_template_path = template_paths[["clean"]],
+      harmonize_template_path = template_paths[["harmonize"]]
     )
   )
 
-  attr(standardized_dt, "pipeline_diagnostics") <- diagnostics
+  attr(harmonized_dt, "pipeline_diagnostics") <- diagnostics
 
-  return(standardized_dt)
+  return(harmonized_dt)
 }
 
 # backward-compatible alias

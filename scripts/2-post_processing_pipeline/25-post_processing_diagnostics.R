@@ -22,10 +22,13 @@ collect_post_processing_preflight <- function(
 
   cleaning_dir <- config$paths$data$imports$cleaning
   harmonization_dir <- config$paths$data$imports$harmonization
+  audit_paths <- get_post_processing_audit_paths(config)
 
   checks <- list(
     cleaning_dir_exists = fs::dir_exists(cleaning_dir),
-    harmonization_dir_exists = fs::dir_exists(harmonization_dir)
+    harmonize_dir_exists = fs::dir_exists(harmonization_dir),
+    templates_dir_exists = fs::dir_exists(audit_paths$templates_dir),
+    diagnostics_dir_exists = fs::dir_exists(audit_paths$diagnostics_dir)
   )
 
   issues <- character(0)
@@ -34,8 +37,16 @@ collect_post_processing_preflight <- function(
     issues <- c(issues, "[clean stage] missing cleaning imports directory")
   }
 
-  if (!checks$harmonization_dir_exists) {
-    issues <- c(issues, "[standardize stage] missing harmonization imports directory")
+  if (!checks$harmonize_dir_exists) {
+    issues <- c(issues, "[harmonize stage] missing harmonization imports directory")
+  }
+
+  if (!checks$templates_dir_exists) {
+    issues <- c(issues, "[audit_root_dir] missing templates directory")
+  }
+
+  if (!checks$diagnostics_dir_exists) {
+    issues <- c(issues, "[audit_root_dir] missing diagnostics directory")
   }
 
   cleaning_files <- if (checks$cleaning_dir_exists) {
@@ -44,21 +55,21 @@ collect_post_processing_preflight <- function(
     character(0)
   }
 
-  harmonization_files <- if (checks$harmonization_dir_exists) {
+  harmonization_files <- if (checks$harmonize_dir_exists) {
     fs::dir_ls(harmonization_dir, regexp = "\\.(xlsx|xls|csv)$", type = "file")
   } else {
     character(0)
   }
 
   checks$cleaning_pattern_ok <- all(grepl("^cleaning_.*\\.(xlsx|xls|csv)$", basename(cleaning_files)))
-  checks$harmonization_pattern_ok <- all(grepl("^harmonization_.*\\.(xlsx|xls|csv)$", basename(harmonization_files)))
+  checks$harmonize_pattern_ok <- all(grepl("^(harmonize|harmonization)_.*\\.(xlsx|xls|csv)$", basename(harmonization_files)))
 
   if (!checks$cleaning_pattern_ok) {
     issues <- c(issues, "[clean stage] invalid cleaning file naming pattern")
   }
 
-  if (!checks$harmonization_pattern_ok) {
-    issues <- c(issues, "[standardize stage] invalid harmonization file naming pattern")
+  if (!checks$harmonize_pattern_ok) {
+    issues <- c(issues, "[harmonize stage] invalid harmonize file naming pattern")
   }
 
   has_expected_columns <- all(expected_columns %in% dataset_columns)
@@ -102,20 +113,20 @@ assert_post_processing_preflight <- function(preflight_result) {
 }
 
 #' @title Build post-processing diagnostics summary
-#' @description Creates stage and rule-level summaries from clean and standardize
+#' @description Creates stage and rule-level summaries from clean and harmonize
 #' audit metadata.
 #' @param clean_audit_dt Clean-stage audit table.
-#' @param standardize_audit_dt Standardize-stage audit table.
+#' @param harmonize_audit_dt Harmonize-stage audit table.
 #' @return Named list with `stage_summary` and `rule_summary` data.tables.
 #' @importFrom checkmate assert_data_frame
-build_post_processing_diagnostics <- function(clean_audit_dt, standardize_audit_dt) {
+build_post_processing_diagnostics <- function(clean_audit_dt, harmonize_audit_dt) {
   checkmate::assert_data_frame(clean_audit_dt, min.rows = 0)
-  checkmate::assert_data_frame(standardize_audit_dt, min.rows = 0)
+  checkmate::assert_data_frame(harmonize_audit_dt, min.rows = 0)
 
   combined_audit <- data.table::rbindlist(
     list(
       data.table::as.data.table(clean_audit_dt),
-      data.table::as.data.table(standardize_audit_dt)
+      data.table::as.data.table(harmonize_audit_dt)
     ),
     use.names = TRUE,
     fill = TRUE
@@ -161,35 +172,39 @@ build_post_processing_diagnostics <- function(clean_audit_dt, standardize_audit_
 }
 
 #' @title Persist post-processing audit workbook
-#' @description Writes deterministic Excel output under `audit/post_processing`.
+#' @description Writes deterministic Excel output under `audit_root_dir/diagnostics`.
 #' @param clean_audit_dt Clean-stage audit table.
-#' @param standardize_audit_dt Standardize-stage audit table.
+#' @param harmonize_audit_dt Harmonize-stage audit table.
 #' @param dataset_name Character scalar dataset name.
 #' @param execution_timestamp_utc Character scalar run timestamp.
+#' @param config Named configuration list.
 #' @return Character scalar path of written workbook.
-#' @importFrom checkmate assert_data_frame assert_string
+#' @importFrom checkmate assert_data_frame assert_string assert_list
 #' @importFrom fs dir_create path
 persist_post_processing_audit <- function(
   clean_audit_dt,
-  standardize_audit_dt,
+  harmonize_audit_dt,
   dataset_name,
-  execution_timestamp_utc
+  execution_timestamp_utc,
+  config
 ) {
   checkmate::assert_data_frame(clean_audit_dt, min.rows = 0)
-  checkmate::assert_data_frame(standardize_audit_dt, min.rows = 0)
+  checkmate::assert_data_frame(harmonize_audit_dt, min.rows = 0)
   checkmate::assert_string(dataset_name, min.chars = 1)
   checkmate::assert_string(execution_timestamp_utc, min.chars = 1)
+  checkmate::assert_list(config, min.len = 1)
 
-  diagnostics <- build_post_processing_diagnostics(clean_audit_dt, standardize_audit_dt)
+  diagnostics <- build_post_processing_diagnostics(clean_audit_dt, harmonize_audit_dt)
 
-  audit_dir <- here::here("audit", "post_processing")
-  fs::dir_create(audit_dir, recurse = TRUE)
+  audit_paths <- initialize_post_processing_audit_root(config)
+  diagnostics_dir <- audit_paths$diagnostics_dir
+  fs::dir_create(diagnostics_dir, recurse = TRUE)
 
   file_stamp <- gsub("[-:]", "", execution_timestamp_utc)
   file_stamp <- gsub("T|Z", "_", file_stamp)
 
   output_path <- fs::path(
-    audit_dir,
+    diagnostics_dir,
     paste0("post_processing_audit_", dataset_name, "_", file_stamp, ".xlsx")
   )
 
@@ -197,8 +212,8 @@ persist_post_processing_audit <- function(
   openxlsx::addWorksheet(workbook, "clean_audit")
   openxlsx::writeData(workbook, "clean_audit", data.table::as.data.table(clean_audit_dt))
 
-  openxlsx::addWorksheet(workbook, "standardize_audit")
-  openxlsx::writeData(workbook, "standardize_audit", data.table::as.data.table(standardize_audit_dt))
+  openxlsx::addWorksheet(workbook, "harmonize_audit")
+  openxlsx::writeData(workbook, "harmonize_audit", data.table::as.data.table(harmonize_audit_dt))
 
   openxlsx::addWorksheet(workbook, "stage_summary")
   openxlsx::writeData(workbook, "stage_summary", diagnostics$stage_summary)
