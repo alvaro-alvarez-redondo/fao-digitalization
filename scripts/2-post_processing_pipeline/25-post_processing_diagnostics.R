@@ -61,15 +61,15 @@ collect_post_processing_preflight <- function(
     character(0)
   }
 
-  checks$cleaning_pattern_ok <- all(grepl("^cleaning_.*\\.(xlsx|xls|csv)$", basename(cleaning_files)))
-  checks$harmonize_pattern_ok <- all(grepl("^(harmonize|harmonization)_.*\\.(xlsx|xls|csv)$", basename(harmonization_files)))
+  checks$cleaning_pattern_ok <- all(grepl("^clean_.*\\.(xlsx|xls|csv)$", basename(cleaning_files)))
+  checks$harmonize_pattern_ok <- all(grepl("^harmonize_.*\\.(xlsx|xls|csv)$", basename(harmonization_files)))
 
   if (!checks$cleaning_pattern_ok) {
-    issues <- c(issues, "[clean stage] invalid clean_imports file naming pattern")
+    issues <- c(issues, "[clean stage] invalid clean_imports file naming pattern (expected prefix: clean_)")
   }
 
   if (!checks$harmonize_pattern_ok) {
-    issues <- c(issues, "[harmonize stage] invalid harmonize_imports file naming pattern")
+    issues <- c(issues, "[harmonize stage] invalid harmonize_imports file naming pattern (expected prefix: harmonize_)")
   }
 
   has_expected_columns <- all(expected_columns %in% dataset_columns)
