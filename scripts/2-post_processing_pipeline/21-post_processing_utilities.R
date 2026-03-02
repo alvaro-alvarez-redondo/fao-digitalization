@@ -215,7 +215,7 @@ load_stage_rule_payloads <- function(config, stage_name) {
 
   available_files <- fs::dir_ls(
     path = imports_dir,
-    regexp = "\.(xlsx|xls|csv)$",
+    regexp = "\\.(xlsx|xls|csv)$",
     type = "file"
   )
 
