@@ -327,7 +327,7 @@ generate_export_path <- function(
 #' emitted. defaults to `getOption("fao.progress.enabled", TRUE)`.
 #' @return list with one element per input item, matching `purrr::map()`
 #' semantics.
-#' @importFrom checkmate check check_atomic_vector check_flag check_function check_list check_string
+#' @importFrom checkmate check_atomic_vector check_flag check_function check_list check_string
 #' @importFrom progressr progressor with_progress
 #' @importFrom purrr imap map
 #' @examples
@@ -340,10 +340,20 @@ map_with_progress <- function(
   message_fn = NULL,
   enable_progress = getOption("fao.progress.enabled", TRUE)
 ) {
-  assert_or_abort(checkmate::check(
-    checkmate::check_list(x, min.len = 0, any.missing = TRUE),
-    checkmate::check_atomic_vector(x, min.len = 0, any.missing = TRUE)
-  ))
+  list_check_result <- checkmate::check_list(x, min.len = 0, any.missing = TRUE)
+  atomic_check_result <- checkmate::check_atomic_vector(
+    x,
+    min.len = 0,
+    any.missing = TRUE
+  )
+
+  input_check_result <- if (isTRUE(list_check_result)) {
+    TRUE
+  } else {
+    atomic_check_result
+  }
+
+  assert_or_abort(input_check_result)
   assert_or_abort(checkmate::check_function(.f))
   assert_or_abort(checkmate::check_flag(enable_progress))
 
