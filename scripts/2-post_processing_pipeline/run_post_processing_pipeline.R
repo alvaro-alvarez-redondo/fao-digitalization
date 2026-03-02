@@ -62,12 +62,16 @@ resolve_units_standardization_runner <- function() {
     return(get("run_standardize_units_layer_batch", mode = "function", inherits = TRUE))
   }
 
+  if (exists("run_number_standarization_layer_batch", mode = "function", inherits = TRUE)) {
+    return(get("run_number_standarization_layer_batch", mode = "function", inherits = TRUE))
+  }
+
   if (exists("run_number_harmonization_layer_batch", mode = "function", inherits = TRUE)) {
     return(get("run_number_harmonization_layer_batch", mode = "function", inherits = TRUE))
   }
 
   cli::cli_abort(
-    "No units standardization runner found. Expected {.fn run_standardize_units_layer_batch} or {.fn run_number_harmonization_layer_batch}."
+    "No units standarization runner found. Expected {.fn run_standardize_units_layer_batch}, {.fn run_number_standarization_layer_batch}, or {.fn run_number_harmonization_layer_batch}."
   )
 }
 

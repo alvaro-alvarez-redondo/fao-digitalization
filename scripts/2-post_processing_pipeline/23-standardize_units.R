@@ -1,5 +1,5 @@
 # script: units standardization stage functions
-# description: validate and apply numeric unit conversions and run numeric harmonization.
+# description: validate and apply numeric unit conversions and run numeric standarization.
 
 
 #' @title Validate required rule-table columns
@@ -58,7 +58,7 @@ validate_conversion_rules <- function(conversion_dt) {
   validate_rule_schema(
     conversion_dt,
     required_columns,
-    "harmonization conversion"
+    "standarization conversion"
   )
 
   conversion_dt <- data.table::as.data.table(conversion_dt)
@@ -108,7 +108,7 @@ validate_conversion_rules <- function(conversion_dt) {
 
 
 #' @title load units standardization rules
-#' @description ensure number-harmonization folder exists, create template if
+#' @description ensure number-standarization folder exists, create template if
 #' missing, and load numeric conversion rules.
 #' @param config named configuration list.
 #' @return named list with `layer_rules` and `source_path`.
@@ -133,7 +133,7 @@ load_units_standardization_rules <- function(config) {
   )
 
   if (!file.exists(template_path)) {
-    cli::cli_alert_info("Creating numeric harmonization template...")
+    cli::cli_alert_info("Creating numeric standarization template...")
 
     numeric_template <- data.table::data.table(
       product = character(0),
@@ -160,7 +160,7 @@ load_units_standardization_rules <- function(config) {
 
 #' @title apply units standardization mapping
 #' @description apply numeric unit conversions using vectorized keyed joins.
-#' @param mapped_dt data.table/data.frame to harmonize.
+#' @param mapped_dt data.table/data.frame to standarize.
 #' @param conversion_dt numeric conversion rules data.table/data.frame.
 #' @param unit_column character scalar unit column name.
 #' @param value_column character scalar numeric value column name.
@@ -220,7 +220,7 @@ apply_units_standardization_mapping <- function(
   if (any(invalid_mask)) {
     invalid_values <- unique(as.character(normalized_dt[[value_column]][invalid_mask]))
     cli::cli_abort(
-      "value column contains non-numeric values that cannot be harmonized: {paste(invalid_values, collapse = ', ')}"
+      "value column contains non-numeric values that cannot be standarized: {paste(invalid_values, collapse = ', ')}"
     )
   }
 
@@ -245,14 +245,14 @@ apply_units_standardization_mapping <- function(
 
 
 #' @title run units standardization layer batch
-#' @description orchestrate number harmonization stage with rule loading,
+#' @description orchestrate number standarization stage with rule loading,
 #' vectorized conversion application, and diagnostics attachment.
 #' @param cleaned_dt cleaned data.table/data.frame.
 #' @param config named configuration list.
 #' @param unit_column character scalar unit column name.
 #' @param value_column character scalar numeric value column name.
 #' @param product_column character scalar product column name.
-#' @return harmonized data.table with diagnostics attached.
+#' @return standarized data.table with diagnostics attached.
 #' @importFrom checkmate assert_data_frame assert_list assert_string
 #' @examples
 #' \\dontrun{run_units_standardization_layer_batch(cleaned_dt, config)}
@@ -283,23 +283,26 @@ run_standardize_units_layer_batch <- function(
     )
     normalized_dt <- result$data
 
+    diagnostics_audit_dt <- if (result$matched_count > 0L) {
+      data.table::data.table(affected_rows = as.integer(result$matched_count))
+    } else {
+      data.table::data.table(affected_rows = integer(0))
+    }
+
     diagnostics <- build_layer_diagnostics(
       layer_name = "standardize_units",
       rows_in = nrow(cleaned_dt),
       rows_out = nrow(normalized_dt),
-      matched_count = result$matched_count,
-      unmatched_count = result$unmatched_count
+      audit_dt = diagnostics_audit_dt
     )
   } else {
     diagnostics <- build_layer_diagnostics(
       layer_name = "standardize_units",
       rows_in = nrow(cleaned_dt),
       rows_out = nrow(cleaned_dt),
-      matched_count = 0L,
-      unmatched_count = 0L,
-      status = "warn",
-      messages = "no numeric harmonization rules found"
+      audit_dt = data.table::data.table(affected_rows = integer(0))
     )
+    diagnostics$messages <- "no numeric standarization rules found"
   }
 
   attr(normalized_dt, "layer_diagnostics") <- list(
@@ -310,7 +313,10 @@ run_standardize_units_layer_batch <- function(
 }
 
 # backward-compatible aliases
+run_number_standarization_layer_batch <- run_standardize_units_layer_batch
 run_number_harmonization_layer_batch <- run_standardize_units_layer_batch
 load_standardize_units_rules <- load_units_standardization_rules
+load_numeric_standarization_rules <- load_units_standardization_rules
 load_numeric_harmonization_rules <- load_units_standardization_rules
+apply_number_standarization_mapping <- apply_units_standardization_mapping
 apply_number_harmonization_mapping <- apply_units_standardization_mapping
