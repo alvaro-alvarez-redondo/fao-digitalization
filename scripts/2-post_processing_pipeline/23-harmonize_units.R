@@ -88,7 +88,7 @@ load_numeric_harmonization_rules <- function(config) {
   checkmate::assert_string(config$paths$data$imports$harmonization, min.chars = 1)
 
   harmonization_dir <- config$paths$data$imports$harmonization
-  template_dir <- here::here("data", "exports", "templates")
+  template_dir <- here::here("data", "3-export", "templates")
   fs::dir_create(harmonization_dir, recurse = TRUE)
   fs::dir_create(template_dir, recurse = TRUE)
 

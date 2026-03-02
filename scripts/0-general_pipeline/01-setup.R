@@ -98,8 +98,8 @@ load_pipeline_config <- function(dataset_name = "fao_data_raw", ...) {
   purrr::walk(required_base_directories, checkmate::assert_directory_exists)
 
   raw_imports_dir <- build_path("data", "imports", "raw imports")
-  audit_root_dir <- build_path("data", "audit")
-  audit_dir <- fs::path(audit_root_dir, normalized_dataset_name)
+  audit_root_dir <- build_path("data", "2-post_processing")
+  audit_dir <- fs::path(audit_root_dir, "data_audit")
   audit_file_name <- paste0(normalized_dataset_name, "_audit.xlsx")
 
   paths <- list(
@@ -110,8 +110,8 @@ load_pipeline_config <- function(dataset_name = "fao_data_raw", ...) {
         harmonization = build_path("data", "imports", "harmonization imports")
       ),
       exports = list(
-        lists = build_path("data", "exports", "lists"),
-        processed = build_path("data", "exports", "processed data")
+        lists = build_path("data", "3-export", "lists"),
+        processed = build_path("data", "3-export", "processed_data")
       ),
       audit = list(
         audit_root_dir = audit_root_dir,

@@ -118,7 +118,7 @@ load_audit_config <- function(config) {
 #' @param mirror_dir_name character scalar mirror directory name.
 #' @return named list with `audit_root_dir`, `audit_file_path`, and `mirror_dir_path`.
 #' @examples
-#' resolve_audit_output_paths("data/audit", "audit.xlsx", "mirror")
+#' resolve_audit_output_paths("data/2-post_processing/data_audit", "audit.xlsx", "mirror")
 #' @export
 resolve_audit_output_paths <- function(
   audit_root_dir,

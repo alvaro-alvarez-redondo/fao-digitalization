@@ -53,8 +53,7 @@ get_stage_rule_template_columns <- function(stage_name) {
 #' @title Get post-processing audit paths
 #' @description Resolves deterministic audit root and subdirectory paths.
 #' @param config Named configuration list.
-#' @return Named list with `audit_root_dir`, `templates_dir`, `clean_dir`,
-#' `harmonize_dir`, and `diagnostics_dir`.
+#' @return Named list with `audit_root_dir`, `diagnostics_dir`, and `templates_dir`.
 #' @importFrom checkmate assert_list assert_string
 get_post_processing_audit_paths <- function(config) {
   checkmate::assert_list(config, min.len = 1)
@@ -62,12 +61,12 @@ get_post_processing_audit_paths <- function(config) {
 
   audit_root_dir <- config$paths$data$audit$audit_root_dir
 
+  diagnostics_dir <- fs::path(audit_root_dir, "clean_harmonize_diagnostics")
+
   return(list(
     audit_root_dir = audit_root_dir,
-    templates_dir = fs::path(audit_root_dir, "templates"),
-    clean_dir = fs::path(audit_root_dir, "clean"),
-    harmonize_dir = fs::path(audit_root_dir, "harmonize"),
-    diagnostics_dir = fs::path(audit_root_dir, "diagnostics")
+    diagnostics_dir = diagnostics_dir,
+    templates_dir = fs::path(diagnostics_dir, "templates")
   ))
 }
 

@@ -172,7 +172,7 @@ build_post_processing_diagnostics <- function(clean_audit_dt, harmonize_audit_dt
 }
 
 #' @title Persist post-processing audit workbook
-#' @description Writes deterministic Excel output under `audit_root_dir/diagnostics`.
+#' @description Writes deterministic Excel output under `audit_root_dir/clean_harmonize_diagnostics`.
 #' @param clean_audit_dt Clean-stage audit table.
 #' @param harmonize_audit_dt Harmonize-stage audit table.
 #' @param dataset_name Character scalar dataset name.

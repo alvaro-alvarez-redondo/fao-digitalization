@@ -4,12 +4,12 @@ testthat::test_that("preflight flags invalid file naming patterns", {
 
   cleaning_dir <- file.path(root_dir, "data", "imports", "cleaning imports")
   harmonization_dir <- file.path(root_dir, "data", "imports", "harmonization imports")
-  audit_root_dir <- file.path(root_dir, "data", "audit")
+  audit_root_dir <- file.path(root_dir, "data", "2-post_processing")
 
   dir.create(cleaning_dir, recursive = TRUE)
   dir.create(harmonization_dir, recursive = TRUE)
-  dir.create(file.path(audit_root_dir, "templates"), recursive = TRUE)
-  dir.create(file.path(audit_root_dir, "diagnostics"), recursive = TRUE)
+  dir.create(file.path(audit_root_dir, "clean_harmonize_diagnostics", "templates"), recursive = TRUE)
+  dir.create(file.path(audit_root_dir, "clean_harmonize_diagnostics"), recursive = TRUE)
 
   file.create(file.path(cleaning_dir, "bad_cleaning_name.xlsx"))
   file.create(file.path(harmonization_dir, "bad_harmonization_name.xlsx"))
@@ -43,12 +43,12 @@ testthat::test_that("preflight detects column convention mismatch", {
 
   cleaning_dir <- file.path(root_dir, "data", "imports", "cleaning imports")
   harmonization_dir <- file.path(root_dir, "data", "imports", "harmonization imports")
-  audit_root_dir <- file.path(root_dir, "data", "audit")
+  audit_root_dir <- file.path(root_dir, "data", "2-post_processing")
 
   dir.create(cleaning_dir, recursive = TRUE)
   dir.create(harmonization_dir, recursive = TRUE)
-  dir.create(file.path(audit_root_dir, "templates"), recursive = TRUE)
-  dir.create(file.path(audit_root_dir, "diagnostics"), recursive = TRUE)
+  dir.create(file.path(audit_root_dir, "clean_harmonize_diagnostics", "templates"), recursive = TRUE)
+  dir.create(file.path(audit_root_dir, "clean_harmonize_diagnostics"), recursive = TRUE)
 
   file.create(file.path(cleaning_dir, "cleaning_rules.xlsx"))
   file.create(file.path(harmonization_dir, "harmonization_rules.xlsx"))
