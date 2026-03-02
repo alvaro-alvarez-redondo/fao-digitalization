@@ -327,7 +327,7 @@ generate_export_path <- function(
 #' emitted. defaults to `getOption("fao.progress.enabled", TRUE)`.
 #' @return list with one element per input item, matching `purrr::map()`
 #' semantics.
-#' @importFrom checkmate check_flag check_function check_list check_string
+#' @importFrom checkmate check_atomic_vector check_flag check_function check_list check_string
 #' @importFrom progressr progressor with_progress
 #' @importFrom purrr imap map
 #' @examples
@@ -340,11 +340,20 @@ map_with_progress <- function(
   message_fn = NULL,
   enable_progress = getOption("fao.progress.enabled", TRUE)
 ) {
-  assert_or_abort(checkmate::check_list(
-    as.list(x),
+  list_check_result <- checkmate::check_list(x, min.len = 0, any.missing = TRUE)
+  atomic_check_result <- checkmate::check_atomic_vector(
+    x,
     min.len = 0,
     any.missing = TRUE
-  ))
+  )
+
+  input_check_result <- if (isTRUE(list_check_result)) {
+    TRUE
+  } else {
+    atomic_check_result
+  }
+
+  assert_or_abort(input_check_result)
   assert_or_abort(checkmate::check_function(.f))
   assert_or_abort(checkmate::check_flag(enable_progress))
 
@@ -362,17 +371,29 @@ map_with_progress <- function(
     return(purrr::map(x, \(item) .f(item, ...)))
   }
 
+  resolve_progress_message <- function(item, index, total_steps) {
+    progress_message <- NULL
+
+    if (!is.null(message_fn)) {
+      progress_message <- message_fn(item, index, total_steps)
+    } else if (!is.null(message_template)) {
+      progress_message <- sprintf(message_template, index, total_steps)
+    }
+
+    if (is.null(progress_message)) {
+      return(NULL)
+    }
+
+    assert_or_abort(checkmate::check_string(progress_message, min.chars = 1))
+
+    return(progress_message)
+  }
+
   return(progressr::with_progress({
     progress <- progressr::progressor(steps = total_steps)
 
     purrr::imap(x, \(item, index) {
-      progress_message <- NULL
-
-      if (!is.null(message_fn)) {
-        progress_message <- message_fn(item, index, total_steps)
-      } else if (!is.null(message_template)) {
-        progress_message <- sprintf(message_template, index, total_steps)
-      }
+      progress_message <- resolve_progress_message(item, index, total_steps)
 
       if (is.null(progress_message)) {
         progress()

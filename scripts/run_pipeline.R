@@ -93,15 +93,31 @@ run_pipeline_script <- function(pipeline_file) {
 }
 
 #' @title Optionally view pipeline output object
-#' @description Opens `fao_data_raw` in RStudio viewer if requested and present.
+#' @description Opens the most advanced available pipeline dataset in RStudio viewer if requested.
 #' @param show_view Logical scalar controlling view behavior.
 #' @return Invisibly returns `TRUE`.
 #' @keywords internal
 maybe_view_pipeline_output <- function(show_view) {
   checkmate::assert_flag(show_view)
 
-  if (show_view && exists("fao_data_raw", inherits = TRUE)) {
-    utils::View(get("fao_data_raw", inherits = TRUE))
+  if (show_view) {
+    object_priority <- c(
+      "fao_data_harmonized",
+      "fao_data_normalized",
+      "fao_data_cleaned",
+      "fao_data_raw"
+    )
+
+    available_object <- object_priority[vapply(
+      object_priority,
+      exists,
+      logical(1),
+      inherits = TRUE
+    )][1]
+
+    if (!is.na(available_object) && nzchar(available_object)) {
+      utils::View(get(available_object, inherits = TRUE))
+    }
   }
 
   return(invisible(TRUE))

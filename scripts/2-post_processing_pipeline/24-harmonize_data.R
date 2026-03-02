@@ -1,50 +1,29 @@
-# script: standardization stage functions
-# description: load standardization rule files and execute vectorized
+# script: harmonization stage functions
+# description: load harmonize-stage rule files and execute vectorized
 # conditional harmonization via shared post-processing engine.
 
-#' @title Load standardization rule payloads
-#' @description Discovers harmonization rule files and returns deterministic payloads.
+#' @title Load harmonize rule payloads
+#' @description Discovers harmonize rule files and returns deterministic payloads.
 #' @param config Named configuration list.
 #' @return List of payloads with `rule_file_id` and `raw_rules`.
-#' @importFrom checkmate assert_list assert_string
-#' @importFrom fs dir_ls dir_create path_file
-#' @importFrom purrr map
-load_standardization_rule_payloads <- function(config) {
+#' @importFrom checkmate assert_list
+load_harmonize_rule_payloads <- function(config) {
   checkmate::assert_list(config, min.len = 1)
-  checkmate::assert_string(config$paths$data$imports$harmonization, min.chars = 1)
 
-  harmonization_dir <- config$paths$data$imports$harmonization
-  fs::dir_create(harmonization_dir, recurse = TRUE)
-
-  rule_files <- fs::dir_ls(
-    path = harmonization_dir,
-    regexp = "^harmonization_.*\\.(xlsx|xls|csv)$",
-    type = "file"
-  )
-
-  ordered_files <- sort(rule_files)
-
-  payloads <- purrr::map(ordered_files, function(file_path) {
-    list(
-      rule_file_id = fs::path_file(file_path),
-      raw_rules = read_rule_table(file_path)
-    )
-  })
-
-  return(payloads)
+  return(load_stage_rule_payloads(config = config, stage_name = "harmonize"))
 }
 
-#' @title Run standardization layer batch
-#' @description Applies standardize-stage conditional harmonization rules and
-#' returns standardized data with diagnostics and audit metadata.
+#' @title Run harmonize layer batch
+#' @description Applies harmonize-stage conditional harmonization rules and
+#' returns harmonized data with diagnostics and audit metadata.
 #' @param dataset_dt Input dataset as data.frame/data.table.
 #' @param config Named configuration list.
 #' @param dataset_name Character scalar dataset identifier.
-#' @return Standardized `data.table` with attributes `layer_diagnostics` and
+#' @return Harmonized `data.table` with attributes `layer_diagnostics` and
 #' `layer_audit`.
 #' @importFrom checkmate assert_data_frame assert_list assert_string
 #' @importFrom purrr reduce
-run_harmonization_layer_batch <- function(
+run_harmonize_layer_batch <- function(
   dataset_dt,
   config,
   dataset_name = "fao_data_raw"
@@ -53,7 +32,7 @@ run_harmonization_layer_batch <- function(
   checkmate::assert_list(config, min.len = 1)
   checkmate::assert_string(dataset_name, min.chars = 1)
 
-  payloads <- load_standardization_rule_payloads(config)
+  payloads <- load_harmonize_rule_payloads(config)
   execution_timestamp_utc <- format(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC")
 
   initial_state <- list(
@@ -67,7 +46,7 @@ run_harmonization_layer_batch <- function(
     .f = function(state, payload) {
       canonical_rules <- coerce_rule_schema(
         rule_dt = payload$raw_rules,
-        stage_name = "standardize",
+        stage_name = "harmonize",
         rule_file_id = payload$rule_file_id
       )
 
@@ -84,7 +63,7 @@ run_harmonization_layer_batch <- function(
       payload_result <- apply_rule_payload(
         dataset_dt = state$data,
         canonical_rules = canonical_rules,
-        stage_name = "standardize",
+        stage_name = "harmonize",
         dataset_name = dataset_name,
         rule_file_id = payload$rule_file_id,
         execution_timestamp_utc = execution_timestamp_utc
@@ -97,20 +76,20 @@ run_harmonization_layer_batch <- function(
     }
   )
 
-  standardize_audit <- data.table::rbindlist(final_state$audit_tables, use.names = TRUE, fill = TRUE)
+  harmonize_audit <- data.table::rbindlist(final_state$audit_tables, use.names = TRUE, fill = TRUE)
   diagnostics <- build_layer_diagnostics(
-    layer_name = "standardize",
+    layer_name = "harmonize",
     rows_in = nrow(dataset_dt),
     rows_out = nrow(final_state$data),
-    audit_dt = standardize_audit
+    audit_dt = harmonize_audit
   )
 
-  standardized_dt <- final_state$data
-  attr(standardized_dt, "layer_diagnostics") <- diagnostics
-  attr(standardized_dt, "layer_audit") <- standardize_audit
+  harmonized_dt <- final_state$data
+  attr(harmonized_dt, "layer_diagnostics") <- diagnostics
+  attr(harmonized_dt, "layer_audit") <- harmonize_audit
 
-  return(standardized_dt)
+  return(harmonized_dt)
 }
 
-# backward-compatible alias
-run_standardization_layer_batch <- run_harmonization_layer_batch
+# backward-compatible aliases
+run_harmonization_layer_batch <- run_harmonize_layer_batch

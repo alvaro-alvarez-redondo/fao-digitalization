@@ -118,7 +118,7 @@ load_audit_config <- function(config) {
 #' @param mirror_dir_name character scalar mirror directory name.
 #' @return named list with `audit_root_dir`, `audit_file_path`, and `mirror_dir_path`.
 #' @examples
-#' resolve_audit_output_paths("data/audit", "audit.xlsx", "mirror")
+#' resolve_audit_output_paths("data/2-post_processing/data_audit", "audit.xlsx", "mirror")
 #' @export
 resolve_audit_output_paths <- function(
   audit_root_dir,
@@ -409,11 +409,6 @@ export_validation_audit_report <- function(
 
   load_audit_config(config)
 
-  # nothing to export
-  if (nrow(audit_dt) == 0) {
-    return(invisible(NULL))
-  }
-
   export_dt <- data.table::as.data.table(data.table::copy(audit_dt))
 
   # create source row index
@@ -440,10 +435,22 @@ export_validation_audit_report <- function(
   cols_to_show <- setdiff(names(export_dt), technical_cols)
   row_lookup_dt <- export_dt[, .(excel_row = .I + 1L), by = .(source_row_index)]
 
-  # create workbook only if there is data
+  if (length(cols_to_show) == 0) {
+    cols_to_show <- c("source_row_index")
+  }
+
   workbook <- openxlsx::createWorkbook()
   openxlsx::addWorksheet(workbook, "audit_report")
-  openxlsx::writeData(workbook, "audit_report", export_dt[, ..cols_to_show])
+
+  if (nrow(export_dt) == 0) {
+    openxlsx::writeData(
+      workbook,
+      "audit_report",
+      data.table::data.table(note = "No audit findings detected for this dataset.")
+    )
+  } else {
+    openxlsx::writeData(workbook, "audit_report", export_dt[, ..cols_to_show])
+  }
 
   # determine effective findings
   effective_findings_dt <- findings_dt
@@ -572,7 +579,7 @@ mirror_raw_import_errors <- function(
   unmatched_documents <- setdiff(error_documents, raw_file_names)
   if (length(unmatched_documents) > 0) {
     cli::cli_warn(c(
-      "some audited documents were not found in raw imports",
+      "some audited documents were not found in raw_imports",
       "i" = "missing files: {toString(unmatched_documents)}"
     ))
   }
@@ -602,13 +609,11 @@ audit_data_output <- function(dataset_dt, config) {
 
   load_audit_config(config)
 
-  audit_root_dir <- config$paths$data$audit$audit_root_dir
   audit_output_dir <- fs::path_dir(config$paths$data$audit$audit_file_path)
 
-  assert_or_abort(checkmate::check_string(audit_root_dir, min.chars = 1))
   assert_or_abort(checkmate::check_string(audit_output_dir, min.chars = 1))
 
-  prepare_audit_root(audit_root_dir)
+  prepare_audit_root(audit_output_dir)
 
   audit_result <- run_master_validation(
     dataset_dt,
@@ -617,32 +622,32 @@ audit_data_output <- function(dataset_dt, config) {
 
   invalid_index <- audit_result$invalid_row_index
 
+  prepared_paths <- resolve_audit_output_paths(
+    audit_root_dir = audit_output_dir,
+    audit_file_name = fs::path_file(config$paths$data$audit$audit_file_path),
+    mirror_dir_name = fs::path_file(
+      config$paths$data$audit$raw_imports_mirror_dir
+    )
+  )
+
+  # subset invalid rows (may be zero rows)
+  audit_dt <- dataset_dt[invalid_index, , drop = FALSE]
+
+  # remap findings row_index to local subset positions
+  findings_dt <- data.table::as.data.table(audit_result$findings)
+
+  if (nrow(findings_dt) > 0) {
+    findings_dt[, row_index := match(row_index, invalid_index)]
+  }
+
+  export_validation_audit_report(
+    audit_dt = audit_dt,
+    config = config,
+    findings_dt = findings_dt,
+    output_path = prepared_paths$audit_file_path
+  )
+
   if (length(invalid_index) > 0) {
-    # subset invalid rows
-    audit_dt <- dataset_dt[invalid_index, , drop = FALSE]
-
-    # remap findings row_index to local subset positions
-    findings_dt <- data.table::as.data.table(audit_result$findings)
-
-    if (nrow(findings_dt) > 0) {
-      findings_dt[, row_index := match(row_index, invalid_index)]
-    }
-
-    prepared_paths <- resolve_audit_output_paths(
-      audit_root_dir = audit_output_dir,
-      audit_file_name = fs::path_file(config$paths$data$audit$audit_file_path),
-      mirror_dir_name = fs::path_file(
-        config$paths$data$audit$raw_imports_mirror_dir
-      )
-    )
-
-    export_validation_audit_report(
-      audit_dt = audit_dt,
-      config = config,
-      findings_dt = findings_dt,
-      output_path = prepared_paths$audit_file_path
-    )
-
     mirror_raw_import_errors(
       audit_dt = audit_dt,
       raw_imports_dir = config$paths$data$imports$raw,

@@ -1,5 +1,40 @@
-# script: numeric harmonization stage functions
-# description: validate and apply numeric unit conversions and run numeric harmonization.
+# script: units standardization stage functions
+# description: validate and apply numeric unit conversions and run numeric standarization.
+
+
+#' @title Validate required rule-table columns
+#' @description Validates presence and non-missingness of required columns.
+#' @param rule_dt Data.frame/data.table containing rule rows.
+#' @param required_columns Character vector of required column names.
+#' @param rule_label Character scalar label used in error messages.
+#' @return Invisibly returns `TRUE`.
+#' @importFrom checkmate assert_data_frame assert_character assert_string
+validate_rule_schema <- function(rule_dt, required_columns, rule_label) {
+  checkmate::assert_data_frame(rule_dt, min.rows = 1)
+  checkmate::assert_character(required_columns, min.len = 1, any.missing = FALSE)
+  checkmate::assert_string(rule_label, min.chars = 1)
+
+  missing_columns <- setdiff(required_columns, names(rule_dt))
+  if (length(missing_columns) > 0) {
+    cli::cli_abort(c(
+      "Missing required columns in {.val {rule_label}} rules.",
+      "x" = paste(missing_columns, collapse = ", ")
+    ))
+  }
+
+  columns_with_na <- required_columns[vapply(required_columns, function(column_name) {
+    anyNA(rule_dt[[column_name]])
+  }, logical(1))]
+
+  if (length(columns_with_na) > 0) {
+    cli::cli_abort(c(
+      "Found missing values in required {.val {rule_label}} rule columns.",
+      "x" = paste(columns_with_na, collapse = ", ")
+    ))
+  }
+
+  return(invisible(TRUE))
+}
 
 #' @title validate conversion rules
 #' @description validate numeric conversion-rule schema, uniqueness, and
@@ -23,7 +58,7 @@ validate_conversion_rules <- function(conversion_dt) {
   validate_rule_schema(
     conversion_dt,
     required_columns,
-    "harmonization conversion"
+    "standarization conversion"
   )
 
   conversion_dt <- data.table::as.data.table(conversion_dt)
@@ -72,8 +107,8 @@ validate_conversion_rules <- function(conversion_dt) {
 }
 
 
-#' @title load number harmonization rules
-#' @description ensure number-harmonization folder exists, create template if
+#' @title load units standardization rules
+#' @description ensure number-standarization folder exists, create template if
 #' missing, and load numeric conversion rules.
 #' @param config named configuration list.
 #' @return named list with `layer_rules` and `source_path`.
@@ -82,23 +117,23 @@ validate_conversion_rules <- function(conversion_dt) {
 #' @importFrom openxlsx createWorkbook addWorksheet writeData saveWorkbook
 #' @importFrom here here
 #' @examples
-#' \\dontrun{load_numeric_harmonization_rules(config)}
-load_numeric_harmonization_rules <- function(config) {
+#' \\dontrun{load_units_standardization_rules(config)}
+load_units_standardization_rules <- function(config) {
   checkmate::assert_list(config, min.len = 1)
   checkmate::assert_string(config$paths$data$imports$harmonization, min.chars = 1)
 
   harmonization_dir <- config$paths$data$imports$harmonization
-  template_dir <- here::here("data", "exports", "templates")
+  template_dir <- here::here("data", "3-export", "templates")
   fs::dir_create(harmonization_dir, recurse = TRUE)
   fs::dir_create(template_dir, recurse = TRUE)
 
   template_path <- fs::path(
     template_dir,
-    "numeric_harmonization_template.xlsx"
+    "standardize_units_template.xlsx"
   )
 
   if (!file.exists(template_path)) {
-    cli::cli_alert_info("Creating numeric harmonization template...")
+    cli::cli_alert_info("Creating numeric standarization template...")
 
     numeric_template <- data.table::data.table(
       product = character(0),
@@ -109,8 +144,8 @@ load_numeric_harmonization_rules <- function(config) {
     )
 
     workbook <- openxlsx::createWorkbook()
-    openxlsx::addWorksheet(workbook, "number_harmonization")
-    openxlsx::writeData(workbook, "number_harmonization", numeric_template)
+    openxlsx::addWorksheet(workbook, "units_standardization")
+    openxlsx::writeData(workbook, "units_standardization", numeric_template)
     openxlsx::saveWorkbook(workbook, template_path, overwrite = FALSE)
   }
 
@@ -123,9 +158,9 @@ load_numeric_harmonization_rules <- function(config) {
 }
 
 
-#' @title apply number harmonization mapping
+#' @title apply units standardization mapping
 #' @description apply numeric unit conversions using vectorized keyed joins.
-#' @param mapped_dt data.table/data.frame to harmonize.
+#' @param mapped_dt data.table/data.frame to standarize.
 #' @param conversion_dt numeric conversion rules data.table/data.frame.
 #' @param unit_column character scalar unit column name.
 #' @param value_column character scalar numeric value column name.
@@ -133,8 +168,8 @@ load_numeric_harmonization_rules <- function(config) {
 #' @return named list with `data`, `matched_count`, `unmatched_count`.
 #' @importFrom checkmate assert_data_frame assert_string
 #' @examples
-#' \\dontrun{apply_number_harmonization_mapping(mapped_dt, conversion_dt, "unit", "value", "product")}
-apply_number_harmonization_mapping <- function(
+#' \\dontrun{apply_units_standardization_mapping(mapped_dt, conversion_dt, "unit", "value", "product")}
+apply_units_standardization_mapping <- function(
   mapped_dt,
   conversion_dt,
   unit_column,
@@ -159,7 +194,7 @@ apply_number_harmonization_mapping <- function(
 
   validate_conversion_rules(conversion_dt)
 
-  harmonized_dt <- data.table::copy(data.table::as.data.table(mapped_dt))
+  normalized_dt <- data.table::copy(data.table::as.data.table(mapped_dt))
   active_conversion <- data.table::as.data.table(conversion_dt)
 
   active_conversion[, product_key := normalize_string(product)]
@@ -168,8 +203,8 @@ apply_number_harmonization_mapping <- function(
   active_conversion[, offset_num := as.numeric(offset)]
   data.table::setkey(active_conversion, product_key, unit_key)
 
-  product_keys <- normalize_string(harmonized_dt[[product_column]])
-  unit_keys <- normalize_string(harmonized_dt[[unit_column]])
+  product_keys <- normalize_string(normalized_dt[[product_column]])
+  unit_keys <- normalize_string(normalized_dt[[unit_column]])
 
   join_input <- data.table::data.table(
     product_key = product_keys,
@@ -179,13 +214,13 @@ apply_number_harmonization_mapping <- function(
   join_result <- active_conversion[join_input]
   is_matched <- !is.na(join_result$to_unit)
 
-  numeric_values <- coerce_numeric_safe(harmonized_dt[[value_column]])
-  invalid_mask <- !is.na(harmonized_dt[[value_column]]) & is.na(numeric_values)
+  numeric_values <- coerce_numeric_safe(normalized_dt[[value_column]])
+  invalid_mask <- !is.na(normalized_dt[[value_column]]) & is.na(numeric_values)
 
   if (any(invalid_mask)) {
-    invalid_values <- unique(as.character(harmonized_dt[[value_column]][invalid_mask]))
+    invalid_values <- unique(as.character(normalized_dt[[value_column]][invalid_mask]))
     cli::cli_abort(
-      "value column contains non-numeric values that cannot be harmonized: {paste(invalid_values, collapse = ', ')}"
+      "value column contains non-numeric values that cannot be standarized: {paste(invalid_values, collapse = ', ')}"
     )
   }
 
@@ -194,34 +229,34 @@ apply_number_harmonization_mapping <- function(
       numeric_values[is_matched] * join_result$factor_num[is_matched] +
       join_result$offset_num[is_matched]
 
-    harmonized_dt[is_matched, (unit_column) := join_result$to_unit[is_matched]]
+    normalized_dt[is_matched, (unit_column) := join_result$to_unit[is_matched]]
   }
 
-  harmonized_dt[, (value_column) := numeric_values]
+  normalized_dt[, (value_column) := numeric_values]
 
   unmatched_count <- sum(!is_matched & !is.na(unit_keys) & nzchar(unit_keys))
 
   return(list(
-    data = harmonized_dt,
+    data = normalized_dt,
     matched_count = as.integer(sum(is_matched)),
     unmatched_count = as.integer(unmatched_count)
   ))
 }
 
 
-#' @title run number harmonization layer batch
-#' @description orchestrate number harmonization stage with rule loading,
+#' @title run units standardization layer batch
+#' @description orchestrate number standarization stage with rule loading,
 #' vectorized conversion application, and diagnostics attachment.
 #' @param cleaned_dt cleaned data.table/data.frame.
 #' @param config named configuration list.
 #' @param unit_column character scalar unit column name.
 #' @param value_column character scalar numeric value column name.
 #' @param product_column character scalar product column name.
-#' @return harmonized data.table with diagnostics attached.
+#' @return standarized data.table with diagnostics attached.
 #' @importFrom checkmate assert_data_frame assert_list assert_string
 #' @examples
-#' \\dontrun{run_number_harmonization_layer_batch(cleaned_dt, config)}
-run_number_harmonization_layer_batch <- function(
+#' \\dontrun{run_units_standardization_layer_batch(cleaned_dt, config)}
+run_standardize_units_layer_batch <- function(
   cleaned_dt,
   config,
   unit_column = "unit",
@@ -234,42 +269,54 @@ run_number_harmonization_layer_batch <- function(
   checkmate::assert_string(value_column, min.chars = 1)
   checkmate::assert_string(product_column, min.chars = 1)
 
-  harmonized_dt <- data.table::copy(data.table::as.data.table(cleaned_dt))
-  layer_payload <- load_numeric_harmonization_rules(config)
+  normalized_dt <- data.table::copy(data.table::as.data.table(cleaned_dt))
+  layer_payload <- load_units_standardization_rules(config)
   layer_rules <- layer_payload$layer_rules
 
   if (nrow(layer_rules) > 0) {
-    result <- apply_number_harmonization_mapping(
-      harmonized_dt,
+    result <- apply_units_standardization_mapping(
+      normalized_dt,
       layer_rules,
       unit_column,
       value_column,
       product_column
     )
-    harmonized_dt <- result$data
+    normalized_dt <- result$data
+
+    diagnostics_audit_dt <- if (result$matched_count > 0L) {
+      data.table::data.table(affected_rows = as.integer(result$matched_count))
+    } else {
+      data.table::data.table(affected_rows = integer(0))
+    }
 
     diagnostics <- build_layer_diagnostics(
-      layer_name = "numeric_harmonization",
+      layer_name = "standardize_units",
       rows_in = nrow(cleaned_dt),
-      rows_out = nrow(harmonized_dt),
-      matched_count = result$matched_count,
-      unmatched_count = result$unmatched_count
+      rows_out = nrow(normalized_dt),
+      audit_dt = diagnostics_audit_dt
     )
   } else {
     diagnostics <- build_layer_diagnostics(
-      layer_name = "numeric_harmonization",
+      layer_name = "standardize_units",
       rows_in = nrow(cleaned_dt),
       rows_out = nrow(cleaned_dt),
-      matched_count = 0L,
-      unmatched_count = 0L,
-      status = "warn",
-      messages = "no numeric harmonization rules found"
+      audit_dt = data.table::data.table(affected_rows = integer(0))
     )
+    diagnostics$messages <- "no numeric standarization rules found"
   }
 
-  attr(harmonized_dt, "layer_diagnostics") <- list(
-    numeric_harmonization = diagnostics
+  attr(normalized_dt, "layer_diagnostics") <- list(
+    standardize_units = diagnostics
   )
 
-  return(harmonized_dt)
+  return(normalized_dt)
 }
+
+# backward-compatible aliases
+run_number_standarization_layer_batch <- run_standardize_units_layer_batch
+run_number_harmonization_layer_batch <- run_standardize_units_layer_batch
+load_standardize_units_rules <- load_units_standardization_rules
+load_numeric_standarization_rules <- load_units_standardization_rules
+load_numeric_harmonization_rules <- load_units_standardization_rules
+apply_number_standarization_mapping <- apply_units_standardization_mapping
+apply_number_harmonization_mapping <- apply_units_standardization_mapping
