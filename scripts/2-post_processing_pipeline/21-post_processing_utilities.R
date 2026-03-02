@@ -268,14 +268,19 @@ coerce_rule_schema <- function(rule_dt, stage_name, rule_file_id) {
   mapped_names <- vapply(
     canonical_columns,
     function(canonical_name) {
+      legacy_candidate <- unname(legacy_aliases[canonical_name])
+
       candidate_names <- c(
         canonical_name,
         stage_prefixed_columns[[canonical_name]],
-        legacy_aliases[[canonical_name]],
+        legacy_candidate,
+        paste0("clean_", canonical_name),
+        paste0("harmonize_", canonical_name),
         paste0("cleaning_", canonical_name),
         paste0("harmonization_", canonical_name)
       )
 
+      candidate_names <- candidate_names[!is.na(candidate_names)]
       matched_name <- candidate_names[candidate_names %in% available_columns][1]
 
       if (is.na(matched_name)) {
