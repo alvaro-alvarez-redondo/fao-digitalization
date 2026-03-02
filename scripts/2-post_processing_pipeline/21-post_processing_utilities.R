@@ -213,11 +213,15 @@ load_stage_rule_payloads <- function(config, stage_name) {
     harmonize = "^harmonize_.*\\.(xlsx|xls|csv)$"
   )
 
-  ordered_files <- fs::dir_ls(
+  available_files <- fs::dir_ls(
     path = imports_dir,
-    regexp = stage_pattern,
+    regexp = "\.(xlsx|xls|csv)$",
     type = "file"
-  ) |>
+  )
+
+  ordered_files <- available_files[
+    grepl(stage_pattern, basename(available_files))
+  ] |>
     sort()
 
   payloads <- purrr::map(ordered_files, function(file_path) {
