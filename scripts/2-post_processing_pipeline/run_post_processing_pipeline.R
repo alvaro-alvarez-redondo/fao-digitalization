@@ -57,6 +57,29 @@ source_post_processing_scripts <- function(
 
 source_post_processing_scripts()
 
+resolve_units_standardization_runner <- function() {
+  if (exists("run_standardize_units_layer_batch", mode = "function", inherits = TRUE)) {
+    return(get("run_standardize_units_layer_batch", mode = "function", inherits = TRUE))
+  }
+
+  if (exists("run_number_harmonization_layer_batch", mode = "function", inherits = TRUE)) {
+    return(get("run_number_harmonization_layer_batch", mode = "function", inherits = TRUE))
+  }
+
+  cli::cli_abort(
+    "No units standardization runner found. Expected {.fn run_standardize_units_layer_batch} or {.fn run_number_harmonization_layer_batch}."
+  )
+}
+
+run_units_standardization_stage <- function(cleaned_dt, config) {
+  units_standardization_runner <- resolve_units_standardization_runner()
+
+  return(units_standardization_runner(
+    cleaned_dt = cleaned_dt,
+    config = config
+  ))
+}
+
 #' @title Get required object from environment or return `NULL`
 #' @description Retrieves an object when present; otherwise warns and returns
 #' `NULL` for deterministic auto-run short-circuit behavior.
@@ -150,7 +173,7 @@ run_post_processing_pipeline_batch <- function(
     dataset_name = dataset_name
   )
 
-  normalized_dt <- run_standardize_units_layer_batch(
+  normalized_dt <- run_units_standardization_stage(
     cleaned_dt = cleaned_dt,
     config = config
   )
@@ -215,7 +238,7 @@ run_harmonize_data <- function(dataset_dt, config, dataset_name = "fao_data_raw"
 }
 
 run_standardize_units_data <- function(cleaned_dt, config) {
-  return(run_standardize_units_layer_batch(cleaned_dt = cleaned_dt, config = config))
+  return(run_units_standardization_stage(cleaned_dt = cleaned_dt, config = config))
 }
 
 # backward-compatible wrapper for legacy symbol
