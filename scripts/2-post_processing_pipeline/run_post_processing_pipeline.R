@@ -40,6 +40,7 @@ source_post_processing_scripts <- function(
   checkmate::assert_string(pipeline_root, min.chars = 1)
 
   script_names <- c(
+    "20-data_audit.R",
     "21-post_processing_utilities.R",
     "22-clean_data.R",
     "24-harmonize_data.R",
@@ -121,6 +122,11 @@ run_post_processing_pipeline_batch <- function(
   checkmate::assert_list(config, min.len = 1)
   checkmate::assert_string(dataset_name, min.chars = 1)
 
+  audited_raw_dt <- audit_data_output(
+    dataset_dt = raw_dt,
+    config = config
+  )
+
   audit_paths <- initialize_post_processing_audit_root(config)
 
   template_paths <- generate_post_processing_rule_templates(
@@ -130,15 +136,15 @@ run_post_processing_pipeline_batch <- function(
 
   preflight_result <- collect_post_processing_preflight(
     config = config,
-    dataset_columns = colnames(raw_dt),
-    expected_columns = colnames(raw_dt)
+    dataset_columns = colnames(audited_raw_dt),
+    expected_columns = colnames(audited_raw_dt)
   )
   assert_post_processing_preflight(preflight_result)
 
   execution_timestamp_utc <- format(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC")
 
   cleaned_dt <- run_cleaning_layer_batch(
-    dataset_dt = raw_dt,
+    dataset_dt = audited_raw_dt,
     config = config,
     dataset_name = dataset_name
   )
@@ -178,7 +184,8 @@ run_post_processing_pipeline_batch <- function(
       diagnostics_dir = audit_paths$diagnostics_dir,
       templates_dir = audit_paths$templates_dir,
       clean_template_path = template_paths[["clean"]],
-      harmonize_template_path = template_paths[["harmonize"]]
+      harmonize_template_path = template_paths[["harmonize"]],
+      data_audit_output_path = config$paths$data$audit$audit_file_path
     )
   )
 
