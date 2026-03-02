@@ -2,8 +2,8 @@ testthat::test_that("preflight flags invalid file naming patterns", {
   root_dir <- tempfile("fao-preflight-")
   dir.create(root_dir, recursive = TRUE)
 
-  cleaning_dir <- file.path(root_dir, "data", "imports", "cleaning imports")
-  harmonization_dir <- file.path(root_dir, "data", "imports", "harmonization imports")
+  cleaning_dir <- file.path(root_dir, "data", "1-import", "clean_imports")
+  harmonization_dir <- file.path(root_dir, "data", "1-import", "harmonize_imports")
   audit_root_dir <- file.path(root_dir, "data", "2-post_processing")
 
   dir.create(cleaning_dir, recursive = TRUE)
@@ -41,8 +41,8 @@ testthat::test_that("preflight detects column convention mismatch", {
   root_dir <- tempfile("fao-preflight-")
   dir.create(root_dir, recursive = TRUE)
 
-  cleaning_dir <- file.path(root_dir, "data", "imports", "cleaning imports")
-  harmonization_dir <- file.path(root_dir, "data", "imports", "harmonization imports")
+  cleaning_dir <- file.path(root_dir, "data", "1-import", "clean_imports")
+  harmonization_dir <- file.path(root_dir, "data", "1-import", "harmonize_imports")
   audit_root_dir <- file.path(root_dir, "data", "2-post_processing")
 
   dir.create(cleaning_dir, recursive = TRUE)

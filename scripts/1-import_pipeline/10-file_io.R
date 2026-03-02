@@ -36,8 +36,8 @@ build_empty_file_metadata <- function() {
 #' @importFrom purrr map_chr
 #' @examples
 #' file_paths_example <- c(
-#'   "imports/raw/crops_2020_sample.xlsx",
-#'   "imports/raw/livestock_2021_sample.xlsx"
+#'   "1-import/raw_imports/crops_2020_sample.xlsx",
+#'   "1-import/raw_imports/livestock_2021_sample.xlsx"
 #' )
 #' extract_file_metadata(file_paths_example)
 extract_file_metadata <- function(file_paths) {

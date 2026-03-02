@@ -178,7 +178,7 @@ compute_non_empty_base_rows <- function(read_dt, base_cols) {
 #' @importFrom cli format_warning
 #' @examples
 #' config_example <- list(column_required = c("country", "year"))
-#' # read_excel_sheet("imports/raw/example.xlsx", "sheet1", config_example)
+#' # read_excel_sheet("1-import/raw_imports/example.xlsx", "sheet1", config_example)
 read_excel_sheet <- function(file_path, sheet_name, config) {
   assert_or_abort(checkmate::check_string(file_path, min.chars = 1))
   assert_or_abort(checkmate::check_string(sheet_name, min.chars = 1))
@@ -256,7 +256,7 @@ read_excel_sheet <- function(file_path, sheet_name, config) {
 #' @importFrom cli format_warning
 #' @examples
 #' config_example <- list(column_required = c("country", "year"))
-#' # read_file_sheets("imports/raw/example.xlsx", config_example)
+#' # read_file_sheets("1-import/raw_imports/example.xlsx", config_example)
 read_file_sheets <- function(file_path, config) {
   assert_or_abort(checkmate::check_string(file_path, min.chars = 1))
   assert_or_abort(checkmate::check_list(config, any.missing = FALSE))

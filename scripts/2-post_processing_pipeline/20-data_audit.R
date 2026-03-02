@@ -579,7 +579,7 @@ mirror_raw_import_errors <- function(
   unmatched_documents <- setdiff(error_documents, raw_file_names)
   if (length(unmatched_documents) > 0) {
     cli::cli_warn(c(
-      "some audited documents were not found in raw imports",
+      "some audited documents were not found in raw_imports",
       "i" = "missing files: {toString(unmatched_documents)}"
     ))
   }
