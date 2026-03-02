@@ -1,14 +1,14 @@
-# script: cleaning stage functions
-# description: thin orchestration wrapper for stage-parameterized clean engine.
+# script: harmonize stage functions
+# description: thin orchestration wrapper for stage-parameterized harmonize engine.
 
-#' @title Run clean data stage
-#' @description Executes stage-aware harmonization engine for clean rules.
+#' @title Run harmonize data stage
+#' @description Executes stage-aware harmonization engine for harmonize rules.
 #' @param dataset_dt Input dataset.
 #' @param config Named configuration list.
 #' @param dataset_name Character scalar dataset name.
 #' @param rewrite_template Logical scalar template rewrite flag.
-#' @return Cleaned data table with audit and diagnostics attributes.
-run_clean_data <- function(
+#' @return Harmonized data table with audit and diagnostics attributes.
+run_harmonize_data <- function(
   dataset_dt,
   config,
   dataset_name = "fao_data_raw",
@@ -22,11 +22,12 @@ run_clean_data <- function(
   return(run_stage_harmonization_engine(
     dataset_dt = dataset_dt,
     config = config,
-    stage = "clean",
+    stage = "harmonize",
     dataset_name = dataset_name,
     rewrite_template = rewrite_template
   ))
 }
 
-# backward-compatible alias
-run_cleaning_layer_batch <- run_clean_data
+# backward-compatible aliases
+run_harmonization_layer_batch <- run_harmonize_data
+run_standardization_layer_batch <- run_harmonize_data
