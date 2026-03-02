@@ -43,6 +43,7 @@ source_post_processing_scripts <- function(
     "20-data_audit.R",
     "21-post_processing_utilities.R",
     "22-clean_data.R",
+    "23-standardize_units.R",
     "24-harmonize_data.R",
     "25-post_processing_diagnostics.R"
   )
@@ -106,8 +107,8 @@ persist_post_processed_dataset <- function(dataset_dt, config, dataset_name) {
 }
 
 #' @title Run post-processing pipeline batch
-#' @description Runs deterministic preflight, clean stage, harmonize stage, and
-#' persistence of dataset and audit artifacts.
+#' @description Runs deterministic preflight, clean stage, units standardization stage,
+#' harmonize stage, and persistence of dataset and audit artifacts.
 #' @param raw_dt Raw dataset.
 #' @param config Named configuration list.
 #' @param dataset_name Character scalar dataset identifier.
@@ -149,8 +150,13 @@ run_post_processing_pipeline_batch <- function(
     dataset_name = dataset_name
   )
 
+  normalized_dt <- run_standardize_units_layer_batch(
+    cleaned_dt = cleaned_dt,
+    config = config
+  )
+
   harmonized_dt <- run_harmonize_layer_batch(
-    dataset_dt = cleaned_dt,
+    dataset_dt = normalized_dt,
     config = config,
     dataset_name = dataset_name
   )
@@ -174,6 +180,7 @@ run_post_processing_pipeline_batch <- function(
 
   diagnostics <- list(
     clean = attr(cleaned_dt, "layer_diagnostics"),
+    standardize_units = attr(normalized_dt, "layer_diagnostics"),
     harmonize = attr(harmonized_dt, "layer_diagnostics"),
     outputs = list(
       dataset_output_path = dataset_output_path,
@@ -188,6 +195,8 @@ run_post_processing_pipeline_batch <- function(
   )
 
   attr(harmonized_dt, "pipeline_diagnostics") <- diagnostics
+  attr(harmonized_dt, "stage_cleaned") <- cleaned_dt
+  attr(harmonized_dt, "stage_normalized") <- normalized_dt
 
   return(harmonized_dt)
 }
@@ -203,6 +212,10 @@ run_clean_data <- function(dataset_dt, config, dataset_name = "fao_data_raw") {
 # backward-compatible wrapper for legacy symbol
 run_harmonize_data <- function(dataset_dt, config, dataset_name = "fao_data_raw") {
   return(run_harmonize_layer_batch(dataset_dt, config, dataset_name))
+}
+
+run_standardize_units_data <- function(cleaned_dt, config) {
+  return(run_standardize_units_layer_batch(cleaned_dt = cleaned_dt, config = config))
 }
 
 # backward-compatible wrapper for legacy symbol
@@ -246,15 +259,17 @@ run_post_processing_pipeline_auto <- function(auto_run, env = .GlobalEnv) {
     return(invisible(NULL))
   }
 
-  post_processed_dt <- run_post_processing_pipeline_batch(
+  harmonized_dt <- run_post_processing_pipeline_batch(
     raw_dt = raw_value,
     config = config_value,
     dataset_name = "fao_data_raw"
   )
 
-  assign("fao_data_harmonized", post_processed_dt, envir = env)
+  assign("fao_data_cleaned", attr(harmonized_dt, "stage_cleaned"), envir = env)
+  assign("fao_data_normalized", attr(harmonized_dt, "stage_normalized"), envir = env)
+  assign("fao_data_harmonized", harmonized_dt, envir = env)
 
-  return(invisible(post_processed_dt))
+  return(invisible(harmonized_dt))
 }
 
 # backward-compatible alias
