@@ -66,7 +66,7 @@ get_post_processing_audit_paths <- function(config) {
   return(list(
     audit_root_dir = audit_root_dir,
     diagnostics_dir = diagnostics_dir,
-    templates_dir = fs::path(diagnostics_dir, "templates")
+    templates_dir = fs::path(audit_root_dir, "templates")
   ))
 }
 

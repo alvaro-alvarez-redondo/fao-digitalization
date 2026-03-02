@@ -171,14 +171,15 @@ build_post_processing_diagnostics <- function(clean_audit_dt, harmonize_audit_dt
   return(list(stage_summary = stage_summary, rule_summary = rule_summary))
 }
 
-#' @title Persist post-processing audit workbook
-#' @description Writes deterministic Excel output under `audit_root_dir/clean_harmonize_diagnostics`.
+#' @title Persist post-processing audit workbooks
+#' @description Writes deterministic single-sheet Excel outputs under
+#' `audit_root_dir/clean_harmonize_diagnostics` and overwrites them on each run.
 #' @param clean_audit_dt Clean-stage audit table.
 #' @param harmonize_audit_dt Harmonize-stage audit table.
 #' @param dataset_name Character scalar dataset name.
-#' @param execution_timestamp_utc Character scalar run timestamp.
+#' @param execution_timestamp_utc Character scalar run timestamp (retained for backward compatibility).
 #' @param config Named configuration list.
-#' @return Character scalar path of written workbook.
+#' @return Named character vector of written workbook paths.
 #' @importFrom checkmate assert_data_frame assert_string assert_list
 #' @importFrom fs dir_create path
 persist_post_processing_audit <- function(
@@ -200,28 +201,42 @@ persist_post_processing_audit <- function(
   diagnostics_dir <- audit_paths$diagnostics_dir
   fs::dir_create(diagnostics_dir, recurse = TRUE)
 
-  file_stamp <- gsub("[-:]", "", execution_timestamp_utc)
-  file_stamp <- gsub("T|Z", "_", file_stamp)
-
-  output_path <- fs::path(
-    diagnostics_dir,
-    paste0("post_processing_audit_", dataset_name, "_", file_stamp, ".xlsx")
+  output_paths <- c(
+    clean_audit = fs::path(diagnostics_dir, paste0("post_processing_audit_", dataset_name, "_clean.xlsx")),
+    harmonize_audit = fs::path(diagnostics_dir, paste0("post_processing_audit_", dataset_name, "_harmonize.xlsx")),
+    stage_summary = fs::path(diagnostics_dir, paste0("post_processing_audit_", dataset_name, "_stage_summary.xlsx")),
+    rule_summary = fs::path(diagnostics_dir, paste0("post_processing_audit_", dataset_name, "_rule_summary.xlsx"))
   )
 
-  workbook <- openxlsx::createWorkbook()
-  openxlsx::addWorksheet(workbook, "clean_audit")
-  openxlsx::writeData(workbook, "clean_audit", data.table::as.data.table(clean_audit_dt))
+  write_single_sheet_workbook <- function(sheet_name, sheet_data, output_path) {
+    workbook <- openxlsx::createWorkbook()
+    openxlsx::addWorksheet(workbook, sheet_name)
+    openxlsx::writeData(workbook, sheet_name, sheet_data)
+    openxlsx::saveWorkbook(workbook, output_path, overwrite = TRUE)
 
-  openxlsx::addWorksheet(workbook, "harmonize_audit")
-  openxlsx::writeData(workbook, "harmonize_audit", data.table::as.data.table(harmonize_audit_dt))
+    return(output_path)
+  }
 
-  openxlsx::addWorksheet(workbook, "stage_summary")
-  openxlsx::writeData(workbook, "stage_summary", diagnostics$stage_summary)
+  write_single_sheet_workbook(
+    sheet_name = "clean_audit",
+    sheet_data = data.table::as.data.table(clean_audit_dt),
+    output_path = output_paths[["clean_audit"]]
+  )
+  write_single_sheet_workbook(
+    sheet_name = "harmonize_audit",
+    sheet_data = data.table::as.data.table(harmonize_audit_dt),
+    output_path = output_paths[["harmonize_audit"]]
+  )
+  write_single_sheet_workbook(
+    sheet_name = "stage_summary",
+    sheet_data = diagnostics$stage_summary,
+    output_path = output_paths[["stage_summary"]]
+  )
+  write_single_sheet_workbook(
+    sheet_name = "rule_summary",
+    sheet_data = diagnostics$rule_summary,
+    output_path = output_paths[["rule_summary"]]
+  )
 
-  openxlsx::addWorksheet(workbook, "rule_summary")
-  openxlsx::writeData(workbook, "rule_summary", diagnostics$rule_summary)
-
-  openxlsx::saveWorkbook(workbook, output_path, overwrite = TRUE)
-
-  return(output_path)
+  return(output_paths)
 }
