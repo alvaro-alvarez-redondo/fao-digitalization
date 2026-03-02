@@ -132,6 +132,35 @@ normalize_pipeline_read_result <- function(read_result) {
   ))
 }
 
+
+#' @title Compute keep-row mask for required base columns
+#' @description Computes a logical vector selecting rows where at least one
+#' required base column is non-missing and non-empty, without materializing a
+#' matrix copy of the subset.
+#' @param read_dt data.frame or data.table containing required columns.
+#' @param base_cols character vector of required base column names.
+#' @return logical vector with one element per row in `read_dt`.
+#' @importFrom checkmate check_data_frame check_character
+#' @examples
+#' compute_non_empty_base_rows(data.frame(country = c("a", "")), "country")
+compute_non_empty_base_rows <- function(read_dt, base_cols) {
+  assert_or_abort(checkmate::check_data_frame(read_dt, min.rows = 0))
+  assert_or_abort(checkmate::check_character(
+    base_cols,
+    any.missing = FALSE,
+    min.len = 1
+  ))
+
+  non_empty_by_column <- purrr::map(base_cols, function(base_col) {
+    column_values <- read_dt[[base_col]]
+    !is.na(column_values) & trimws(column_values) != ""
+  })
+
+  keep_row <- Reduce(`|`, non_empty_by_column, init = rep(FALSE, nrow(read_dt)))
+
+  return(keep_row)
+}
+
 #' @title read excel sheet
 #' @description read one excel sheet as text columns, validate required inputs,
 #' enforce required base columns, and return a standardized list containing a
@@ -201,8 +230,7 @@ read_excel_sheet <- function(file_path, sheet_name, config) {
     read_dt[, (missing_base) := NA_character_]
   }
 
-  base_matrix <- as.matrix(read_dt[, ..base_cols])
-  keep_row <- rowSums(!is.na(base_matrix) & trimws(base_matrix) != "") > 0
+  keep_row <- compute_non_empty_base_rows(read_dt = read_dt, base_cols = base_cols)
 
   filtered_dt <- read_dt[keep_row]
   filtered_dt[, variable := sheet_name]
@@ -332,19 +360,7 @@ read_pipeline_files <- function(file_list_dt, config) {
     message_template = "Import pipeline: reading file %s/%s"
   )
 
-  normalized_results <- purrr::map(read_results, function(read_result) {
-    if (is.null(read_result$result)) {
-      return(list(
-        data = create_empty_read_result()$data,
-        errors = c(read_result$errors)
-      ))
-    }
-
-    return(list(
-      data = read_result$result$data,
-      errors = c(read_result$errors, read_result$result$errors)
-    ))
-  })
+  normalized_results <- purrr::map(read_results, normalize_pipeline_read_result)
 
   read_data_list <- purrr::map(normalized_results, "data")
   errors_list <- purrr::map(normalized_results, "errors")

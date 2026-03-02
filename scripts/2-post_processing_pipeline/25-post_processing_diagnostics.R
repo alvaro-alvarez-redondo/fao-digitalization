@@ -1,24 +1,16 @@
-# script: post-processing diagnostic checks
-# description: preflight checks to identify likely failures before post-processing runs.
+# script: post-processing diagnostics
+# description: consumes structured audit metadata and writes deterministic
+# post-processing diagnostics outputs.
 
-#' @title collect post-processing preflight checks
-#' @description run deterministic preflight checks for file layout, rule naming,
-#' and column compatibility prior to post-processing execution.
-#' @param config named configuration list.
-#' @param dataset_columns character vector of available input column names.
-#' @param expected_columns character vector of length three defining the active
-#' `(unit, value, product)` convention expected by the current runner call.
-#' @return named list with `passed`, `issues`, and `checks`.
+#' @title Collect post-processing preflight checks
+#' @description Runs deterministic preflight checks for rule directories,
+#' supported filename patterns, and expected input columns.
+#' @param config Named configuration list.
+#' @param dataset_columns Character vector of input dataset columns.
+#' @param expected_columns Character vector of required columns for current run.
+#' @return Named list with `passed`, `issues`, and `checks`.
 #' @importFrom checkmate assert_list assert_character
-#' @importFrom here here
-#' @importFrom fs dir_exists dir_ls path
-#' @examples
-#' \dontrun{
-#' collect_post_processing_preflight(
-#'   config = config,
-#'   dataset_columns = c("unit", "value", "product")
-#' )
-#' }
+#' @importFrom fs dir_exists dir_ls
 collect_post_processing_preflight <- function(
   config,
   dataset_columns,
@@ -26,113 +18,59 @@ collect_post_processing_preflight <- function(
 ) {
   checkmate::assert_list(config, min.len = 1)
   checkmate::assert_character(dataset_columns, any.missing = FALSE)
-  checkmate::assert_character(expected_columns, len = 3, any.missing = FALSE)
-
-  issues <- character(0)
-  checks <- list()
+  checkmate::assert_character(expected_columns, any.missing = FALSE, min.len = 1)
 
   cleaning_dir <- config$paths$data$imports$cleaning
   harmonization_dir <- config$paths$data$imports$harmonization
-  template_dir <- here::here("data", "exports", "templates")
 
-  checks$cleaning_dir_exists <- fs::dir_exists(cleaning_dir)
-  checks$harmonization_dir_exists <- fs::dir_exists(harmonization_dir)
+  checks <- list(
+    cleaning_dir_exists = fs::dir_exists(cleaning_dir),
+    harmonization_dir_exists = fs::dir_exists(harmonization_dir)
+  )
+
+  issues <- character(0)
 
   if (!checks$cleaning_dir_exists) {
-    issues <- c(
-      issues,
-      "[cleaning stage] cleaning imports directory is missing: config$paths$data$imports$cleaning"
-    )
+    issues <- c(issues, "[clean stage] missing cleaning imports directory")
   }
 
   if (!checks$harmonization_dir_exists) {
-    issues <- c(
-      issues,
-      "[harmonization stage] harmonization imports directory is missing: config$paths$data$imports$harmonization"
-    )
+    issues <- c(issues, "[standardize stage] missing harmonization imports directory")
   }
 
   cleaning_files <- if (checks$cleaning_dir_exists) {
-    fs::dir_ls(cleaning_dir, regexp = "\\.xlsx$", type = "file")
+    fs::dir_ls(cleaning_dir, regexp = "\\.(xlsx|xls|csv)$", type = "file")
   } else {
     character(0)
   }
 
   harmonization_files <- if (checks$harmonization_dir_exists) {
-    fs::dir_ls(harmonization_dir, regexp = "\\.xlsx$", type = "file")
+    fs::dir_ls(harmonization_dir, regexp = "\\.(xlsx|xls|csv)$", type = "file")
   } else {
     character(0)
   }
 
-  checks$cleaning_pattern_ok <- all(
-    basename(cleaning_files) == "cleaning_template.xlsx" |
-      grepl("^cleaning_.*\\.xlsx$", basename(cleaning_files))
-  )
-
-  checks$harmonization_pattern_ok <- all(
-    basename(harmonization_files) == "harmonization_template.xlsx" |
-      grepl("^harmonization_.*\\.xlsx$", basename(harmonization_files))
-  )
+  checks$cleaning_pattern_ok <- all(grepl("^cleaning_.*\\.(xlsx|xls|csv)$", basename(cleaning_files)))
+  checks$harmonization_pattern_ok <- all(grepl("^harmonization_.*\\.(xlsx|xls|csv)$", basename(harmonization_files)))
 
   if (!checks$cleaning_pattern_ok) {
-    issues <- c(
-      issues,
-      "[cleaning stage] found .xlsx files that do not match cleaning_*.xlsx naming"
-    )
+    issues <- c(issues, "[clean stage] invalid cleaning file naming pattern")
   }
 
   if (!checks$harmonization_pattern_ok) {
-    issues <- c(
-      issues,
-      "[harmonization stage] found .xlsx files that do not match harmonization_*.xlsx naming"
-    )
+    issues <- c(issues, "[standardize stage] invalid harmonization file naming pattern")
   }
 
-  numeric_template_path <- fs::path(
-    template_dir,
-    "numeric_harmonization_template.xlsx"
-  )
-  checks$numeric_template_present <- file.exists(numeric_template_path)
+  has_expected_columns <- all(expected_columns %in% dataset_columns)
+  checks$has_expected_columns <- has_expected_columns
 
-  if (!checks$numeric_template_present) {
-    issues <- c(
-      issues,
-      "[numeric harmonization stage] numeric_harmonization_template.xlsx not found in data/exports/templates"
-    )
-  }
-
-  legacy_columns <- c("unit", "value", "product")
-  auto_columns <- c("unit_name", "quantity", "item")
-
-  has_legacy <- all(legacy_columns %in% dataset_columns)
-  has_auto <- all(auto_columns %in% dataset_columns)
-  has_expected <- all(expected_columns %in% dataset_columns)
-
-  checks$has_legacy_columns <- has_legacy
-  checks$has_auto_columns <- has_auto
-  checks$has_expected_columns <- has_expected
-
-  if (!has_expected) {
+  if (!has_expected_columns) {
     issues <- c(
       issues,
       paste0(
-        "[run_post_processing_pipeline] required columns missing for this run: ",
-        paste(expected_columns, collapse = ", ")
+        "[run_post_processing_pipeline] missing expected columns: ",
+        paste(setdiff(expected_columns, dataset_columns), collapse = ", ")
       )
-    )
-  }
-
-  if (!has_legacy && has_auto && identical(expected_columns, legacy_columns)) {
-    issues <- c(
-      issues,
-      "[run_post_processing_pipeline_batch] input appears to use (unit_name, quantity, item) while batch defaults expect (unit, value, product)"
-    )
-  }
-
-  if (has_legacy && !has_auto && identical(expected_columns, auto_columns)) {
-    issues <- c(
-      issues,
-      "[run_post_processing_pipeline_auto] input appears to use (unit, value, product) while auto-run expects (unit_name, quantity, item)"
     )
   }
 
@@ -143,17 +81,11 @@ collect_post_processing_preflight <- function(
   ))
 }
 
-#' @title assert post-processing preflight
-#' @description abort with stage-specific diagnostics when preflight checks fail.
-#' @param preflight_result list returned by `collect_post_processing_preflight()`.
-#' @return invisible TRUE when all checks pass.
+#' @title Assert post-processing preflight checks
+#' @description Aborts execution with deterministic messages when preflight fails.
+#' @param preflight_result List from `collect_post_processing_preflight()`.
+#' @return Invisibly returns `TRUE`.
 #' @importFrom checkmate assert_list assert_flag assert_character
-#' @importFrom cli cli_abort
-#' @examples
-#' \dontrun{
-#' result <- collect_post_processing_preflight(config, c("unit", "value", "product"))
-#' assert_post_processing_preflight(result)
-#' }
 assert_post_processing_preflight <- function(preflight_result) {
   checkmate::assert_list(preflight_result, min.len = 1)
   checkmate::assert_flag(preflight_result$passed)
@@ -161,10 +93,120 @@ assert_post_processing_preflight <- function(preflight_result) {
 
   if (!isTRUE(preflight_result$passed)) {
     cli::cli_abort(c(
-      "post-processing preflight checks failed",
+      "Post-processing preflight checks failed.",
       preflight_result$issues
     ))
   }
 
   return(invisible(TRUE))
+}
+
+#' @title Build post-processing diagnostics summary
+#' @description Creates stage and rule-level summaries from clean and standardize
+#' audit metadata.
+#' @param clean_audit_dt Clean-stage audit table.
+#' @param standardize_audit_dt Standardize-stage audit table.
+#' @return Named list with `stage_summary` and `rule_summary` data.tables.
+#' @importFrom checkmate assert_data_frame
+build_post_processing_diagnostics <- function(clean_audit_dt, standardize_audit_dt) {
+  checkmate::assert_data_frame(clean_audit_dt, min.rows = 0)
+  checkmate::assert_data_frame(standardize_audit_dt, min.rows = 0)
+
+  combined_audit <- data.table::rbindlist(
+    list(
+      data.table::as.data.table(clean_audit_dt),
+      data.table::as.data.table(standardize_audit_dt)
+    ),
+    use.names = TRUE,
+    fill = TRUE
+  )
+
+  if (nrow(combined_audit) == 0) {
+    return(list(
+      stage_summary = data.table::data.table(
+        execution_stage = character(),
+        matched_rows = integer(),
+        matched_rules = integer(),
+        rule_files = integer()
+      ),
+      rule_summary = data.table::data.table()
+    ))
+  }
+
+  stage_summary <- combined_audit[
+    ,
+    .(
+      matched_rows = as.integer(sum(affected_rows)),
+      matched_rules = uniqueN(paste(column_source, value_source_raw, column_target, value_target_raw, sep = "|")),
+      rule_files = uniqueN(rule_file_identifier)
+    ),
+    by = .(execution_stage)
+  ][order(execution_stage)]
+
+  rule_summary <- combined_audit[
+    ,
+    .(affected_rows = as.integer(sum(affected_rows))),
+    by = .(
+      execution_stage,
+      rule_file_identifier,
+      column_source,
+      value_source_raw,
+      column_target,
+      value_target_raw,
+      value_target_clean
+    )
+  ][order(execution_stage, rule_file_identifier, column_source, column_target)]
+
+  return(list(stage_summary = stage_summary, rule_summary = rule_summary))
+}
+
+#' @title Persist post-processing audit workbook
+#' @description Writes deterministic Excel output under `audit/post_processing`.
+#' @param clean_audit_dt Clean-stage audit table.
+#' @param standardize_audit_dt Standardize-stage audit table.
+#' @param dataset_name Character scalar dataset name.
+#' @param execution_timestamp_utc Character scalar run timestamp.
+#' @return Character scalar path of written workbook.
+#' @importFrom checkmate assert_data_frame assert_string
+#' @importFrom fs dir_create path
+persist_post_processing_audit <- function(
+  clean_audit_dt,
+  standardize_audit_dt,
+  dataset_name,
+  execution_timestamp_utc
+) {
+  checkmate::assert_data_frame(clean_audit_dt, min.rows = 0)
+  checkmate::assert_data_frame(standardize_audit_dt, min.rows = 0)
+  checkmate::assert_string(dataset_name, min.chars = 1)
+  checkmate::assert_string(execution_timestamp_utc, min.chars = 1)
+
+  diagnostics <- build_post_processing_diagnostics(clean_audit_dt, standardize_audit_dt)
+
+  audit_dir <- here::here("audit", "post_processing")
+  fs::dir_create(audit_dir, recurse = TRUE)
+
+  file_stamp <- gsub("[-:]", "", execution_timestamp_utc)
+  file_stamp <- gsub("T|Z", "_", file_stamp)
+
+  output_path <- fs::path(
+    audit_dir,
+    paste0("post_processing_audit_", dataset_name, "_", file_stamp, ".xlsx")
+  )
+
+  workbook <- openxlsx::createWorkbook()
+  openxlsx::addWorksheet(workbook, "clean_audit")
+  openxlsx::writeData(workbook, "clean_audit", data.table::as.data.table(clean_audit_dt))
+
+  openxlsx::addWorksheet(workbook, "standardize_audit")
+  openxlsx::writeData(workbook, "standardize_audit", data.table::as.data.table(standardize_audit_dt))
+
+  openxlsx::addWorksheet(workbook, "stage_summary")
+  openxlsx::writeData(workbook, "stage_summary", diagnostics$stage_summary)
+
+  openxlsx::addWorksheet(workbook, "rule_summary")
+  openxlsx::writeData(workbook, "rule_summary", diagnostics$rule_summary)
+
+  openxlsx::saveWorkbook(workbook, output_path, overwrite = TRUE)
+
+  return(output_path)
 }

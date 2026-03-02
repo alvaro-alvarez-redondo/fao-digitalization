@@ -1,11 +1,15 @@
-#' @title run full project pipeline
-#' @description run the general, import, post-processing, and export pipelines in sequence.
+#' @title Run full project pipeline
+#' @description Runs the general, import, post-processing, and export pipeline
+#'   scripts in deterministic sequence.
 #'
-#' @param show_view logical flag. if `TRUE`, show `fao_data_raw` in the rstudio
-#'   viewer when it exists in the current environment.
-#' @param pipeline_root character scalar. root folder containing the pipeline
+#' @param show_view Logical scalar. If `TRUE`, display `fao_data_raw` in the
+#'   RStudio viewer when the object exists.
+#' @param pipeline_root Character scalar. Root folder containing pipeline
 #'   scripts.
-#' @return invisible `TRUE` when all pipeline scripts execute successfully.
+#'
+#' @return Invisibly returns `TRUE` when all pipeline scripts execute
+#'   successfully.
+#'
 #' @examples
 #' \dontrun{
 #' run_pipeline(show_view = FALSE)
@@ -18,9 +22,36 @@ run_pipeline <- function(
   checkmate::assert_flag(show_view)
   checkmate::assert_string(pipeline_root, na.ok = FALSE, min.chars = 1)
 
-  if (!dir.exists(pipeline_root)) {
-    cli::cli_abort("pipeline root does not exist: {.path {pipeline_root}}")
+  normalized_pipeline_root <- normalizePath(
+    path = pipeline_root,
+    winslash = "/",
+    mustWork = FALSE
+  )
+
+  if (!dir.exists(normalized_pipeline_root)) {
+    cli::cli_abort(
+      "pipeline root does not exist: {.path {normalized_pipeline_root}}"
+    )
   }
+
+  pipeline_files <- resolve_pipeline_files(
+    pipeline_root = normalized_pipeline_root
+  )
+
+  purrr::walk(pipeline_files, run_pipeline_script)
+
+  maybe_view_pipeline_output(show_view = show_view)
+
+  return(invisible(TRUE))
+}
+
+#' @title Resolve pipeline script paths
+#' @description Builds ordered script paths for all pipeline stages.
+#' @param pipeline_root Character scalar existing directory.
+#' @return Character vector of script paths in execution order.
+#' @keywords internal
+resolve_pipeline_files <- function(pipeline_root) {
+  checkmate::assert_string(pipeline_root, na.ok = FALSE, min.chars = 1)
 
   pipeline_files <- c(
     file.path(pipeline_root, "0-general_pipeline", "run_general_pipeline.R"),
@@ -33,19 +64,41 @@ run_pipeline <- function(
     file.path(pipeline_root, "3-export_pipeline", "run_export_pipeline.R")
   )
 
-  purrr::walk(pipeline_files, function(pipeline_file) {
-    if (!file.exists(pipeline_file)) {
-      cli::cli_abort(
-        "{.strong required pipeline script is missing: {.val {basename(pipeline_file)}}}"
-      )
-    }
+  return(pipeline_files)
+}
 
-    pipeline_name <- basename(pipeline_file)
-    cli::cli_alert_info(
-      "{.strong running pipeline script: {.val {pipeline_name}}}"
+#' @title Source an individual pipeline script
+#' @description Validates path existence, logs script execution, and sources the
+#'   script.
+#' @param pipeline_file Character scalar path to pipeline script.
+#' @return Invisibly returns `TRUE`.
+#' @keywords internal
+run_pipeline_script <- function(pipeline_file) {
+  checkmate::assert_string(pipeline_file, na.ok = FALSE, min.chars = 1)
+
+  if (!file.exists(pipeline_file)) {
+    cli::cli_abort(
+      "{.strong required pipeline script is missing: {.path {pipeline_file}}}"
     )
-    source(pipeline_file, echo = FALSE)
-  })
+  }
+
+  pipeline_name <- basename(pipeline_file)
+  cli::cli_alert_info(
+    "{.strong running pipeline script: {.val {pipeline_name}}}"
+  )
+
+  source(pipeline_file, local = FALSE, echo = FALSE)
+
+  return(invisible(TRUE))
+}
+
+#' @title Optionally view pipeline output object
+#' @description Opens `fao_data_raw` in RStudio viewer if requested and present.
+#' @param show_view Logical scalar controlling view behavior.
+#' @return Invisibly returns `TRUE`.
+#' @keywords internal
+maybe_view_pipeline_output <- function(show_view) {
+  checkmate::assert_flag(show_view)
 
   if (show_view && exists("fao_data_raw", inherits = TRUE)) {
     utils::View(get("fao_data_raw", inherits = TRUE))

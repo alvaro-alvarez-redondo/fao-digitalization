@@ -1,233 +1,113 @@
 # script: cleaning stage functions
-# description: load and apply text/data cleaning mappings and run the cleaning layer.
+# description: load clean-stage rule files and execute vectorized conditional
+# harmonization via shared post-processing engine.
 
-#' @title load cleaning rules
-#' @description discover and load cleaning mapping files from the configured
-#' cleaning-import directory. when no files are found, create a template file and
-#' return it as the only source.
-#' @param config named configuration list.
-#' @return named list where each element contains `layer_rules` and `source_path`.
+#' @title Load cleaning rule payloads
+#' @description Discovers cleaning rule files and returns deterministic payloads.
+#' @param config Named configuration list.
+#' @return List of payloads with `rule_file_id` and `raw_rules`.
 #' @importFrom checkmate assert_list assert_string
-#' @importFrom fs dir_ls dir_create path
-#' @importFrom openxlsx createWorkbook addWorksheet writeData saveWorkbook
-#' @importFrom here here
+#' @importFrom fs dir_ls dir_create path_file
 #' @importFrom purrr map
-#' @examples
-#' \dontrun{load_cleaning_rules(config)}
-load_cleaning_rules <- function(config) {
+load_cleaning_rule_payloads <- function(config) {
   checkmate::assert_list(config, min.len = 1)
   checkmate::assert_string(config$paths$data$imports$cleaning, min.chars = 1)
 
   cleaning_dir <- config$paths$data$imports$cleaning
-  template_dir <- here::here("data", "exports", "templates")
   fs::dir_create(cleaning_dir, recurse = TRUE)
-  fs::dir_create(template_dir, recurse = TRUE)
 
-  files <- fs::dir_ls(
-    cleaning_dir,
-    regexp = "^cleaning_.*\\.xlsx$",
+  rule_files <- fs::dir_ls(
+    path = cleaning_dir,
+    regexp = "^cleaning_.*\\.(xlsx|xls|csv)$",
     type = "file"
   )
 
-  if (length(files) == 0) {
-    template_path <- fs::path(template_dir, "cleaning_template.xlsx")
+  ordered_files <- sort(rule_files)
 
-    if (!file.exists(template_path)) {
-      cli::cli_alert_info("No cleaning files found, creating template...")
-
-      cleaning_template <- data.table::data.table(
-        column_source = character(0),
-        column_target = character(0),
-        original_value_source = character(0),
-        original_value_target = character(0),
-        cleaned_value_target = character(0)
-      )
-
-      workbook <- openxlsx::createWorkbook()
-      openxlsx::addWorksheet(workbook, "cleaning_mapping")
-      openxlsx::writeData(workbook, "cleaning_mapping", cleaning_template)
-      openxlsx::saveWorkbook(workbook, template_path, overwrite = FALSE)
-    }
-
-    files <- template_path
-  }
-
-  layer_payloads <- purrr::map(files, \(file_path) {
-    return(list(
-      layer_rules = read_rule_table(file_path),
-      source_path = file_path
-    ))
+  payloads <- purrr::map(ordered_files, function(file_path) {
+    list(
+      rule_file_id = fs::path_file(file_path),
+      raw_rules = read_rule_table(file_path)
+    )
   })
 
-  return(layer_payloads)
+  return(payloads)
 }
 
-#' @title apply cleaning rules
-#' @description apply deterministic one-to-one cleaning mappings for each
-#' source-target column pair using vectorized normalized-key joins.
-#' @param dataset_dt input data.table or data.frame.
-#' @param layer_rules cleaning rules data.table or data.frame.
-#' @param key_columns optional key columns preserved for context.
-#' @return named list with cleaned data, matched count, and unmatched count.
-#' @importFrom checkmate assert_data_frame assert_character assert_names
+#' @title Run cleaning layer batch
+#' @description Applies clean-stage conditional harmonization rules and returns
+#' cleaned data with structured diagnostics and audit metadata.
+#' @param dataset_dt Input dataset as data.frame/data.table.
+#' @param config Named configuration list.
+#' @param dataset_name Character scalar dataset identifier.
+#' @return Cleaned `data.table` with attributes `layer_diagnostics` and
+#' `layer_audit`.
+#' @importFrom checkmate assert_data_frame assert_list assert_string
 #' @importFrom purrr reduce
-#' @examples
-#' \dontrun{apply_cleaning_mapping(dataset_dt, layer_rules, c("document"))}
-apply_cleaning_mapping <- function(
+run_cleaning_layer_batch <- function(
   dataset_dt,
-  layer_rules,
-  key_columns = character()
+  config,
+  dataset_name = "fao_data_raw"
 ) {
   checkmate::assert_data_frame(dataset_dt, min.rows = 0)
-  checkmate::assert_data_frame(layer_rules, min.rows = 1)
-  checkmate::assert_character(key_columns, any.missing = FALSE)
-  checkmate::assert_names(
-    names(layer_rules),
-    must.include = c(
-      "column_source",
-      "column_target",
-      "original_value_source",
-      "original_value_target",
-      "cleaned_value_target"
-    )
-  )
+  checkmate::assert_list(config, min.len = 1)
+  checkmate::assert_string(dataset_name, min.chars = 1)
 
-  mapped_dt <- data.table::copy(data.table::as.data.table(dataset_dt))
-  active_rules <- data.table::as.data.table(layer_rules)
-  pair_plan <- unique(active_rules[, .(column_source, column_target)])
+  payloads <- load_cleaning_rule_payloads(config)
+  execution_timestamp_utc <- format(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC")
 
   initial_state <- list(
-    data = mapped_dt,
-    matched_count = 0L,
-    unmatched_count = 0L
+    data = data.table::copy(data.table::as.data.table(dataset_dt)),
+    audit_tables = list()
   )
 
   final_state <- purrr::reduce(
-    .x = seq_len(nrow(pair_plan)),
+    .x = payloads,
     .init = initial_state,
-    .f = function(state, pair_row_index) {
-      src_col <- pair_plan$column_source[[pair_row_index]]
-      tgt_col <- pair_plan$column_target[[pair_row_index]]
-      current_dt <- state$data
-
-      if (!src_col %in% colnames(current_dt)) {
-        cli::cli_warn(
-          "column_source {.val {src_col}} not found in dataset, skipping"
-        )
-
-        return(state)
-      }
-
-      if (!tgt_col %in% colnames(current_dt)) {
-        cli::cli_warn(
-          "column_target {.val {tgt_col}} not found; creating NA column"
-        )
-        current_dt[, (tgt_col) := NA_character_]
-      }
-
-      column_rules <- active_rules[
-        column_source == src_col & column_target == tgt_col,
-        .(
-          source_key = normalize_string(original_value_source),
-          target_key = normalize_string(original_value_target),
-          cleaned_value_target
-        )
-      ]
-
-      join_input <- data.table::data.table(
-        row_id = seq_len(nrow(current_dt)),
-        source_key = normalize_string(current_dt[[src_col]]),
-        target_key = normalize_string(current_dt[[tgt_col]])
-      )
-
-      join_result <- column_rules[
-        join_input,
-        on = .(source_key, target_key)
-      ]
-
-      is_matched <- !is.na(join_result$source_key)
-
-      if (any(is_matched)) {
-        current_dt[
-          is_matched,
-          (tgt_col) := join_result$cleaned_value_target[is_matched]
-        ]
-      }
-
-      matched_delta <- as.integer(sum(is_matched))
-      unmatched_delta <- as.integer(sum(
-        !is_matched & !is.na(current_dt[[src_col]])
-      ))
-
-      return(list(
-        data = current_dt,
-        matched_count = state$matched_count + matched_delta,
-        unmatched_count = state$unmatched_count + unmatched_delta
-      ))
-    }
-  )
-
-  return(list(
-    data = final_state$data,
-    matched_count = as.integer(final_state$matched_count),
-    unmatched_count = as.integer(final_state$unmatched_count)
-  ))
-}
-
-#' @title run cleaning layer batch
-#' @description execute rule-driven cleaning with schema checks, deterministic
-#' diagnostics collection, and idempotent mapping application.
-#' @param dataset_dt input data.frame/data.table.
-#' @param config named configuration list.
-#' @return cleaned data.table with diagnostics in attributes.
-#' @importFrom checkmate assert_data_frame assert_list
-#' @importFrom purrr reduce
-#' @examples
-#' \dontrun{run_cleaning_layer_batch(fao_data_raw, config)}
-run_cleaning_layer_batch <- function(dataset_dt, config) {
-  checkmate::assert_data_frame(dataset_dt, min.rows = 0)
-  checkmate::assert_list(config, min.len = 1)
-
-  initial_dt <- data.table::copy(data.table::as.data.table(dataset_dt))
-  layer_payloads <- load_cleaning_rules(config)
-
-  cleaning_state <- purrr::reduce(
-    layer_payloads,
-    .init = list(data = initial_dt, diagnostics = list()),
     .f = function(state, payload) {
-      layer_rules <- payload$layer_rules
-      source_path <- payload$source_path
+      canonical_rules <- coerce_rule_schema(
+        rule_dt = payload$raw_rules,
+        stage_name = "clean",
+        rule_file_id = payload$rule_file_id
+      )
 
-      if (nrow(layer_rules) == 0) {
+      validate_canonical_rules(
+        rules_dt = canonical_rules,
+        dataset_dt = state$data,
+        rule_file_id = payload$rule_file_id
+      )
+
+      if (nrow(canonical_rules) == 0) {
         return(state)
       }
 
-      validate_mapping_rules(
-        layer_rules,
-        dataset_columns = colnames(state$data),
-        value_column = "cleaned_value_target",
-        layer_name = basename(source_path)
+      payload_result <- apply_rule_payload(
+        dataset_dt = state$data,
+        canonical_rules = canonical_rules,
+        stage_name = "clean",
+        dataset_name = dataset_name,
+        rule_file_id = payload$rule_file_id,
+        execution_timestamp_utc = execution_timestamp_utc
       )
 
-      result <- apply_cleaning_mapping(state$data, layer_rules)
-
-      diagnostics <- build_layer_diagnostics(
-        layer_name = basename(source_path),
-        rows_in = nrow(dataset_dt),
-        rows_out = nrow(result$data),
-        matched_count = result$matched_count,
-        unmatched_count = result$unmatched_count
-      )
-
-      state$diagnostics[[basename(source_path)]] <- diagnostics
-      state$data <- result$data
+      state$data <- payload_result$data
+      state$audit_tables[[length(state$audit_tables) + 1L]] <- payload_result$audit
 
       return(state)
     }
   )
 
-  cleaned_dt <- cleaning_state$data
-  attr(cleaned_dt, "layer_diagnostics") <- cleaning_state$diagnostics
+  clean_audit <- data.table::rbindlist(final_state$audit_tables, use.names = TRUE, fill = TRUE)
+  diagnostics <- build_layer_diagnostics(
+    layer_name = "clean",
+    rows_in = nrow(dataset_dt),
+    rows_out = nrow(final_state$data),
+    audit_dt = clean_audit
+  )
+
+  cleaned_dt <- final_state$data
+  attr(cleaned_dt, "layer_diagnostics") <- diagnostics
+  attr(cleaned_dt, "layer_audit") <- clean_audit
 
   return(cleaned_dt)
 }
