@@ -167,7 +167,7 @@ generate_post_processing_rule_templates <- function(config, overwrite = TRUE) {
 #' @importFrom readr read_csv
 #' @importFrom readxl read_excel
 #' @examples
-#' \dontrun{read_rule_table("data/1-import/clean_imports/clean_rules.xlsx")}
+#' \dontrun{read_rule_table("data/1-import/11-clean_imports/clean_rules.xlsx")}
 read_rule_table <- function(file_path) {
   checkmate::assert_string(file_path, min.chars = 1)
   checkmate::assert_file_exists(file_path)

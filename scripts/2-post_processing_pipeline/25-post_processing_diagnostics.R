@@ -34,11 +34,11 @@ collect_post_processing_preflight <- function(
   issues <- character(0)
 
   if (!checks$cleaning_dir_exists) {
-    issues <- c(issues, "[clean stage] missing clean_imports directory")
+    issues <- c(issues, "[clean stage] missing 11-clean_imports directory")
   }
 
   if (!checks$harmonize_dir_exists) {
-    issues <- c(issues, "[harmonize stage] missing harmonize_imports directory")
+    issues <- c(issues, "[harmonize stage] missing 13-harmonize_imports directory")
   }
 
   if (!checks$templates_dir_exists) {
@@ -65,11 +65,11 @@ collect_post_processing_preflight <- function(
   checks$harmonize_pattern_ok <- all(grepl("^harmonize_.*\\.(xlsx|xls|csv)$", basename(harmonization_files)))
 
   if (!checks$cleaning_pattern_ok) {
-    issues <- c(issues, "[clean stage] invalid clean_imports file naming pattern (expected prefix: clean_)")
+    issues <- c(issues, "[clean stage] invalid 11-clean_imports file naming pattern (expected prefix: clean_)")
   }
 
   if (!checks$harmonize_pattern_ok) {
-    issues <- c(issues, "[harmonize stage] invalid harmonize_imports file naming pattern (expected prefix: harmonize_)")
+    issues <- c(issues, "[harmonize stage] invalid 13-harmonize_imports file naming pattern (expected prefix: harmonize_)")
   }
 
   has_expected_columns <- all(expected_columns %in% dataset_columns)
