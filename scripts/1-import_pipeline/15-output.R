@@ -44,7 +44,7 @@ validate_output_column_order <- function(config) {
     choices = config$column_order
   ))
 
-  config$column_order
+  return(config$column_order)
 }
 
 #' @title consolidate validated data tables
@@ -98,5 +98,5 @@ consolidate_audited_dt <- function(dt_list, config) {
   extra_cols <- setdiff(colnames(dt_combined), column_order)
   data.table::setcolorder(dt_combined, c(column_order, extra_cols))
 
-  list(data = dt_combined, warnings = character(0))
+  return(list(data = dt_combined, warnings = character(0)))
 }

@@ -1,82 +1,79 @@
 # 1. Repository Audit Summary
 
 ## Repository Structure Overview
-- Top-level execution entrypoints:
-  - `fao-digitalization.R`
-  - `scripts/run_pipeline.R`
-- Stage-oriented script architecture:
-  - `scripts/0-general_pipeline/` (dependencies, setup, helpers)
-  - `scripts/1-import_pipeline/` (file discovery, reading, transform, validation, output assembly)
-  - `scripts/2-post_processing_pipeline/` (audit, clean, harmonize, unit standardization, diagnostics)
-  - `scripts/3-export_pipeline/` (dataset export and unique-list export)
-- Tests:
-  - `tests/testthat.R` bootstrap
-  - `tests/testthat/test_all.r` script runner
-  - stage-focused tests in `tests/testthat/scripts/`
-
-## PHASE 1 scope executed (read-only analysis)
-- Reviewed all `*.R` files under `scripts/` and `tests/`.
-- Checked style compliance signals:
-  - snake_case naming patterns,
-  - native pipe usage (`|>`),
-  - absence of legacy `%>%`,
-  - explicit `return()` usage.
-- Checked validation/documentation conventions:
-  - `checkmate` assertions,
-  - `cli` messaging,
-  - roxygen blocks in function-bearing scripts.
-- Checked dependency governance artifacts (`DESCRIPTION`, `NAMESPACE`, `renv.lock`).
+- **Entrypoints**
+  - `fao-digitalization.R` sources `scripts/run_pipeline.R`.
+  - `scripts/run_pipeline.R` orchestrates stage runners in deterministic order.
+- **Pipeline modules**
+  - `scripts/0-general_pipeline/`: dependency checks, setup/config construction, shared helpers.
+  - `scripts/1-import_pipeline/`: file IO, sheet reading, transformation, validation, consolidation.
+  - `scripts/2-post_processing_pipeline/`: audit, cleaning, harmonization, diagnostics.
+  - `scripts/3-export_pipeline/`: processed export and unique-list export.
+- **Tests**
+  - `tests/testthat.R` and `tests/testthat/test_all.r` bootstrap deterministic `testthat` execution.
+  - `tests/testthat/scripts/` includes post-processing preflight and clean/harmonize behavior checks.
+- **Dependency governance artifacts requested in scope**
+  - `DESCRIPTION`: not present.
+  - `NAMESPACE`: not present.
+  - `renv.lock`: not present.
 
 ## Rewrite Necessity Classification
-- **Classification:** `No full rewrite required`.
-- **Decision rationale:** Implementation is already modular and deterministic with strong validation conventions; highest risks are dependency governance/reproducibility and runtime verification, not systemic architectural collapse.
+- **Classification:** `Targeted hardening recommended; full rewrite not necessary`.
+- **Rationale:** module boundaries are already staged and cohesive, validation conventions are generally strong, and most identified risk is governance/runtime assurance (dependency lock + executable CI) rather than structural collapse.
 
 ---
 
 # 2. Violations & Risk Matrix
 
-| Category | Severity | Finding | Evidence | Impact | Recommended Action |
+| Category | Severity | Finding | Evidence | Risk | Recommendation |
 |---|---|---|---|---|---|
-| Dependency governance | **Critical** | Missing `DESCRIPTION`, `NAMESPACE`, and `renv.lock`. | Project root contains none of these manifests. | Reproducibility/version drift and weaker dependency traceability. | Add/commit `renv.lock` immediately (`renv::snapshot()`), and adopt package metadata if package-like API governance is desired. |
-| Test runtime verification | **Major** | Deterministic tests were discovered but cannot be executed in this container. | `Rscript tests/testthat/test_all.r` fails because `Rscript` is unavailable. | Runtime correctness cannot be confirmed in current environment. | Execute tests in an R-enabled CI runner and publish results as required gate. |
-| Architecture coupling | **Major** | Source-order orchestration remains sensitive to script loading sequence. | Stage runners rely on sourced helper/runtime symbols. | Medium maintainability risk as modules grow. | Continue enforcing explicit contract helpers and avoid hidden globals in new code. |
-| Documentation consistency | **Minor** | Roxygen is broad but unevenly concentrated in utility-heavy scripts vs procedural runners. | Utility modules are heavily documented; some runner surfaces are intentionally lean. | Lower discoverability for operational entrypoints. | Keep current approach; optionally add concise runner contract headers where missing. |
-| Style/validation adherence | **Minor (positive)** | Native pipe and explicit validation patterns are broadly compliant; no `%>%` occurrences found. | `%>%` search returned zero matches; `checkmate`/`cli` usage present across stages. | Low risk. | Preserve conventions and enforce with CI lint checks. |
+| Dependency governance | **Critical** | Missing `DESCRIPTION`, `NAMESPACE`, and `renv.lock` while README expects `renv` workflow. | Root contains none of those artifacts. | Environment drift and non-reproducible installs. | Add `renv.lock` (`renv::snapshot()`), then decide whether to formalize package metadata (`DESCRIPTION`/`NAMESPACE`) or keep script-first with explicit policy.
+| Testing execution assurance | **Major** | Tests exist but were not executable in this container because `Rscript` is unavailable. | `Rscript --version` returns `command not found`. | No in-environment runtime validation of current HEAD. | Run `tests/testthat/test_all.r` in CI with R installed and enforce pass gate.
+| Validation consistency | **Major** | A small set of helper functions return terminal expressions without explicit `return()`. | Detected in `build_path`, `build_read_error`, `safe_execute_read`, `create_empty_read_result`, `has_read_errors`, `validate_output_column_order`. | Minor style-policy drift can accumulate and reduce consistency. | Normalize to explicit `return()` in those helpers if mutation is authorized.
+| Documentation consistency | **Minor** | Roxygen is generally present but runner scripts are lighter in operational contract detail. | Utility modules are deeply documented; some orchestrators remain intentionally concise. | Lower onboarding clarity for non-core maintainers. | Optionally add short contract headers for runner side effects and expected globals.
+| Pipe/style compliance | **Minor (positive)** | Native pipe use is consistent; no `%>%` in pipeline/test scripts. | Search across `scripts/` and `tests/` found no `%>%`. | Low style risk. | Preserve via lint/CI policy.
+
+## Architectural Risk Assessment
+- **Coupling:** medium. Stages are modular by folder, but runtime still depends on source-order and shared environment symbols.
+- **Cohesion:** medium-high. Stage files group related responsibilities effectively.
+- **Hidden dependencies:** medium. Script sourcing and global-object handoff increase implicit contracts.
+- **Performance posture:** medium-low risk. Current patterns rely on `data.table` operations and vectorized checks; no obvious hot-loop anti-patterns surfaced in this read-only pass.
+- **Overall risk level:** **Moderate** (mainly reproducibility + runtime verification).
 
 ---
 
 # 3. Refactored Files (if authorized, with function-level roxygen)
 
-- **Authorization status:** No explicit rewrite authorization provided.
-- **Mutation status:** No production script refactor performed.
-- **Files changed in this run:** `AUDIT_REPORT.md` only (audit refresh).
+- **Authorization status:** No explicit rewrite authorization provided in this run.
+- **Mutation performed:** audit report refresh only.
+- **Production script refactoring:** not performed.
 
 ---
 
 # 4. Benchmark Results (if applicable)
 
-- Not applicable in this run.
-- Repository was not classified for mandatory performance rewrite/benchmark in the absence of refactor authorization.
+- Not applicable for this run.
+- No benchmark execution was authorized or required absent performance-critical rewrite approval.
 
 ---
 
 # 5. Generated or Updated Tests
 
-- No tests added or modified.
-- Existing deterministic suites were identified but not executable in this environment due to missing R runtime binary (`Rscript`).
+- No tests were added or modified.
+- Existing suites were discovered, but execution was blocked by missing `Rscript` binary in this environment.
 
 ---
 
 # 6. Dependency & API Stability Summary
 
-- **API stability:** unchanged (no code-level signature changes).
-- **Dependency model:** currently script-managed; lockfile/package-manifest governance not yet present.
-- **Highest-priority stabilization task:** create and commit `renv.lock` to pin versions.
+- **API stability:** unchanged (no function signature/default/return-type mutations applied).
+- **Dependency stability:** presently script-managed; no lockfile pinning artifact committed.
+- **Highest-priority stabilization action:** add `renv.lock` and run tests in an R-enabled CI environment.
 
 ---
 
 # 7. Backward Compatibility Analysis
 
-- No production code changes were made.
-- Function signatures, defaults, and return types remain unchanged.
-- Backward compatibility is therefore preserved by definition for this run.
+- No production code modifications were made.
+- Existing function signatures and runtime behavior remain unchanged.
+- Backward compatibility is therefore preserved for this run.

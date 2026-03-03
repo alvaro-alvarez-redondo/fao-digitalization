@@ -177,7 +177,7 @@ generate_post_processing_rule_templates <- function(config, overwrite = TRUE) {
     stage_names,
     function(stage_name) {
       write_stage_rule_template(
-        stage_name = validated_stage_name,
+        stage_name = stage_name,
         audit_paths = audit_paths,
         overwrite = overwrite
       )

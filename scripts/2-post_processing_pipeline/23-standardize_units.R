@@ -64,14 +64,19 @@ normalize_conversion_rule_columns <- function(conversion_dt) {
     offset = "addend"
   )
 
-  for (legacy_name in names(rename_mapping)) {
-    modern_name <- rename_mapping[[legacy_name]]
+  legacy_names <- names(rename_mapping)
+  available_legacy <- legacy_names[legacy_names %in% names(normalized_conversion_dt)]
 
-    if (
-      !modern_name %in% names(normalized_conversion_dt) &&
-        legacy_name %in% names(normalized_conversion_dt)
-    ) {
-      data.table::setnames(normalized_conversion_dt, legacy_name, modern_name)
+  if (length(available_legacy) > 0L) {
+    target_names <- unname(rename_mapping[available_legacy])
+    rename_mask <- !target_names %in% names(normalized_conversion_dt)
+
+    if (any(rename_mask)) {
+      data.table::setnames(
+        normalized_conversion_dt,
+        old = available_legacy[rename_mask],
+        new = target_names[rename_mask]
+      )
     }
   }
 

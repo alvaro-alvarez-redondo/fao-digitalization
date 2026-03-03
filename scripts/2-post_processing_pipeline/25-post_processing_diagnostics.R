@@ -165,9 +165,7 @@ build_post_processing_diagnostics <- function(
 
     missing_columns <- setdiff(required_columns, names(stage_audit_dt))
     if (length(missing_columns) > 0L) {
-      for (column_name in missing_columns) {
-        stage_audit_dt[, (column_name) := NA_character_]
-      }
+      stage_audit_dt[, (missing_columns) := NA_character_]
     }
 
     stage_audit_dt[,
