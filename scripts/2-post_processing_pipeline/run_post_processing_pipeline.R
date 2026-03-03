@@ -59,69 +59,52 @@ source_post_processing_scripts <- function(
 
 source_post_processing_scripts()
 
+#' @title Resolve units standardization runner
+#' @description Resolves the first available units standardization function from
+#' supported current and legacy symbol names using an ordered candidate vector.
+#' @return Function implementing units standardization.
 resolve_units_standardization_runner <- function() {
-  if (
-    exists(
-      "run_standardize_units_layer_batch",
-      mode = "function",
-      inherits = TRUE
-    )
-  ) {
-    return(get(
-      "run_standardize_units_layer_batch",
-      mode = "function",
-      inherits = TRUE
-    ))
-  }
-
-  if (
-    exists(
-      "run_number_standardization_layer_batch",
-      mode = "function",
-      inherits = TRUE
-    )
-  ) {
-    return(get(
-      "run_number_standardization_layer_batch",
-      mode = "function",
-      inherits = TRUE
-    ))
-  }
-
-  if (
-    exists(
-      "run_number_standarization_layer_batch",
-      mode = "function",
-      inherits = TRUE
-    )
-  ) {
-    return(get(
-      "run_number_standarization_layer_batch",
-      mode = "function",
-      inherits = TRUE
-    ))
-  }
-
-  if (
-    exists(
-      "run_number_harmonization_layer_batch",
-      mode = "function",
-      inherits = TRUE
-    )
-  ) {
-    return(get(
-      "run_number_harmonization_layer_batch",
-      mode = "function",
-      inherits = TRUE
-    ))
-  }
-
-  cli::cli_abort(
-    "No units standardization runner found. Expected {.fn run_standardize_units_layer_batch}, {.fn run_number_standardization_layer_batch}, {.fn run_number_standarization_layer_batch}, or {.fn run_number_harmonization_layer_batch}."
+  runner_candidates <- c(
+    "run_standardize_units_layer_batch",
+    "run_number_standardization_layer_batch",
+    "run_number_standarization_layer_batch",
+    "run_number_harmonization_layer_batch"
   )
+
+  available_runner <- runner_candidates[
+    vapply(
+      runner_candidates,
+      exists,
+      logical(1),
+      mode = "function",
+      inherits = TRUE
+    )
+  ][1]
+
+  if (is.na(available_runner)) {
+    cli::cli_abort(
+      "No units standardization runner found. Expected {.fn run_standardize_units_layer_batch}, {.fn run_number_standardization_layer_batch}, {.fn run_number_standarization_layer_batch}, or {.fn run_number_harmonization_layer_batch}."
+    )
+  }
+
+  return(get(
+    available_runner,
+    mode = "function",
+    inherits = TRUE
+  ))
 }
 
+#' @title Run units standardization stage
+#' @description Executes the resolved units standardization implementation using
+#' the cleaned dataset and pipeline configuration.
+#' @param cleaned_dt Cleaned dataset to standardize.
+#' @param config Named configuration list.
+#' @return Standardized dataset returned by the resolved runner.
+#' @importFrom checkmate assert_data_frame assert_list
 run_units_standardization_stage <- function(cleaned_dt, config) {
+  checkmate::assert_data_frame(cleaned_dt, min.rows = 0)
+  checkmate::assert_list(config, min.len = 1)
+
   units_standardization_runner <- resolve_units_standardization_runner()
 
   return(units_standardization_runner(
@@ -249,20 +232,62 @@ run_post_processing_pipeline_batch <- function(
 run_clean_harmonize_pipeline_batch <- run_post_processing_pipeline_batch
 
 # backward-compatible wrapper for legacy symbol
+#' @title Run clean data (legacy wrapper)
+#' @description Backward-compatible wrapper that delegates to
+#' `run_cleaning_layer_batch`.
+#' @param dataset_dt Dataset to clean.
+#' @param config Named configuration list.
+#' @param dataset_name Character scalar dataset identifier.
+#' @return Cleaned dataset returned by `run_cleaning_layer_batch`.
+#' @importFrom checkmate assert_data_frame assert_list assert_string
 run_clean_data <- function(dataset_dt, config, dataset_name = "fao_data_raw") {
-  return(run_cleaning_layer_batch(dataset_dt, config, dataset_name))
+  checkmate::assert_data_frame(dataset_dt, min.rows = 0)
+  checkmate::assert_list(config, min.len = 1)
+  checkmate::assert_string(dataset_name, min.chars = 1)
+
+  return(run_cleaning_layer_batch(
+    dataset_dt = dataset_dt,
+    config = config,
+    dataset_name = dataset_name
+  ))
 }
 
 # backward-compatible wrapper for legacy symbol
+#' @title Run harmonize data (legacy wrapper)
+#' @description Backward-compatible wrapper that delegates to
+#' `run_harmonize_layer_batch`.
+#' @param dataset_dt Dataset to harmonize.
+#' @param config Named configuration list.
+#' @param dataset_name Character scalar dataset identifier.
+#' @return Harmonized dataset returned by `run_harmonize_layer_batch`.
+#' @importFrom checkmate assert_data_frame assert_list assert_string
 run_harmonize_data <- function(
   dataset_dt,
   config,
   dataset_name = "fao_data_raw"
 ) {
-  return(run_harmonize_layer_batch(dataset_dt, config, dataset_name))
+  checkmate::assert_data_frame(dataset_dt, min.rows = 0)
+  checkmate::assert_list(config, min.len = 1)
+  checkmate::assert_string(dataset_name, min.chars = 1)
+
+  return(run_harmonize_layer_batch(
+    dataset_dt = dataset_dt,
+    config = config,
+    dataset_name = dataset_name
+  ))
 }
 
+#' @title Run standardize units data (legacy wrapper)
+#' @description Backward-compatible wrapper that delegates to
+#' `run_units_standardization_stage`.
+#' @param cleaned_dt Cleaned dataset.
+#' @param config Named configuration list.
+#' @return Standardized dataset returned by `run_units_standardization_stage`.
+#' @importFrom checkmate assert_data_frame assert_list
 run_standardize_units_data <- function(cleaned_dt, config) {
+  checkmate::assert_data_frame(cleaned_dt, min.rows = 0)
+  checkmate::assert_list(config, min.len = 1)
+
   return(run_units_standardization_stage(
     cleaned_dt = cleaned_dt,
     config = config
@@ -270,6 +295,17 @@ run_standardize_units_data <- function(cleaned_dt, config) {
 }
 
 # backward-compatible wrapper for legacy symbol
+#' @title Persist stage audit workbook (legacy wrapper)
+#' @description Backward-compatible wrapper that delegates to
+#' `persist_post_processing_audit`.
+#' @param clean_audit_dt Clean-stage audit table.
+#' @param harmonize_audit_dt Harmonize-stage audit table.
+#' @param standardize_diagnostics List of units standardization diagnostics.
+#' @param dataset_name Character scalar dataset identifier.
+#' @param execution_timestamp_utc Character scalar UTC timestamp.
+#' @param config Named configuration list.
+#' @return Output path returned by `persist_post_processing_audit`.
+#' @importFrom checkmate assert_data_frame assert_list assert_string
 persist_stage_audit_workbook <- function(
   clean_audit_dt,
   harmonize_audit_dt,
@@ -278,6 +314,13 @@ persist_stage_audit_workbook <- function(
   execution_timestamp_utc,
   config
 ) {
+  checkmate::assert_data_frame(clean_audit_dt, min.rows = 0)
+  checkmate::assert_data_frame(harmonize_audit_dt, min.rows = 0)
+  checkmate::assert_list(standardize_diagnostics)
+  checkmate::assert_string(dataset_name, min.chars = 1)
+  checkmate::assert_string(execution_timestamp_utc, min.chars = 1)
+  checkmate::assert_list(config, min.len = 1)
+
   return(persist_post_processing_audit(
     clean_audit_dt = clean_audit_dt,
     harmonize_audit_dt = harmonize_audit_dt,
