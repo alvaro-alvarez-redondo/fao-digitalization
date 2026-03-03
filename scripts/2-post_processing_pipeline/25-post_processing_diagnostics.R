@@ -254,7 +254,7 @@ build_post_processing_diagnostics <- function(clean_audit_dt, harmonize_audit_dt
 
 #' @title Persist post-processing audit workbooks
 #' @description Writes deterministic single-sheet Excel outputs under
-#' `audit_root_dir/post_processing_diagnostics` and overwrites them on each run.
+#' `audit_root_dir/post_processing_diagnostics` with run-scoped filenames.
 #' @param clean_audit_dt Clean-stage audit table.
 #' @param harmonize_audit_dt Harmonize-stage audit table.
 #' @param standardize_diagnostics Named diagnostics list for standardize layer.
@@ -289,18 +289,36 @@ persist_post_processing_audit <- function(
   diagnostics_dir <- audit_paths$diagnostics_dir
   fs::dir_create(diagnostics_dir, recurse = TRUE)
 
+  run_token <- gsub("[^0-9A-Za-z]", "", execution_timestamp_utc)
+
   output_paths <- c(
-    clean_audit = fs::path(diagnostics_dir, paste0("post_processing_audit_", dataset_name, "_clean.xlsx")),
-    harmonize_audit = fs::path(diagnostics_dir, paste0("post_processing_audit_", dataset_name, "_harmonize.xlsx")),
-    stage_summary = fs::path(diagnostics_dir, paste0("post_processing_audit_", dataset_name, "_stage_summary.xlsx")),
-    rule_summary = fs::path(diagnostics_dir, paste0("post_processing_audit_", dataset_name, "_rule_summary.xlsx")),
-    standardize_diagnostics = fs::path(diagnostics_dir, paste0("post_processing_audit_", dataset_name, "_standardize_diagnostics.xlsx"))
+    clean_audit = fs::path(diagnostics_dir, paste0("post_processing_audit_clean_", run_token, ".xlsx")),
+    harmonize_audit = fs::path(diagnostics_dir, paste0("post_processing_audit_harmonize_", run_token, ".xlsx")),
+    stage_summary = fs::path(diagnostics_dir, paste0("post_processing_audit_stage_summary_", run_token, ".xlsx")),
+    rule_summary = fs::path(diagnostics_dir, paste0("post_processing_audit_rule_summary_", run_token, ".xlsx")),
+    standardize_diagnostics = fs::path(diagnostics_dir, paste0("post_processing_audit_standardize_diagnostics_", run_token, ".xlsx"))
   )
 
   write_single_sheet_workbook <- function(sheet_name, sheet_data, output_path) {
     workbook <- openxlsx::createWorkbook()
     openxlsx::addWorksheet(workbook, sheet_name)
-    openxlsx::writeData(workbook, sheet_name, sheet_data)
+
+    sheet_dt <- data.table::as.data.table(sheet_data)
+    dataset_name_value <- dataset_name
+    execution_timestamp_value <- execution_timestamp_utc
+    sheet_dt[, dataset_name := dataset_name_value]
+    sheet_dt[, execution_timestamp_utc := execution_timestamp_value]
+
+    data.table::setcolorder(
+      sheet_dt,
+      c(
+        "dataset_name",
+        "execution_timestamp_utc",
+        setdiff(colnames(sheet_dt), c("dataset_name", "execution_timestamp_utc"))
+      )
+    )
+
+    openxlsx::writeData(workbook, sheet_name, sheet_dt)
     openxlsx::saveWorkbook(workbook, output_path, overwrite = TRUE)
 
     return(output_path)
