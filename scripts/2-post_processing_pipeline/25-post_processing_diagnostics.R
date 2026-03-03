@@ -234,8 +234,8 @@ build_post_processing_diagnostics <- function(
 #' @param harmonize_audit_dt Harmonize-stage audit table.
 #' @param standardize_diagnostics Named diagnostics list for standardize layer.
 #' retained for backward compatibility.
-#' @param dataset_name Character scalar dataset name.
-#' @param execution_timestamp_utc Character scalar run timestamp (retained for backward compatibility).
+#' @param dataset_name Character scalar dataset name (retained for backward compatibility).
+#' @param execution_timestamp_utc Character scalar run timestamp (retained for backward compatibility and currently unused).
 #' @param config Named configuration list.
 #' @return Named character vector containing `rule_summary` workbook path.
 #' @importFrom checkmate assert_data_frame assert_string assert_list
@@ -265,34 +265,12 @@ persist_post_processing_audit <- function(
   diagnostics_dir <- audit_paths$diagnostics_dir
   fs::dir_create(diagnostics_dir, recurse = TRUE)
 
-  run_token <- gsub("[^0-9A-Za-z]", "", execution_timestamp_utc)
-
   output_paths <- c(
     rule_summary = fs::path(
       diagnostics_dir,
-      paste0("post_processing_audit_rule_summary_", run_token, ".xlsx")
+      "post_processing_audit_rule_summary.xlsx"
     )
   )
-
-  add_traceability_columns <- function(sheet_dt) {
-    traced_dt <- data.table::as.data.table(sheet_dt)
-    traced_dt[, dataset_name := dataset_name]
-    traced_dt[, execution_timestamp_utc := execution_timestamp_utc]
-
-    data.table::setcolorder(
-      traced_dt,
-      c(
-        "dataset_name",
-        "execution_timestamp_utc",
-        setdiff(
-          colnames(traced_dt),
-          c("dataset_name", "execution_timestamp_utc")
-        )
-      )
-    )
-
-    return(traced_dt)
-  }
 
   workbook <- openxlsx::createWorkbook()
 
@@ -300,14 +278,14 @@ persist_post_processing_audit <- function(
   openxlsx::writeData(
     workbook,
     "clean",
-    add_traceability_columns(diagnostics$clean_rule_summary)
+    data.table::as.data.table(diagnostics$clean_rule_summary)
   )
 
   openxlsx::addWorksheet(workbook, "harmonize")
   openxlsx::writeData(
     workbook,
     "harmonize",
-    add_traceability_columns(diagnostics$harmonize_rule_summary)
+    data.table::as.data.table(diagnostics$harmonize_rule_summary)
   )
 
   openxlsx::saveWorkbook(
