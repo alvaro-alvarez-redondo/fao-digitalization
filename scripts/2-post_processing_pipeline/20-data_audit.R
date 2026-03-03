@@ -5,7 +5,7 @@
 #' @title prepare audit root directory
 #' @description safely remove previous audit folder if it exists.
 #' when deletion fails due to permissions or file locks, keeps the existing
-#' folder and continues with a warning so the pipeline can still write outputs.
+#' folder and continues with an informational message so the pipeline can still write outputs.
 #' @param audit_root_dir character scalar path to the root audit folder.
 #' @return invisible logical scalar: TRUE if folder existed and was deleted,
 #' FALSE when folder did not exist or could not be removed.
@@ -32,11 +32,9 @@ prepare_audit_root <- function(audit_root_dir) {
     )
 
     if (is_permission_error) {
-      cli::cli_warn(c(
-        "could not remove existing audit folder; continuing with existing folder",
-        "i" = "path: {.path {audit_root_dir}}",
-        "i" = "details: {error_message}"
-      ))
+      cli::cli_alert_info(
+        "audit root cleanup skipped due to locked/permission-protected files; continuing with existing folder {.path {audit_root_dir}}."
+      )
 
       return(invisible(FALSE))
     }
