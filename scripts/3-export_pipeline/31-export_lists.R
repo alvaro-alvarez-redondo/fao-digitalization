@@ -5,9 +5,9 @@
 #' @title Get fixed layer sheet order for lists exports
 #' @description Returns deterministic sheet order for column-centric list
 #' exports.
-#' @return Character vector: `raw`, `clean`, `standardize`, `harmonize`.
+#' @return Character vector: `raw`, `clean`, `harmonize`.
 get_lists_sheet_order <- function() {
-  return(c("raw", "clean", "standardize", "harmonize"))
+  return(c("raw", "clean", "harmonize"))
 }
 
 #' @title Map object name to layer sheet label
@@ -99,7 +99,7 @@ compute_unique_column_values <- function(data_dt, column_name) {
 
 #' @title Build layer tables keyed by sheet names
 #' @description Creates deterministic layer table map keyed by
-#' `raw/clean/standardize/harmonize`, filling missing layers with empty tables.
+#' `raw/clean/harmonize`, filling missing layers with empty tables.
 #' @param layer_tables Named list of detected layer data tables.
 #' @return Named list of data.tables keyed by sheet name.
 #' @importFrom checkmate assert_list
@@ -165,6 +165,98 @@ collect_union_columns <- function(layer_by_sheet) {
   return(union_columns)
 }
 
+#' @title Normalize table for strict deterministic comparison
+#' @description Drops `year` column when present, aligns column names and
+#' order, and sorts rows so strict `identical()` can be applied deterministically.
+#' @param data_dt Data table for normalization.
+#' @return Normalized data.table.
+#' @importFrom checkmate assert_data_table
+normalize_for_comparison <- function(data_dt) {
+  checkmate::assert_data_table(data_dt)
+
+  normalized_dt <- data.table::copy(data_dt)
+
+  if ("year" %in% names(normalized_dt)) {
+    normalized_dt[, year := NULL]
+  }
+
+  normalized_columns <- sort(names(normalized_dt))
+
+  if (length(normalized_columns) == 0L) {
+    return(normalized_dt)
+  }
+
+  data.table::setcolorder(normalized_dt, normalized_columns)
+  data.table::setorderv(normalized_dt, normalized_columns, na.last = TRUE)
+
+  return(normalized_dt)
+}
+
+# backward-compatible alias
+normalize_table_for_comparison <- normalize_for_comparison
+
+#' @title Compare two list tables deterministically
+#' @description Returns `TRUE` when two tables are strictly equal after
+#' deterministic normalization.
+#' @param left_dt Data table for left side.
+#' @param right_dt Data table for right side.
+#' @return Logical scalar.
+#' @importFrom checkmate assert_data_table
+are_list_tables_identical <- function(
+  left_dt,
+  right_dt
+) {
+  checkmate::assert_data_table(left_dt)
+  checkmate::assert_data_table(right_dt)
+
+  normalized_left <- normalize_for_comparison(left_dt)
+  normalized_right <- normalize_for_comparison(right_dt)
+
+  return(identical(normalized_left, normalized_right))
+}
+
+# backward-compatible alias
+are_clean_harmonize_tables_identical <- are_list_tables_identical
+
+#' @title Resolve deterministic sheet payloads for one column
+#' @description Applies hierarchical equality logic across raw, clean, and
+#' harmonize unique-value tables and returns the sheets that must be written.
+#' @param raw_values_dt Data table of raw values.
+#' @param clean_values_dt Data table of clean values.
+#' @param harmonize_values_dt Data table of harmonize values.
+#' @return Named list of sheet payload data.tables.
+#' @importFrom checkmate assert_data_table
+resolve_list_sheet_payloads <- function(
+  raw_values_dt,
+  clean_values_dt,
+  harmonize_values_dt
+) {
+  checkmate::assert_data_table(raw_values_dt)
+  checkmate::assert_data_table(clean_values_dt)
+  checkmate::assert_data_table(harmonize_values_dt)
+
+  raw_equals_clean <- are_list_tables_identical(raw_values_dt, clean_values_dt)
+  raw_equals_harmonize <- are_list_tables_identical(raw_values_dt, harmonize_values_dt)
+  clean_equals_harmonize <- are_list_tables_identical(clean_values_dt, harmonize_values_dt)
+
+  if (raw_equals_clean && raw_equals_harmonize) {
+    return(list(raw_clean_harmonize = raw_values_dt))
+  }
+
+  if (clean_equals_harmonize && !raw_equals_clean) {
+    return(list(
+      raw = raw_values_dt,
+      clean_harmonize = clean_values_dt
+    ))
+  }
+
+  return(list(
+    raw = raw_values_dt,
+    clean = clean_values_dt,
+    harmonize = harmonize_values_dt
+  ))
+}
+
 #' @title Build unique-values cache by layer and column
 #' @description Precomputes unique values for every `(layer, column)` pair.
 #' @param layer_by_sheet Named list of layer tables by sheet label.
@@ -189,8 +281,10 @@ build_column_unique_cache <- function(layer_by_sheet, union_columns) {
 }
 
 #' @title Write one column-centric lists workbook
-#' @description Writes one workbook per column with fixed ordered sheets:
-#' `raw`, `clean`, `standardize`, `harmonize`.
+#' @description Writes one workbook per column with deterministic sheet logic:
+#' all-equal lists produce `raw_clean_harmonize`; clean/harmonize equality with
+#' raw difference produces `raw` + `clean_harmonize`; otherwise `raw`, `clean`,
+#' and `harmonize` are written.
 #' @param column_name Character scalar column name.
 #' @param unique_cache Named cache from `build_column_unique_cache()`.
 #' @param config Named configuration list.
@@ -199,6 +293,7 @@ build_column_unique_cache <- function(layer_by_sheet, union_columns) {
 #' @importFrom checkmate assert_string assert_list assert_flag
 #' @importFrom openxlsx createWorkbook addWorksheet writeData saveWorkbook
 #' @importFrom data.table data.table
+#' @importFrom purrr iwalk
 write_column_lists_workbook <- function(
   column_name,
   unique_cache,
@@ -216,20 +311,35 @@ write_column_lists_workbook <- function(
   )
 
   workbook <- openxlsx::createWorkbook()
-  sheet_order <- get_lists_sheet_order()
 
-  for (sheet_name in sheet_order) {
-    values <- unique_cache[[sheet_name]][[column_name]]
+  raw_values <- unique_cache$raw[[column_name]]
+  clean_values <- unique_cache$clean[[column_name]]
+  harmonize_values <- unique_cache$harmonize[[column_name]]
 
-    if (is.null(values)) {
-      values <- character(0)
-    }
+  if (is.null(raw_values)) {
+    raw_values <- character(0)
+  }
+  if (is.null(clean_values)) {
+    clean_values <- character(0)
+  }
+  if (is.null(harmonize_values)) {
+    harmonize_values <- character(0)
+  }
 
-    values_dt <- data.table::data.table(value = values)
+  raw_values_dt <- data.table::data.table(value = raw_values)
+  clean_values_dt <- data.table::data.table(value = clean_values)
+  harmonize_values_dt <- data.table::data.table(value = harmonize_values)
 
+  sheet_payloads <- resolve_list_sheet_payloads(
+    raw_values_dt = raw_values_dt,
+    clean_values_dt = clean_values_dt,
+    harmonize_values_dt = harmonize_values_dt
+  )
+
+  purrr::iwalk(sheet_payloads, function(values_dt, sheet_name) {
     openxlsx::addWorksheet(workbook, sheet_name)
     openxlsx::writeData(workbook, sheet_name, values_dt)
-  }
+  })
 
   openxlsx::saveWorkbook(workbook, workbook_path, overwrite = overwrite)
 
@@ -238,8 +348,9 @@ write_column_lists_workbook <- function(
 
 #' @title Export column-centric lists workbooks
 #' @description Exports one workbook per column. Each workbook contains fixed
-#' ordered layer sheets (`raw`, `clean`, `standardize`, `harmonize`) with
-#' sorted unique values for that column per layer.
+#' deterministic layer sheet outputs: always `raw`, plus either a merged
+#' `clean_harmonize` sheet or separate `clean` and `harmonize` sheets.
+#' The `value` column workbook is excluded from list exports.
 #' @param config Named configuration list.
 #' @param data_objects Optional named list of data.frame/data.table objects.
 #' @param overwrite Logical scalar overwrite flag.
@@ -276,8 +387,10 @@ export_lists <- function(
     union_columns = union_columns
   )
 
+  export_columns <- union_columns[!union_columns %in% c("value", "year")]
+
   output_paths <- setNames(
-    lapply(union_columns, function(column_name) {
+    lapply(export_columns, function(column_name) {
       write_column_lists_workbook(
         column_name = column_name,
         unique_cache = unique_cache,
@@ -285,7 +398,7 @@ export_lists <- function(
         overwrite = overwrite
       )
     }),
-    union_columns
+    export_columns
   )
 
   return(unlist(output_paths, use.names = TRUE))

@@ -1,6 +1,11 @@
 # script: run import pipeline script
 # description: discover, read, transform, and validate all import files.
 
+if (!exists("get_pipeline_constants", mode = "function", inherits = TRUE)) {
+  source(here::here("scripts", "0-general_pipeline", "01-setup.R"), echo = FALSE)
+}
+
+
 import_scripts <- c(
   "10-file_io.R",
   "11-reading.R",
@@ -130,6 +135,8 @@ run_import_pipeline_auto <- function(auto_run, env = .GlobalEnv) {
   checkmate::assert_flag(auto_run)
   checkmate::assert_environment(env)
 
+  pipeline_constants <- get_pipeline_constants()
+
   if (!isTRUE(auto_run)) {
     return(invisible(NULL))
   }
@@ -144,27 +151,37 @@ run_import_pipeline_auto <- function(auto_run, env = .GlobalEnv) {
   config_value <- get("config", envir = env, inherits = TRUE)
   import_pipeline_result <- run_import_pipeline(config = config_value)
 
-  assign("fao_data_raw", import_pipeline_result$data, envir = env)
-  assign("fao_data_wide_raw", import_pipeline_result$wide_raw, envir = env)
-  assign(
-    "collected_reading_errors",
+  assignment_helper <- pipeline_constants$helper_requirements$assignment_helper
+
+  if (!exists(assignment_helper, mode = "function", inherits = TRUE)) {
+    cli::cli_abort(
+      "missing shared helper {.fn {assignment_helper}}; source {.file {pipeline_constants$helper_requirements$assignment_helper_source}}"
+    )
+  }
+
+  assignment_values <- list(
+    import_pipeline_result$data,
+    import_pipeline_result$wide_raw,
     import_pipeline_result$diagnostics$reading_errors,
-    envir = env
-  )
-  assign(
-    "collected_errors",
     import_pipeline_result$diagnostics$validation_errors,
-    envir = env
+    import_pipeline_result$diagnostics$warnings
   )
-  assign(
-    "collected_warnings",
-    import_pipeline_result$diagnostics$warnings,
-    envir = env
+  names(assignment_values) <- c(
+    pipeline_constants$object_names$raw,
+    pipeline_constants$object_names$wide_raw,
+    pipeline_constants$object_names$collected_reading_errors,
+    pipeline_constants$object_names$collected_errors,
+    pipeline_constants$object_names$collected_warnings
   )
+
+  assign_environment_values(values = assignment_values, env = env)
 
   return(invisible(import_pipeline_result))
 }
 
 run_import_pipeline_auto(
-  auto_run = isTRUE(getOption("fao.run_import_pipeline.auto", TRUE))
+  auto_run = isTRUE(getOption(
+    get_pipeline_constants()$auto_run_options$import,
+    TRUE
+  ))
 )
