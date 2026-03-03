@@ -18,7 +18,11 @@ collect_post_processing_preflight <- function(
 ) {
   checkmate::assert_list(config, min.len = 1)
   checkmate::assert_character(dataset_columns, any.missing = FALSE)
-  checkmate::assert_character(expected_columns, any.missing = FALSE, min.len = 1)
+  checkmate::assert_character(
+    expected_columns,
+    any.missing = FALSE,
+    min.len = 1
+  )
 
   cleaning_dir <- config$paths$data$imports$cleaning
   harmonization_dir <- config$paths$data$imports$harmonization
@@ -38,7 +42,10 @@ collect_post_processing_preflight <- function(
   }
 
   if (!checks$harmonize_dir_exists) {
-    issues <- c(issues, "[harmonize stage] missing 13-harmonize_imports directory")
+    issues <- c(
+      issues,
+      "[harmonize stage] missing 13-harmonize_imports directory"
+    )
   }
 
   if (!checks$templates_dir_exists) {
@@ -61,15 +68,27 @@ collect_post_processing_preflight <- function(
     character(0)
   }
 
-  checks$cleaning_pattern_ok <- all(grepl("^clean_.*\\.(xlsx|xls|csv)$", basename(cleaning_files)))
-  checks$harmonize_pattern_ok <- all(grepl("^harmonize_.*\\.(xlsx|xls|csv)$", basename(harmonization_files)))
+  checks$cleaning_pattern_ok <- all(grepl(
+    "^clean_.*\\.(xlsx|xls|csv)$",
+    basename(cleaning_files)
+  ))
+  checks$harmonize_pattern_ok <- all(grepl(
+    "^harmonize_.*\\.(xlsx|xls|csv)$",
+    basename(harmonization_files)
+  ))
 
   if (!checks$cleaning_pattern_ok) {
-    issues <- c(issues, "[clean stage] invalid 11-clean_imports file naming pattern (expected prefix: clean_)")
+    issues <- c(
+      issues,
+      "[clean stage] invalid 11-clean_imports file naming pattern (expected prefix: clean_)"
+    )
   }
 
   if (!checks$harmonize_pattern_ok) {
-    issues <- c(issues, "[harmonize stage] invalid 13-harmonize_imports file naming pattern (expected prefix: harmonize_)")
+    issues <- c(
+      issues,
+      "[harmonize stage] invalid 13-harmonize_imports file naming pattern (expected prefix: harmonize_)"
+    )
   }
 
   has_expected_columns <- all(expected_columns %in% dataset_columns)
@@ -122,7 +141,11 @@ assert_post_processing_preflight <- function(preflight_result) {
 #' @return Named list with `clean_rule_summary` and `harmonize_rule_summary`
 #' data.tables.
 #' @importFrom checkmate assert_data_frame assert_list
-build_post_processing_diagnostics <- function(clean_audit_dt, harmonize_audit_dt, standardize_diagnostics = list()) {
+build_post_processing_diagnostics <- function(
+  clean_audit_dt,
+  harmonize_audit_dt,
+  standardize_diagnostics = list()
+) {
   checkmate::assert_data_frame(clean_audit_dt, min.rows = 0)
   checkmate::assert_data_frame(harmonize_audit_dt, min.rows = 0)
   checkmate::assert_list(standardize_diagnostics)
@@ -147,7 +170,9 @@ build_post_processing_diagnostics <- function(clean_audit_dt, harmonize_audit_dt
       }
     }
 
-    stage_audit_dt[, affected_rows := suppressWarnings(as.integer(affected_rows))]
+    stage_audit_dt[,
+      affected_rows := suppressWarnings(as.integer(affected_rows))
+    ]
     stage_audit_dt[is.na(affected_rows), affected_rows := 0L]
 
     if (nrow(stage_audit_dt) == 0L) {
@@ -163,8 +188,7 @@ build_post_processing_diagnostics <- function(clean_audit_dt, harmonize_audit_dt
       ))
     }
 
-    return(stage_audit_dt[
-      ,
+    return(stage_audit_dt[,
       .(affected_rows = as.integer(sum(affected_rows))),
       by = .(
         rule_file_identifier,
@@ -176,10 +200,10 @@ build_post_processing_diagnostics <- function(clean_audit_dt, harmonize_audit_dt
       )
     ][
       order(rule_file_identifier, column_source, column_target)
-    ][
-      , execution_stage := stage_name
-    ][
-      , .(
+    ][,
+      execution_stage := stage_name
+    ][,
+      .(
         execution_stage,
         rule_file_identifier,
         column_source,
@@ -193,7 +217,10 @@ build_post_processing_diagnostics <- function(clean_audit_dt, harmonize_audit_dt
   }
 
   clean_rule_summary <- summarize_stage_rules(clean_audit_dt, "clean")
-  harmonize_rule_summary <- summarize_stage_rules(harmonize_audit_dt, "harmonize")
+  harmonize_rule_summary <- summarize_stage_rules(
+    harmonize_audit_dt,
+    "harmonize"
+  )
 
   return(list(
     clean_rule_summary = clean_rule_summary,
@@ -259,7 +286,10 @@ persist_post_processing_audit <- function(
       c(
         "dataset_name",
         "execution_timestamp_utc",
-        setdiff(colnames(traced_dt), c("dataset_name", "execution_timestamp_utc"))
+        setdiff(
+          colnames(traced_dt),
+          c("dataset_name", "execution_timestamp_utc")
+        )
       )
     )
 
@@ -282,7 +312,11 @@ persist_post_processing_audit <- function(
     add_traceability_columns(diagnostics$harmonize_rule_summary)
   )
 
-  openxlsx::saveWorkbook(workbook, output_paths[["rule_summary"]], overwrite = TRUE)
+  openxlsx::saveWorkbook(
+    workbook,
+    output_paths[["rule_summary"]],
+    overwrite = TRUE
+  )
 
   return(output_paths)
 }

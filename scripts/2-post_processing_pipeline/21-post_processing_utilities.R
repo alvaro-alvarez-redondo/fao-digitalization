@@ -4,11 +4,29 @@
 # audit helpers for post-processing stages.
 
 #' @title Get canonical rule columns
-#' @description Returns canonical rule column names used by the harmonization engine.
+#' @description Returns stage-specific canonical rule column names.
+#' @param stage_name Optional character scalar stage label (`clean` or
+#' `harmonize`). When `NULL`, defaults to clean columns.
 #' @return Character vector of canonical columns.
 #' @examples
-#' get_canonical_rule_columns()
-get_canonical_rule_columns <- function() {
+#' get_canonical_rule_columns("clean")
+get_canonical_rule_columns <- function(stage_name = NULL) {
+  if (is.null(stage_name)) {
+    stage_name <- "clean"
+  }
+
+  validated_stage_name <- validate_post_processing_stage_name(stage_name)
+
+  if (identical(validated_stage_name, "harmonize")) {
+    return(c(
+      "column_source",
+      "value_source_raw",
+      "column_target",
+      "value_target_raw",
+      "value_target_harmonize"
+    ))
+  }
+
   return(c(
     "column_source",
     "value_source_raw",
@@ -39,15 +57,29 @@ validate_post_processing_stage_name <- function(stage_name) {
   return(validated_stage_name)
 }
 
-#' @title Get stage-specific rule template columns
-#' @description Builds stage-prefixed rule columns for template generation.
+#' @title Get canonical target value column for stage
+#' @description Returns stage-specific target value column name.
 #' @param stage_name Character scalar stage label.
-#' @return Character vector with stage-prefixed rule columns.
+#' @return Character scalar target value column name.
+get_stage_target_value_column <- function(stage_name) {
+  validated_stage_name <- validate_post_processing_stage_name(stage_name)
+
+  if (identical(validated_stage_name, "harmonize")) {
+    return("value_target_harmonize")
+  }
+
+  return("value_target_clean")
+}
+
+#' @title Get stage-specific rule template columns
+#' @description Returns canonical stage columns for template generation.
+#' @param stage_name Character scalar stage label.
+#' @return Character vector of template columns.
 #' @importFrom checkmate assert_string
 get_stage_rule_template_columns <- function(stage_name) {
   validated_stage_name <- validate_post_processing_stage_name(stage_name)
 
-  return(paste0(validated_stage_name, "_", get_canonical_rule_columns()))
+  return(get_canonical_rule_columns(validated_stage_name))
 }
 
 #' @title Get post-processing audit paths
@@ -107,7 +139,7 @@ write_stage_rule_template <- function(stage_name, audit_paths, overwrite = TRUE)
 
   guidance_data <- data.table::data.table(
     note = c(
-      "Fill all stage-prefixed columns.",
+      "Fill all required columns.",
       "Column names must remain unchanged.",
       "Rows define conditional source-target replacements."
     )
@@ -145,7 +177,7 @@ generate_post_processing_rule_templates <- function(config, overwrite = TRUE) {
     stage_names,
     function(stage_name) {
       write_stage_rule_template(
-        stage_name = stage_name,
+        stage_name = validated_stage_name,
         audit_paths = audit_paths,
         overwrite = overwrite
       )
@@ -235,8 +267,7 @@ load_stage_rule_payloads <- function(config, stage_name) {
 }
 
 #' @title Coerce rule schema to canonical columns
-#' @description Converts canonical, stage-prefixed, and legacy schemas to canonical
-#' rule columns while preserving long-format row structure.
+#' @description Enforces strict stage-specific canonical schema.
 #' @param rule_dt Rule table as data.frame/data.table.
 #' @param stage_name Character scalar execution stage label.
 #' @param rule_file_id Character scalar rule file identifier.
@@ -247,61 +278,26 @@ coerce_rule_schema <- function(rule_dt, stage_name, rule_file_id) {
   validated_stage_name <- validate_post_processing_stage_name(stage_name)
   checkmate::assert_string(rule_file_id, min.chars = 1)
 
-  canonical_columns <- get_canonical_rule_columns()
+  canonical_columns <- get_canonical_rule_columns(validated_stage_name)
   available_columns <- colnames(rule_dt)
 
-  stage_prefixed_columns <- setNames(
-    get_stage_rule_template_columns(validated_stage_name),
-    canonical_columns
-  )
-
-  legacy_aliases <- c(
-    value_source_raw = "original_value_source",
-    value_target_raw = "original_value_target",
-    value_target_clean = if (identical(validated_stage_name, "clean")) {
-      "cleaned_value_target"
-    } else {
-      "harmonized_value_target"
-    }
-  )
-
-  mapped_names <- vapply(
-    canonical_columns,
-    function(canonical_name) {
-      legacy_candidate <- unname(legacy_aliases[canonical_name])
-
-      candidate_names <- c(
-        canonical_name,
-        stage_prefixed_columns[[canonical_name]],
-        legacy_candidate,
-        paste0("clean_", canonical_name),
-        paste0("harmonize_", canonical_name),
-        paste0("cleaning_", canonical_name),
-        paste0("harmonization_", canonical_name)
-      )
-
-      candidate_names <- candidate_names[!is.na(candidate_names)]
-      matched_name <- candidate_names[candidate_names %in% available_columns][1]
-
-      if (is.na(matched_name)) {
-        return(NA_character_)
-      }
-
-      return(matched_name)
-    },
-    character(1)
-  )
-
-  if (anyNA(mapped_names)) {
-    missing_columns <- names(mapped_names)[is.na(mapped_names)]
+  missing_columns <- setdiff(canonical_columns, available_columns)
+  if (length(missing_columns) > 0L) {
     cli::cli_abort(c(
       "Rule file {.file {rule_file_id}} is missing required columns.",
       "x" = paste(missing_columns, collapse = ", ")
     ))
   }
 
-  canonical_dt <- data.table::as.data.table(rule_dt)[, ..mapped_names]
-  data.table::setnames(canonical_dt, mapped_names, canonical_columns)
+  unexpected_columns <- setdiff(available_columns, canonical_columns)
+  if (length(unexpected_columns) > 0L) {
+    cli::cli_abort(c(
+      "Rule file {.file {rule_file_id}} contains unexpected columns.",
+      "x" = paste(unexpected_columns, collapse = ", ")
+    ))
+  }
+
+  canonical_dt <- data.table::as.data.table(rule_dt)[, ..canonical_columns]
 
   return(canonical_dt)
 }
@@ -314,12 +310,13 @@ coerce_rule_schema <- function(rule_dt, stage_name, rule_file_id) {
 #' @param rule_file_id Character scalar rule file identifier.
 #' @return Invisibly returns `TRUE`.
 #' @importFrom checkmate assert_data_frame assert_string
-validate_canonical_rules <- function(rules_dt, dataset_dt, rule_file_id) {
+validate_canonical_rules <- function(rules_dt, dataset_dt, rule_file_id, stage_name) {
   checkmate::assert_data_frame(rules_dt, min.rows = 0)
   checkmate::assert_data_frame(dataset_dt, min.rows = 0)
   checkmate::assert_string(rule_file_id, min.chars = 1)
+  validated_stage_name <- validate_post_processing_stage_name(stage_name)
 
-  required_columns <- get_canonical_rule_columns()
+  required_columns <- get_canonical_rule_columns(validated_stage_name)
   missing_rule_columns <- setdiff(required_columns, colnames(rules_dt))
   if (length(missing_rule_columns) > 0) {
     cli::cli_abort(c(
@@ -367,16 +364,18 @@ validate_canonical_rules <- function(rules_dt, dataset_dt, rule_file_id) {
     ))
   }
 
+  target_value_column <- get_stage_target_value_column(validated_stage_name)
+
   conflict_dt <- rules_dt[
     ,
-    .(target_value_count = uniqueN(value_target_clean)),
+    .(target_value_count = uniqueN(get(target_value_column))),
     by = .(column_source, value_source_raw, column_target, value_target_raw)
   ][target_value_count > 1L]
 
   if (nrow(conflict_dt) > 0) {
     cli::cli_abort(c(
       "Conflicting rules detected in {.file {rule_file_id}}.",
-      "x" = "A single source/target key maps to multiple clean values."
+      "x" = "A single source/target key maps to multiple target values."
     ))
   }
 
@@ -433,19 +432,22 @@ validate_canonical_rules <- function(rules_dt, dataset_dt, rule_file_id) {
 #' @param rules_dt Canonical rules table.
 #' @return List of grouped rule tables.
 #' @importFrom checkmate assert_data_frame
-build_conditional_rule_dictionary <- function(rules_dt) {
+build_conditional_rule_dictionary <- function(rules_dt, stage_name) {
   checkmate::assert_data_frame(rules_dt, min.rows = 0)
+  validated_stage_name <- validate_post_processing_stage_name(stage_name)
 
-  if (nrow(rules_dt) == 0) {
+  if (nrow(rules_dt) == 0L) {
     return(list())
   }
+
+  target_value_column <- get_stage_target_value_column(validated_stage_name)
 
   ordered_rules <- data.table::as.data.table(rules_dt)[order(
     column_source,
     column_target,
     value_source_raw,
     value_target_raw,
-    value_target_clean
+    get(target_value_column)
   )]
 
   grouped_rules <- split(
@@ -478,10 +480,12 @@ apply_conditional_rule_group <- function(
 ) {
   checkmate::assert_data_table(dataset_dt)
   checkmate::assert_data_frame(group_rules, min.rows = 1)
-  validate_post_processing_stage_name(stage_name)
+  validated_stage_name <- validate_post_processing_stage_name(stage_name)
   checkmate::assert_string(dataset_name, min.chars = 1)
   checkmate::assert_string(rule_file_id, min.chars = 1)
   checkmate::assert_string(execution_timestamp_utc, min.chars = 1)
+
+  target_value_column <- get_stage_target_value_column(validated_stage_name)
 
   group_dt <- data.table::as.data.table(group_rules)
   source_column <- group_dt$column_source[[1]]
@@ -492,7 +496,7 @@ apply_conditional_rule_group <- function(
     value_source_raw,
     column_target,
     value_target_raw,
-    value_target_clean,
+    value_target_result = get(target_value_column),
     source_key = normalize_string(value_source_raw),
     target_key = normalize_string(value_target_raw)
   )])
@@ -510,23 +514,23 @@ apply_conditional_rule_group <- function(
     on = .(source_key, target_key)
   ]
 
-  matched_row_mask <- !is.na(joined_dt$value_target_clean)
+  matched_row_mask <- !is.na(joined_dt$value_target_result)
   matched_rows <- as.integer(sum(matched_row_mask))
 
   if (matched_rows > 0L) {
     dataset_dt[
       matched_row_mask,
-      (target_column) := joined_dt$value_target_clean[matched_row_mask]
+      (target_column) := joined_dt$value_target_result[matched_row_mask]
     ]
   }
 
   matched_counts <- joined_dt[matched_row_mask, .(
     affected_rows = .N
-  ), by = .(source_key, target_key, value_target_clean)]
+  ), by = .(source_key, target_key, value_target_result)]
 
   audit_dt <- normalized_rules[
     matched_counts,
-    on = .(source_key, target_key, value_target_clean)
+    on = .(source_key, target_key, value_target_result)
   ][
     ,
     .(
@@ -535,11 +539,11 @@ apply_conditional_rule_group <- function(
       value_source_raw,
       column_target,
       value_target_raw,
-      value_target_clean,
+      value_target_result,
       affected_rows = data.table::fcoalesce(affected_rows, 0L),
       execution_timestamp_utc = execution_timestamp_utc,
       rule_file_identifier = rule_file_id,
-      execution_stage = stage_name
+      execution_stage = validated_stage_name
     )
   ][order(column_source, column_target, value_source_raw, value_target_raw)]
 
@@ -567,12 +571,12 @@ apply_rule_payload <- function(
 ) {
   checkmate::assert_data_table(dataset_dt)
   checkmate::assert_data_frame(canonical_rules, min.rows = 0)
-  validate_post_processing_stage_name(stage_name)
+  validated_stage_name <- validate_post_processing_stage_name(stage_name)
   checkmate::assert_string(dataset_name, min.chars = 1)
   checkmate::assert_string(rule_file_id, min.chars = 1)
   checkmate::assert_string(execution_timestamp_utc, min.chars = 1)
 
-  grouped_dictionary <- build_conditional_rule_dictionary(canonical_rules)
+  grouped_dictionary <- build_conditional_rule_dictionary(canonical_rules, validated_stage_name)
 
   if (length(grouped_dictionary) == 0) {
     return(list(data = dataset_dt, audit = data.table::data.table()))
@@ -585,7 +589,7 @@ apply_rule_payload <- function(
       group_result <- apply_conditional_rule_group(
         dataset_dt = current_state$data,
         group_rules = group_rules,
-        stage_name = stage_name,
+        stage_name = validated_stage_name,
         dataset_name = dataset_name,
         rule_file_id = rule_file_id,
         execution_timestamp_utc = execution_timestamp_utc

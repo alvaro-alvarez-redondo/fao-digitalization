@@ -53,7 +53,8 @@ run_cleaning_layer_batch <- function(
       validate_canonical_rules(
         rules_dt = canonical_rules,
         dataset_dt = state$data,
-        rule_file_id = payload$rule_file_id
+        rule_file_id = payload$rule_file_id,
+        stage_name = "clean"
       )
 
       if (nrow(canonical_rules) == 0) {
