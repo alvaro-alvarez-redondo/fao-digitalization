@@ -27,6 +27,26 @@ build_processed_export_path <- function(config, object_name) {
   return(fs::path(processed_dir, paste0(normalize_filename(object_name), ".xlsx")))
 }
 
+
+#' @title Canonicalize export object names
+#' @description Normalizes legacy/alias layer object names to canonical layer
+#' names used for deterministic export filenames.
+#' @param object_name Character scalar object name.
+#' @return Character scalar canonical object name.
+#' @importFrom checkmate assert_string
+canonicalize_layer_object_name <- function(object_name) {
+  checkmate::assert_string(object_name, min.chars = 1)
+
+  canonical_name <- object_name
+
+  canonical_name <- sub("_clean$", "_cleaned", canonical_name)
+  canonical_name <- sub("_harmonize$", "_harmonized", canonical_name)
+  canonical_name <- sub("_standardize$", "_normalized", canonical_name)
+  canonical_name <- sub("_post_processed$", "_normalized", canonical_name)
+
+  return(canonical_name)
+}
+
 #' @title Detect available layer tables for export
 #' @description Discovers available data.frame/data.table objects that end with
 #' configured layer suffixes.
@@ -42,7 +62,7 @@ build_processed_export_path <- function(config, object_name) {
 collect_layer_tables_for_export <- function(
   data_objects = NULL,
   env = .GlobalEnv,
-  layer_suffixes = c("raw", "clean", "standardize", "harmonize")
+  layer_suffixes = c("raw", "cleaned", "normalized", "harmonized", "post_processed", "clean", "standardize", "harmonize")
 ) {
   checkmate::assert_environment(env)
   checkmate::assert_character(layer_suffixes, min.len = 1, any.missing = FALSE)
@@ -75,10 +95,28 @@ collect_layer_tables_for_export <- function(
     )
   }
 
-  ordered_names <- sort(names(detected_tables))
-  detected_tables <- detected_tables[ordered_names]
+  canonical_names <- vapply(
+    names(detected_tables),
+    canonicalize_layer_object_name,
+    character(1)
+  )
 
-  return(purrr::map(detected_tables, data.table::as.data.table))
+  canonical_table_list <- split(detected_tables, canonical_names)
+
+  canonical_table_list <- lapply(canonical_table_list, function(candidate_tables) {
+    preferred_index <- which(!grepl("_post_processed$", names(candidate_tables)))[1]
+
+    if (is.na(preferred_index)) {
+      preferred_index <- 1L
+    }
+
+    candidate_tables[[preferred_index]]
+  })
+
+  ordered_names <- sort(names(canonical_table_list))
+  canonical_table_list <- canonical_table_list[ordered_names]
+
+  return(purrr::map(canonical_table_list, data.table::as.data.table))
 }
 
 #' @title Write one data table to Excel

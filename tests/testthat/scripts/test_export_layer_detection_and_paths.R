@@ -39,3 +39,19 @@ testthat::test_that("build export paths follow required naming conventions", {
   testthat::expect_match(basename(processed_path), "^dataset_clean\\.xlsx$")
   testthat::expect_match(basename(lists_path), "^dataset_clean_lists\\.xlsx$")
 })
+
+
+testthat::test_that("collect_layer_tables_for_export canonicalizes legacy layer names", {
+  env <- new.env(parent = emptyenv())
+  env$fao_data_raw <- data.frame(a = 1:2)
+  env$fao_data_clean <- data.frame(a = 1:2)
+  env$fao_data_harmonize <- data.frame(a = 1:2)
+  env$fao_data_post_processed <- data.frame(a = 1:2)
+
+  layer_tables <- collect_layer_tables_for_export(data_objects = NULL, env = env)
+
+  testthat::expect_setequal(
+    names(layer_tables),
+    c("fao_data_raw", "fao_data_cleaned", "fao_data_harmonized", "fao_data_normalized")
+  )
+})
