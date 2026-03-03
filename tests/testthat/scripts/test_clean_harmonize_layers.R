@@ -12,8 +12,8 @@ testthat::test_that("clean and harmonize layers apply deterministic rule payload
   root_dir <- tempfile("fao-clean-harmonize-")
   dir.create(root_dir, recursive = TRUE)
 
-  clean_dir <- file.path(root_dir, "data", "1-import", "clean_imports")
-  harmonize_dir <- file.path(root_dir, "data", "1-import", "harmonize_imports")
+  clean_dir <- file.path(root_dir, "data", "1-import", "11-clean_imports")
+  harmonize_dir <- file.path(root_dir, "data", "1-import", "13-harmonize_imports")
   dir.create(clean_dir, recursive = TRUE)
   dir.create(harmonize_dir, recursive = TRUE)
 

@@ -34,11 +34,11 @@ collect_post_processing_preflight <- function(
   issues <- character(0)
 
   if (!checks$cleaning_dir_exists) {
-    issues <- c(issues, "[clean stage] missing clean_imports directory")
+    issues <- c(issues, "[clean stage] missing 11-clean_imports directory")
   }
 
   if (!checks$harmonize_dir_exists) {
-    issues <- c(issues, "[harmonize stage] missing harmonize_imports directory")
+    issues <- c(issues, "[harmonize stage] missing 13-harmonize_imports directory")
   }
 
   if (!checks$templates_dir_exists) {
@@ -65,11 +65,11 @@ collect_post_processing_preflight <- function(
   checks$harmonize_pattern_ok <- all(grepl("^harmonize_.*\\.(xlsx|xls|csv)$", basename(harmonization_files)))
 
   if (!checks$cleaning_pattern_ok) {
-    issues <- c(issues, "[clean stage] invalid clean_imports file naming pattern (expected prefix: clean_)")
+    issues <- c(issues, "[clean stage] invalid 11-clean_imports file naming pattern (expected prefix: clean_)")
   }
 
   if (!checks$harmonize_pattern_ok) {
-    issues <- c(issues, "[harmonize stage] invalid harmonize_imports file naming pattern (expected prefix: harmonize_)")
+    issues <- c(issues, "[harmonize stage] invalid 13-harmonize_imports file naming pattern (expected prefix: harmonize_)")
   }
 
   has_expected_columns <- all(expected_columns %in% dataset_columns)
@@ -112,131 +112,177 @@ assert_post_processing_preflight <- function(preflight_result) {
   return(invisible(TRUE))
 }
 
-#' @title Build post-processing diagnostics summary
-#' @description Creates stage and rule-level summaries from clean and harmonize
-#' audit metadata.
+#' @title Build post-processing rule summaries
+#' @description Creates stage-specific rule summaries for clean and harmonize
+#' audit tables.
 #' @param clean_audit_dt Clean-stage audit table.
 #' @param harmonize_audit_dt Harmonize-stage audit table.
-#' @return Named list with `stage_summary` and `rule_summary` data.tables.
-#' @importFrom checkmate assert_data_frame
-build_post_processing_diagnostics <- function(clean_audit_dt, harmonize_audit_dt) {
+#' @param standardize_diagnostics Named diagnostics list for standardize layer.
+#' retained for backward compatibility.
+#' @return Named list with `clean_rule_summary` and `harmonize_rule_summary`
+#' data.tables.
+#' @importFrom checkmate assert_data_frame assert_list
+build_post_processing_diagnostics <- function(clean_audit_dt, harmonize_audit_dt, standardize_diagnostics = list()) {
   checkmate::assert_data_frame(clean_audit_dt, min.rows = 0)
   checkmate::assert_data_frame(harmonize_audit_dt, min.rows = 0)
+  checkmate::assert_list(standardize_diagnostics)
 
-  combined_audit <- data.table::rbindlist(
-    list(
-      data.table::as.data.table(clean_audit_dt),
-      data.table::as.data.table(harmonize_audit_dt)
-    ),
-    use.names = TRUE,
-    fill = TRUE
-  )
+  summarize_stage_rules <- function(audit_dt, stage_name) {
+    stage_audit_dt <- data.table::as.data.table(audit_dt)
 
-  if (nrow(combined_audit) == 0) {
-    return(list(
-      stage_summary = data.table::data.table(
+    required_columns <- c(
+      "rule_file_identifier",
+      "column_source",
+      "value_source_raw",
+      "column_target",
+      "value_target_raw",
+      "value_target_clean",
+      "affected_rows"
+    )
+
+    missing_columns <- setdiff(required_columns, names(stage_audit_dt))
+    if (length(missing_columns) > 0L) {
+      for (column_name in missing_columns) {
+        stage_audit_dt[, (column_name) := NA_character_]
+      }
+    }
+
+    stage_audit_dt[, affected_rows := suppressWarnings(as.integer(affected_rows))]
+    stage_audit_dt[is.na(affected_rows), affected_rows := 0L]
+
+    if (nrow(stage_audit_dt) == 0L) {
+      return(data.table::data.table(
         execution_stage = character(),
-        matched_rows = integer(),
-        matched_rules = integer(),
-        rule_files = integer()
-      ),
-      rule_summary = data.table::data.table()
-    ))
+        rule_file_identifier = character(),
+        column_source = character(),
+        value_source_raw = character(),
+        column_target = character(),
+        value_target_raw = character(),
+        value_target_clean = character(),
+        affected_rows = integer()
+      ))
+    }
+
+    return(stage_audit_dt[
+      ,
+      .(affected_rows = as.integer(sum(affected_rows))),
+      by = .(
+        rule_file_identifier,
+        column_source,
+        value_source_raw,
+        column_target,
+        value_target_raw,
+        value_target_clean
+      )
+    ][
+      order(rule_file_identifier, column_source, column_target)
+    ][
+      , execution_stage := stage_name
+    ][
+      , .(
+        execution_stage,
+        rule_file_identifier,
+        column_source,
+        value_source_raw,
+        column_target,
+        value_target_raw,
+        value_target_clean,
+        affected_rows
+      )
+    ])
   }
 
-  stage_summary <- combined_audit[
-    ,
-    .(
-      matched_rows = as.integer(sum(affected_rows)),
-      matched_rules = uniqueN(paste(column_source, value_source_raw, column_target, value_target_raw, sep = "|")),
-      rule_files = uniqueN(rule_file_identifier)
-    ),
-    by = .(execution_stage)
-  ][order(execution_stage)]
+  clean_rule_summary <- summarize_stage_rules(clean_audit_dt, "clean")
+  harmonize_rule_summary <- summarize_stage_rules(harmonize_audit_dt, "harmonize")
 
-  rule_summary <- combined_audit[
-    ,
-    .(affected_rows = as.integer(sum(affected_rows))),
-    by = .(
-      execution_stage,
-      rule_file_identifier,
-      column_source,
-      value_source_raw,
-      column_target,
-      value_target_raw,
-      value_target_clean
-    )
-  ][order(execution_stage, rule_file_identifier, column_source, column_target)]
-
-  return(list(stage_summary = stage_summary, rule_summary = rule_summary))
+  return(list(
+    clean_rule_summary = clean_rule_summary,
+    harmonize_rule_summary = harmonize_rule_summary
+  ))
 }
 
 #' @title Persist post-processing audit workbooks
-#' @description Writes deterministic single-sheet Excel outputs under
-#' `audit_root_dir/clean_harmonize_diagnostics` and overwrites them on each run.
+#' @description Writes deterministic Excel outputs under
+#' `audit_root_dir/post_processing_diagnostics` using a single rule-summary
+#' workbook with one sheet per stage.
 #' @param clean_audit_dt Clean-stage audit table.
 #' @param harmonize_audit_dt Harmonize-stage audit table.
+#' @param standardize_diagnostics Named diagnostics list for standardize layer.
+#' retained for backward compatibility.
 #' @param dataset_name Character scalar dataset name.
 #' @param execution_timestamp_utc Character scalar run timestamp (retained for backward compatibility).
 #' @param config Named configuration list.
-#' @return Named character vector of written workbook paths.
+#' @return Named character vector containing `rule_summary` workbook path.
 #' @importFrom checkmate assert_data_frame assert_string assert_list
 #' @importFrom fs dir_create path
 persist_post_processing_audit <- function(
   clean_audit_dt,
   harmonize_audit_dt,
+  standardize_diagnostics,
   dataset_name,
   execution_timestamp_utc,
   config
 ) {
   checkmate::assert_data_frame(clean_audit_dt, min.rows = 0)
   checkmate::assert_data_frame(harmonize_audit_dt, min.rows = 0)
+  checkmate::assert_list(standardize_diagnostics)
   checkmate::assert_string(dataset_name, min.chars = 1)
   checkmate::assert_string(execution_timestamp_utc, min.chars = 1)
   checkmate::assert_list(config, min.len = 1)
 
-  diagnostics <- build_post_processing_diagnostics(clean_audit_dt, harmonize_audit_dt)
+  diagnostics <- build_post_processing_diagnostics(
+    clean_audit_dt = clean_audit_dt,
+    harmonize_audit_dt = harmonize_audit_dt,
+    standardize_diagnostics = standardize_diagnostics
+  )
 
   audit_paths <- initialize_post_processing_audit_root(config)
   diagnostics_dir <- audit_paths$diagnostics_dir
   fs::dir_create(diagnostics_dir, recurse = TRUE)
 
+  run_token <- gsub("[^0-9A-Za-z]", "", execution_timestamp_utc)
+
   output_paths <- c(
-    clean_audit = fs::path(diagnostics_dir, paste0("post_processing_audit_", dataset_name, "_clean.xlsx")),
-    harmonize_audit = fs::path(diagnostics_dir, paste0("post_processing_audit_", dataset_name, "_harmonize.xlsx")),
-    stage_summary = fs::path(diagnostics_dir, paste0("post_processing_audit_", dataset_name, "_stage_summary.xlsx")),
-    rule_summary = fs::path(diagnostics_dir, paste0("post_processing_audit_", dataset_name, "_rule_summary.xlsx"))
+    rule_summary = fs::path(
+      diagnostics_dir,
+      paste0("post_processing_audit_rule_summary_", run_token, ".xlsx")
+    )
   )
 
-  write_single_sheet_workbook <- function(sheet_name, sheet_data, output_path) {
-    workbook <- openxlsx::createWorkbook()
-    openxlsx::addWorksheet(workbook, sheet_name)
-    openxlsx::writeData(workbook, sheet_name, sheet_data)
-    openxlsx::saveWorkbook(workbook, output_path, overwrite = TRUE)
+  add_traceability_columns <- function(sheet_dt) {
+    traced_dt <- data.table::as.data.table(sheet_dt)
+    traced_dt[, dataset_name := dataset_name]
+    traced_dt[, execution_timestamp_utc := execution_timestamp_utc]
 
-    return(output_path)
+    data.table::setcolorder(
+      traced_dt,
+      c(
+        "dataset_name",
+        "execution_timestamp_utc",
+        setdiff(colnames(traced_dt), c("dataset_name", "execution_timestamp_utc"))
+      )
+    )
+
+    return(traced_dt)
   }
 
-  write_single_sheet_workbook(
-    sheet_name = "clean_audit",
-    sheet_data = data.table::as.data.table(clean_audit_dt),
-    output_path = output_paths[["clean_audit"]]
+  workbook <- openxlsx::createWorkbook()
+
+  openxlsx::addWorksheet(workbook, "clean")
+  openxlsx::writeData(
+    workbook,
+    "clean",
+    add_traceability_columns(diagnostics$clean_rule_summary)
   )
-  write_single_sheet_workbook(
-    sheet_name = "harmonize_audit",
-    sheet_data = data.table::as.data.table(harmonize_audit_dt),
-    output_path = output_paths[["harmonize_audit"]]
+
+  openxlsx::addWorksheet(workbook, "harmonize")
+  openxlsx::writeData(
+    workbook,
+    "harmonize",
+    add_traceability_columns(diagnostics$harmonize_rule_summary)
   )
-  write_single_sheet_workbook(
-    sheet_name = "stage_summary",
-    sheet_data = diagnostics$stage_summary,
-    output_path = output_paths[["stage_summary"]]
-  )
-  write_single_sheet_workbook(
-    sheet_name = "rule_summary",
-    sheet_data = diagnostics$rule_summary,
-    output_path = output_paths[["rule_summary"]]
-  )
+
+  openxlsx::saveWorkbook(workbook, output_paths[["rule_summary"]], overwrite = TRUE)
 
   return(output_paths)
 }

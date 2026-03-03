@@ -61,7 +61,7 @@ get_post_processing_audit_paths <- function(config) {
 
   audit_root_dir <- config$paths$data$audit$audit_root_dir
 
-  diagnostics_dir <- fs::path(audit_root_dir, "clean_harmonize_diagnostics")
+  diagnostics_dir <- fs::path(audit_root_dir, "post_processing_diagnostics")
 
   return(list(
     audit_root_dir = audit_root_dir,
@@ -167,7 +167,7 @@ generate_post_processing_rule_templates <- function(config, overwrite = TRUE) {
 #' @importFrom readr read_csv
 #' @importFrom readxl read_excel
 #' @examples
-#' \dontrun{read_rule_table("data/1-import/clean_imports/clean_rules.xlsx")}
+#' \dontrun{read_rule_table("data/1-import/11-clean_imports/clean_rules.xlsx")}
 read_rule_table <- function(file_path) {
   checkmate::assert_string(file_path, min.chars = 1)
   checkmate::assert_file_exists(file_path)
