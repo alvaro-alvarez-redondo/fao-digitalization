@@ -28,6 +28,7 @@ purrr::walk(
 #' `reading_errors`, `validation_errors`, and `warnings` character vectors.
 #' @importFrom checkmate assert_list assert_string assert_directory_exists assert_names assert_character assert_data_frame
 #' @importFrom purrr map
+#' @importFrom progressr with_progress progressor
 #' @importFrom cli cli_abort
 #' @examples
 #' # run_import_pipeline(config)
@@ -35,65 +36,82 @@ run_import_pipeline <- function(config) {
   checkmate::assert_list(config, any.missing = FALSE)
   checkmate::assert_string(config$paths$data$imports$raw, min.chars = 1)
   checkmate::assert_directory_exists(config$paths$data$imports$raw)
+
   file_list_dt <- discover_files(config$paths$data$imports$raw)
 
   if (nrow(file_list_dt) == 0) {
     cli::cli_abort("no excel files were found. pipeline terminated")
   }
 
-  read_pipeline_result <- read_pipeline_files(file_list_dt, config)
-  checkmate::assert_names(
-    names(read_pipeline_result),
-    must.include = c("read_data_list", "errors")
-  )
-  checkmate::assert_list(
-    read_pipeline_result$read_data_list,
-    any.missing = TRUE
-  )
-  checkmate::assert_character(read_pipeline_result$errors, any.missing = FALSE)
+  total_steps <- (2 * nrow(file_list_dt)) + 4
 
-  read_data_list <- read_pipeline_result$read_data_list
+  return(progressr::with_progress({
+    progress <- progressr::progressor(steps = total_steps)
 
-  transformed <- transform_files_list(
-    file_list_dt = file_list_dt,
-    read_data_list = read_data_list,
-    config = config
-  )
-
-  validation_data_list <- split(
-    transformed$long_raw,
-    by = "document",
-    keep.by = TRUE,
-    sorted = FALSE
-  )
-
-  validation_results <- purrr::map(
-    validation_data_list,
-    \(document_dt) validate_long_dt(document_dt, config)
-  )
-
-  audited_dt_list <- purrr::map(validation_results, "data")
-
-  validation_errors <- purrr::map(validation_results, "errors") |>
-    unlist(use.names = FALSE)
-
-  consolidated_result <- consolidate_audited_dt(audited_dt_list, config)
-  checkmate::assert_names(
-    names(consolidated_result),
-    must.include = c("data", "warnings")
-  )
-  checkmate::assert_data_frame(consolidated_result$data, min.rows = 0)
-  checkmate::assert_character(consolidated_result$warnings, any.missing = FALSE)
-
-  return(list(
-    data = consolidated_result$data,
-    wide_raw = transformed$wide_raw,
-    diagnostics = list(
-      reading_errors = read_pipeline_result$errors,
-      validation_errors = validation_errors,
-      warnings = consolidated_result$warnings
+    progress("Import Pipeline Progress: reading source files")
+    read_pipeline_result <- read_pipeline_files(
+      file_list_dt = file_list_dt,
+      config = config,
+      progressor = progress
     )
-  ))
+
+    checkmate::assert_names(
+      names(read_pipeline_result),
+      must.include = c("read_data_list", "errors")
+    )
+    checkmate::assert_list(
+      read_pipeline_result$read_data_list,
+      any.missing = TRUE
+    )
+    checkmate::assert_character(read_pipeline_result$errors, any.missing = FALSE)
+
+    read_data_list <- read_pipeline_result$read_data_list
+
+    progress("Import Pipeline Progress: transforming source files")
+    transformed <- transform_files_list(
+      file_list_dt = file_list_dt,
+      read_data_list = read_data_list,
+      config = config,
+      progressor = progress
+    )
+
+    progress("Import Pipeline Progress: splitting validation groups")
+    validation_data_list <- split(
+      transformed$long_raw,
+      by = "document",
+      keep.by = TRUE,
+      sorted = FALSE
+    )
+
+    progress("Import Pipeline Progress: validating transformed records")
+    validation_results <- purrr::map(
+      validation_data_list,
+      \(document_dt) validate_long_dt(document_dt, config)
+    )
+
+    audited_dt_list <- purrr::map(validation_results, "data")
+
+    validation_errors <- purrr::map(validation_results, "errors") |>
+      unlist(use.names = FALSE)
+
+    consolidated_result <- consolidate_audited_dt(audited_dt_list, config)
+    checkmate::assert_names(
+      names(consolidated_result),
+      must.include = c("data", "warnings")
+    )
+    checkmate::assert_data_frame(consolidated_result$data, min.rows = 0)
+    checkmate::assert_character(consolidated_result$warnings, any.missing = FALSE)
+
+    return(list(
+      data = consolidated_result$data,
+      wide_raw = transformed$wide_raw,
+      diagnostics = list(
+        reading_errors = read_pipeline_result$errors,
+        validation_errors = validation_errors,
+        warnings = consolidated_result$warnings
+      )
+    ))
+  }))
 }
 
 #' @title run import pipeline automatically

@@ -16,6 +16,10 @@
 identify_year_columns <- function(df, config) {
   assert_or_abort(checkmate::check_data_frame(df))
   assert_or_abort(checkmate::check_list(config, any.missing = FALSE))
+
+  if (!is.null(progressor)) {
+    assert_or_abort(checkmate::check_function(progressor))
+  }
   assert_or_abort(checkmate::check_character(
     config$column_order,
     any.missing = FALSE,
@@ -50,6 +54,10 @@ normalize_key_fields <- function(df, product_name, config) {
   assert_or_abort(checkmate::check_data_frame(df))
   assert_or_abort(checkmate::check_string(product_name, min.chars = 1))
   assert_or_abort(checkmate::check_list(config, any.missing = FALSE))
+
+  if (!is.null(progressor)) {
+    assert_or_abort(checkmate::check_function(progressor))
+  }
   assert_or_abort(checkmate::check_character(
     config$column_required,
     any.missing = FALSE,
@@ -88,6 +96,10 @@ normalize_key_fields <- function(df, product_name, config) {
 convert_year_columns <- function(df, config) {
   assert_or_abort(checkmate::check_data_frame(df))
   assert_or_abort(checkmate::check_list(config, any.missing = FALSE))
+
+  if (!is.null(progressor)) {
+    assert_or_abort(checkmate::check_function(progressor))
+  }
   assert_or_abort(checkmate::check_character(
     config$column_order,
     any.missing = FALSE,
@@ -126,6 +138,10 @@ convert_year_columns <- function(df, config) {
 reshape_to_long <- function(df, config) {
   assert_or_abort(checkmate::check_data_frame(df))
   assert_or_abort(checkmate::check_list(config, any.missing = FALSE))
+
+  if (!is.null(progressor)) {
+    assert_or_abort(checkmate::check_function(progressor))
+  }
   assert_or_abort(checkmate::check_character(
     config$column_id,
     any.missing = FALSE,
@@ -175,6 +191,10 @@ add_metadata <- function(fao_data_long_raw, file_name, yearbook, config) {
   assert_or_abort(checkmate::check_string(file_name, min.chars = 1))
   assert_or_abort(checkmate::check_string(yearbook, min.chars = 1))
   assert_or_abort(checkmate::check_list(config, any.missing = FALSE))
+
+  if (!is.null(progressor)) {
+    assert_or_abort(checkmate::check_function(progressor))
+  }
   assert_or_abort(checkmate::check_list(config$defaults, any.missing = FALSE))
   assert_or_abort(checkmate::check_character(config$defaults$notes_value, len = 1))
 
@@ -206,6 +226,10 @@ transform_file_dt <- function(df, file_name, yearbook, product_name, config) {
   assert_or_abort(checkmate::check_string(yearbook, min.chars = 1))
   assert_or_abort(checkmate::check_string(product_name, min.chars = 1))
   assert_or_abort(checkmate::check_list(config, any.missing = FALSE))
+
+  if (!is.null(progressor)) {
+    assert_or_abort(checkmate::check_function(progressor))
+  }
 
   df_norm <- df |>
     normalize_key_fields(product_name, config) |>
@@ -240,6 +264,10 @@ resolve_product_name <- function(file_row, config) {
     max.rows = 1
   ))
   assert_or_abort(checkmate::check_list(config, any.missing = FALSE))
+
+  if (!is.null(progressor)) {
+    assert_or_abort(checkmate::check_function(progressor))
+  }
 
   show_missing_product_metadata_warning <-
     !is.null(config$messages$show_missing_product_metadata_warning) &&
@@ -323,6 +351,10 @@ transform_single_file <- function(file_row, df_wide, config) {
   assert_or_abort(checkmate::check_data_frame(df_wide))
   assert_or_abort(checkmate::check_list(config, any.missing = FALSE))
 
+  if (!is.null(progressor)) {
+    assert_or_abort(checkmate::check_function(progressor))
+  }
+
   if (nrow(df_wide) == 0) {
     return(NULL)
   }
@@ -347,15 +379,22 @@ transform_single_file <- function(file_row, df_wide, config) {
 #' @param file_list_dt data frame or data table describing files.
 #' @param read_data_list list of data frames or data tables aligned to file rows.
 #' @param config named list with transform configuration.
+#' @param progressor optional `progressr::progressor()` function used to advance a
+#' shared import-pipeline progress bar. when `NULL`, no progress update is emitted
+#' by this function.
 #' @return list of transformed per-file results.
-#' @importFrom checkmate check_data_frame check_list
+#' @importFrom checkmate check_data_frame check_list check_function
 #' @importFrom purrr compact detect_index
 #' @examples
 #' # process_files(file_list_dt_example, read_data_list_example, config_example)
-process_files <- function(file_list_dt, read_data_list, config) {
+process_files <- function(file_list_dt, read_data_list, config, progressor = NULL) {
   assert_or_abort(checkmate::check_data_frame(file_list_dt))
   assert_or_abort(checkmate::check_list(read_data_list))
   assert_or_abort(checkmate::check_list(config, any.missing = FALSE))
+
+  if (!is.null(progressor)) {
+    assert_or_abort(checkmate::check_function(progressor))
+  }
 
   expected_items <- nrow(file_list_dt)
   provided_items <- length(read_data_list)
@@ -380,14 +419,21 @@ process_files <- function(file_list_dt, read_data_list, config) {
     ))
   }
 
-  results <- map_with_progress(
-    x = seq_len(expected_items),
-    .f = \(index) {
+  results <- purrr::map(
+    seq_len(expected_items),
+    \(index) {
       file_row <- file_list_dt[index, ]
       df_wide <- read_data_list[[index]]
-      transform_single_file(file_row, df_wide, config)
-    },
-    message_template = "import pipeline: processing file %s/%s"
+
+      if (!is.null(progressor)) {
+        progressor(sprintf(
+          "Import Pipeline Progress: transforming %s",
+          file_row$file_name
+        ))
+      }
+
+      return(transform_single_file(file_row, df_wide, config))
+    }
   ) |>
     purrr::compact()
 
@@ -401,8 +447,11 @@ process_files <- function(file_list_dt, read_data_list, config) {
 #' @param file_list_dt data frame or data table with file metadata rows.
 #' @param read_data_list list of per-file data frames or data tables.
 #' @param config named list with transform configuration.
+#' @param progressor optional `progressr::progressor()` function used to advance a
+#' shared import-pipeline progress bar. when `NULL`, no progress update is emitted
+#' by this function.
 #' @return named list with `wide_raw` and `long_raw` as data tables.
-#' @importFrom checkmate check_data_frame check_list
+#' @importFrom checkmate check_data_frame check_list check_function
 #' @importFrom cli cli_abort
 #' @importFrom data.table data.table rbindlist
 #' @importFrom purrr map
@@ -412,10 +461,14 @@ process_files <- function(file_list_dt, read_data_list, config) {
 #' read_data_list_example <- list()
 #' config_example <- list()
 #' transform_files_list(file_list_example, read_data_list_example, config_example)
-transform_files_list <- function(file_list_dt, read_data_list, config) {
+transform_files_list <- function(file_list_dt, read_data_list, config, progressor = NULL) {
   assert_or_abort(checkmate::check_data_frame(file_list_dt))
   assert_or_abort(checkmate::check_list(read_data_list))
   assert_or_abort(checkmate::check_list(config, any.missing = FALSE))
+
+  if (!is.null(progressor)) {
+    assert_or_abort(checkmate::check_function(progressor))
+  }
 
   if (nrow(file_list_dt) != length(read_data_list)) {
     cli::cli_abort("file list row count must match read data list length")
@@ -425,7 +478,7 @@ transform_files_list <- function(file_list_dt, read_data_list, config) {
     return(build_empty_transform_result())
   }
 
-  results <- process_files(file_list_dt, read_data_list, config)
+  results <- process_files(file_list_dt, read_data_list, config, progressor = progressor)
 
   if (length(results) == 0) {
     return(build_empty_transform_result())

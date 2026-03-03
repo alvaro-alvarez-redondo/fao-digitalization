@@ -182,6 +182,10 @@ read_excel_sheet <- function(file_path, sheet_name, config) {
   assert_or_abort(checkmate::check_string(sheet_name, min.chars = 1))
   assert_or_abort(checkmate::check_list(config, any.missing = FALSE))
 
+  if (!is.null(progressor)) {
+    assert_or_abort(checkmate::check_function(progressor))
+  }
+
   base_cols <- config$column_required
   assert_or_abort(checkmate::check_character(
     base_cols,
@@ -258,6 +262,10 @@ read_excel_sheet <- function(file_path, sheet_name, config) {
 read_file_sheets <- function(file_path, config) {
   assert_or_abort(checkmate::check_string(file_path, min.chars = 1))
   assert_or_abort(checkmate::check_list(config, any.missing = FALSE))
+
+  if (!is.null(progressor)) {
+    assert_or_abort(checkmate::check_function(progressor))
+  }
   assert_or_abort(checkmate::check_character(
     config$column_required,
     any.missing = FALSE,
@@ -315,15 +323,18 @@ read_file_sheets <- function(file_path, config) {
 #' column. can be empty.
 #' @param config named list containing `column_required` as a non-empty character
 #' vector of required base column names.
+#' @param progressor optional `progressr::progressor()` function used to advance a
+#' shared import-pipeline progress bar. when `NULL`, no progress update is emitted
+#' by this function.
 #' @return named list with `read_data_list` as a list of `data.table` objects and
 #' `errors` as a character vector.
-#' @importFrom checkmate check_character check_data_frame check_list check_names
+#' @importFrom checkmate check_character check_data_frame check_list check_names check_function
 #' @importFrom purrr map
 #' @examples
 #' file_list_example <- data.frame(file_path = character())
 #' config_example <- list(column_required = c("country", "year"))
 #' read_pipeline_files(file_list_example, config_example)
-read_pipeline_files <- function(file_list_dt, config) {
+read_pipeline_files <- function(file_list_dt, config, progressor = NULL) {
   assert_or_abort(checkmate::check_data_frame(file_list_dt, min.cols = 1))
   assert_or_abort(checkmate::check_names(
     names(file_list_dt),
@@ -336,6 +347,10 @@ read_pipeline_files <- function(file_list_dt, config) {
     null.ok = TRUE
   ))
   assert_or_abort(checkmate::check_list(config, any.missing = FALSE))
+
+  if (!is.null(progressor)) {
+    assert_or_abort(checkmate::check_function(progressor))
+  }
   assert_or_abort(checkmate::check_character(
     config$column_required,
     any.missing = FALSE,
@@ -346,16 +361,19 @@ read_pipeline_files <- function(file_list_dt, config) {
     return(list(read_data_list = list(), errors = character(0)))
   }
 
-  read_results <- map_with_progress(
-    x = file_list_dt$file_path,
-    .f = \(file_path) {
-      safe_execute_read(
+  read_results <- purrr::map(
+    file_list_dt$file_path,
+    \(file_path) {
+      if (!is.null(progressor)) {
+        progressor(sprintf("Import Pipeline Progress: reading %s", fs::path_file(file_path)))
+      }
+
+      return(safe_execute_read(
         operation = \() read_file_sheets(file_path, config),
         context_message = "failed to read pipeline file",
         file_path = file_path
-      )
-    },
-    message_template = "Import pipeline: reading file %s/%s"
+      ))
+    }
   )
 
   normalized_results <- purrr::map(read_results, normalize_pipeline_read_result)

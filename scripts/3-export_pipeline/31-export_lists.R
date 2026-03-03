@@ -108,19 +108,40 @@ build_layer_tables_by_sheet <- function(layer_tables) {
   checkmate::assert_list(layer_tables, names = "named")
 
   layer_order <- get_lists_sheet_order()
-  layer_by_sheet <- setNames(vector("list", length(layer_order)), layer_order)
 
-  for (sheet_name in layer_order) {
-    layer_by_sheet[[sheet_name]] <- data.table::data.table()
+  if (length(layer_tables) == 0) {
+    layer_by_sheet <- lapply(layer_order, function(sheet_name) {
+      data.table::data.table()
+    })
+    names(layer_by_sheet) <- layer_order
+
+    return(layer_by_sheet)
   }
 
-  for (object_name in names(layer_tables)) {
-    sheet_name <- infer_layer_sheet_name(object_name)
+  detected_sheet_names <- vapply(
+    names(layer_tables),
+    infer_layer_sheet_name,
+    character(1)
+  )
 
-    if (ncol(layer_by_sheet[[sheet_name]]) == 0L && nrow(layer_by_sheet[[sheet_name]]) == 0L) {
-      layer_by_sheet[[sheet_name]] <- data.table::as.data.table(layer_tables[[object_name]])
+  first_object_by_sheet <- tapply(
+    names(layer_tables),
+    detected_sheet_names,
+    function(object_names) object_names[[1]],
+    simplify = TRUE
+  )
+
+  layer_by_sheet <- lapply(layer_order, function(sheet_name) {
+    selected_object <- first_object_by_sheet[[sheet_name]]
+
+    if (is.null(selected_object) || is.na(selected_object)) {
+      return(data.table::data.table())
     }
-  }
+
+    return(data.table::as.data.table(layer_tables[[selected_object]]))
+  })
+
+  names(layer_by_sheet) <- layer_order
 
   return(layer_by_sheet)
 }
