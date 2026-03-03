@@ -19,6 +19,8 @@ run_pipeline <- function(
   show_view = interactive(),
   pipeline_root = here::here("scripts")
 ) {
+  assert_pipeline_runtime_dependencies()
+
   checkmate::assert_flag(show_view)
   checkmate::assert_string(pipeline_root, na.ok = FALSE, min.chars = 1)
 
@@ -45,6 +47,30 @@ run_pipeline <- function(
   return(invisible(TRUE))
 }
 
+#' @title Assert runtime package dependencies for pipeline orchestration
+#' @description Validates availability of required namespaces used by
+#'   `run_pipeline()` without attaching packages to the search path.
+#' @return Invisibly returns `TRUE` when all namespaces are available.
+#' @keywords internal
+assert_pipeline_runtime_dependencies <- function() {
+  required_namespaces <- c("checkmate", "cli", "here", "purrr")
+
+  missing_namespaces <- required_namespaces[
+    !vapply(required_namespaces, requireNamespace, logical(1), quietly = TRUE)
+  ]
+
+  if (length(missing_namespaces) > 0L) {
+    cli::cli_abort(
+      c(
+        "missing required pipeline dependencies.",
+        "x" = "install missing package(s): {.val {missing_namespaces}}"
+      )
+    )
+  }
+
+  return(invisible(TRUE))
+}
+
 #' @title Resolve pipeline script paths
 #' @description Builds ordered script paths for all pipeline stages.
 #' @param pipeline_root Character scalar existing directory.
@@ -52,6 +78,7 @@ run_pipeline <- function(
 #' @keywords internal
 resolve_pipeline_files <- function(pipeline_root) {
   checkmate::assert_string(pipeline_root, na.ok = FALSE, min.chars = 1)
+  checkmate::assert_directory_exists(pipeline_root)
 
   pipeline_files <- c(
     file.path(pipeline_root, "0-general_pipeline", "run_general_pipeline.R"),
@@ -108,12 +135,18 @@ maybe_view_pipeline_output <- function(show_view) {
       "fao_data_raw"
     )
 
-    available_object <- object_priority[vapply(
+    available_objects <- object_priority[vapply(
       object_priority,
       exists,
       logical(1),
       inherits = TRUE
-    )][1]
+    )]
+
+    available_object <- if (length(available_objects) > 0L) {
+      available_objects[[1L]]
+    } else {
+      NA_character_
+    }
 
     if (!is.na(available_object) && nzchar(available_object)) {
       utils::View(get(available_object, inherits = TRUE))

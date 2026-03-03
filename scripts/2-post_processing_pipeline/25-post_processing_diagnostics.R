@@ -113,15 +113,18 @@ assert_post_processing_preflight <- function(preflight_result) {
 }
 
 #' @title Build post-processing diagnostics summary
-#' @description Creates stage and rule-level summaries from clean and harmonize
-#' audit metadata.
+#' @description Creates stage and rule-level summaries from clean, standardize,
+#' and harmonize diagnostics metadata.
 #' @param clean_audit_dt Clean-stage audit table.
 #' @param harmonize_audit_dt Harmonize-stage audit table.
-#' @return Named list with `stage_summary` and `rule_summary` data.tables.
-#' @importFrom checkmate assert_data_frame
-build_post_processing_diagnostics <- function(clean_audit_dt, harmonize_audit_dt) {
+#' @param standardize_diagnostics Named diagnostics list for standardize layer.
+#' @return Named list with `stage_summary`, `rule_summary`, and
+#' `standardize_summary` data.tables.
+#' @importFrom checkmate assert_data_frame assert_list
+build_post_processing_diagnostics <- function(clean_audit_dt, harmonize_audit_dt, standardize_diagnostics = list()) {
   checkmate::assert_data_frame(clean_audit_dt, min.rows = 0)
   checkmate::assert_data_frame(harmonize_audit_dt, min.rows = 0)
+  checkmate::assert_list(standardize_diagnostics)
 
   combined_audit <- data.table::rbindlist(
     list(
@@ -132,27 +135,66 @@ build_post_processing_diagnostics <- function(clean_audit_dt, harmonize_audit_dt
     fill = TRUE
   )
 
-  if (nrow(combined_audit) == 0) {
-    return(list(
-      stage_summary = data.table::data.table(
-        execution_stage = character(),
-        matched_rows = integer(),
-        matched_rules = integer(),
-        rule_files = integer()
+  stage_summary <- if (nrow(combined_audit) == 0) {
+    data.table::data.table(
+      execution_stage = character(),
+      matched_rows = integer(),
+      unmatched_rows = integer(),
+      matched_rules = integer(),
+      rule_files = integer(),
+      potential_warnings = character()
+    )
+  } else {
+    combined_audit[
+      ,
+      .(
+        matched_rows = as.integer(sum(affected_rows)),
+        unmatched_rows = NA_integer_,
+        matched_rules = uniqueN(paste(column_source, value_source_raw, column_target, value_target_raw, sep = "|")),
+        rule_files = uniqueN(rule_file_identifier),
+        potential_warnings = ""
       ),
-      rule_summary = data.table::data.table()
-    ))
+      by = .(execution_stage)
+    ]
   }
 
-  stage_summary <- combined_audit[
-    ,
-    .(
-      matched_rows = as.integer(sum(affected_rows)),
-      matched_rules = uniqueN(paste(column_source, value_source_raw, column_target, value_target_raw, sep = "|")),
-      rule_files = uniqueN(rule_file_identifier)
-    ),
-    by = .(execution_stage)
-  ][order(execution_stage)]
+  `%||%` <- function(x, y) {
+    if (is.null(x)) y else x
+  }
+
+  standardized_layer <- standardize_diagnostics$standardize_units
+  standardize_summary <- if (is.list(standardized_layer) && length(standardized_layer) > 0L) {
+    data.table::data.table(
+      execution_stage = "standardize",
+      matched_rows = as.integer(standardized_layer$matched_count %||% 0L),
+      unmatched_rows = as.integer(standardized_layer$unmatched_count %||% 0L),
+      matched_rules = as.integer(standardized_layer$applied_rules %||% 0L),
+      rule_files = as.integer(length(unique(as.character(standardized_layer$rule_sources %||% character(0))))),
+      potential_warnings = if (!is.null(standardized_layer$potential_warnings)) {
+        paste(as.character(standardized_layer$potential_warnings), collapse = " | ")
+      } else {
+        ""
+      }
+    )
+  } else {
+    data.table::data.table(
+      execution_stage = "standardize",
+      matched_rows = 0L,
+      unmatched_rows = 0L,
+      matched_rules = 0L,
+      rule_files = 0L,
+      potential_warnings = ""
+    )
+  }
+
+  if (nrow(stage_summary) > 0L) {
+    stage_summary <- data.table::rbindlist(list(stage_summary, standardize_summary), use.names = TRUE, fill = TRUE)
+  } else {
+    stage_summary <- standardize_summary
+  }
+
+  stage_order <- c("clean", "standardize", "harmonize")
+  stage_summary <- stage_summary[order(match(execution_stage, stage_order))]
 
   rule_summary <- combined_audit[
     ,
@@ -168,14 +210,19 @@ build_post_processing_diagnostics <- function(clean_audit_dt, harmonize_audit_dt
     )
   ][order(execution_stage, rule_file_identifier, column_source, column_target)]
 
-  return(list(stage_summary = stage_summary, rule_summary = rule_summary))
+  return(list(
+    stage_summary = stage_summary,
+    rule_summary = rule_summary,
+    standardize_summary = standardize_summary
+  ))
 }
 
 #' @title Persist post-processing audit workbooks
 #' @description Writes deterministic single-sheet Excel outputs under
-#' `audit_root_dir/clean_harmonize_diagnostics` and overwrites them on each run.
+#' `audit_root_dir/post_processing_diagnostics` and overwrites them on each run.
 #' @param clean_audit_dt Clean-stage audit table.
 #' @param harmonize_audit_dt Harmonize-stage audit table.
+#' @param standardize_diagnostics Named diagnostics list for standardize layer.
 #' @param dataset_name Character scalar dataset name.
 #' @param execution_timestamp_utc Character scalar run timestamp (retained for backward compatibility).
 #' @param config Named configuration list.
@@ -185,17 +232,23 @@ build_post_processing_diagnostics <- function(clean_audit_dt, harmonize_audit_dt
 persist_post_processing_audit <- function(
   clean_audit_dt,
   harmonize_audit_dt,
+  standardize_diagnostics,
   dataset_name,
   execution_timestamp_utc,
   config
 ) {
   checkmate::assert_data_frame(clean_audit_dt, min.rows = 0)
   checkmate::assert_data_frame(harmonize_audit_dt, min.rows = 0)
+  checkmate::assert_list(standardize_diagnostics)
   checkmate::assert_string(dataset_name, min.chars = 1)
   checkmate::assert_string(execution_timestamp_utc, min.chars = 1)
   checkmate::assert_list(config, min.len = 1)
 
-  diagnostics <- build_post_processing_diagnostics(clean_audit_dt, harmonize_audit_dt)
+  diagnostics <- build_post_processing_diagnostics(
+    clean_audit_dt = clean_audit_dt,
+    harmonize_audit_dt = harmonize_audit_dt,
+    standardize_diagnostics = standardize_diagnostics
+  )
 
   audit_paths <- initialize_post_processing_audit_root(config)
   diagnostics_dir <- audit_paths$diagnostics_dir
@@ -205,7 +258,8 @@ persist_post_processing_audit <- function(
     clean_audit = fs::path(diagnostics_dir, paste0("post_processing_audit_", dataset_name, "_clean.xlsx")),
     harmonize_audit = fs::path(diagnostics_dir, paste0("post_processing_audit_", dataset_name, "_harmonize.xlsx")),
     stage_summary = fs::path(diagnostics_dir, paste0("post_processing_audit_", dataset_name, "_stage_summary.xlsx")),
-    rule_summary = fs::path(diagnostics_dir, paste0("post_processing_audit_", dataset_name, "_rule_summary.xlsx"))
+    rule_summary = fs::path(diagnostics_dir, paste0("post_processing_audit_", dataset_name, "_rule_summary.xlsx")),
+    standardize_diagnostics = fs::path(diagnostics_dir, paste0("post_processing_audit_", dataset_name, "_standardize_diagnostics.xlsx"))
   )
 
   write_single_sheet_workbook <- function(sheet_name, sheet_data, output_path) {
@@ -236,6 +290,11 @@ persist_post_processing_audit <- function(
     sheet_name = "rule_summary",
     sheet_data = diagnostics$rule_summary,
     output_path = output_paths[["rule_summary"]]
+  )
+  write_single_sheet_workbook(
+    sheet_name = "standardize_diagnostics",
+    sheet_data = diagnostics$standardize_summary,
+    output_path = output_paths[["standardize_diagnostics"]]
   )
 
   return(output_paths)

@@ -107,6 +107,7 @@ load_pipeline_config <- function(dataset_name = "fao_data_raw", ...) {
       imports = list(
         raw = raw_imports_dir,
         cleaning = build_path("data", "1-import", "clean_imports"),
+        standardization = build_path("data", "1-import", "standardize_imports"),
         harmonization = build_path("data", "1-import", "harmonize_imports")
       ),
       exports = list(
@@ -123,6 +124,10 @@ load_pipeline_config <- function(dataset_name = "fao_data_raw", ...) {
       )
     )
   )
+
+  import_directories <- unlist(paths$data$imports, use.names = FALSE)
+  fs::dir_create(import_directories, recurse = TRUE)
+  purrr::walk(import_directories, checkmate::assert_directory_exists)
 
   files <- list(
     raw_data = "fao_data_raw.xlsx",
@@ -234,6 +239,10 @@ load_pipeline_config <- function(dataset_name = "fao_data_raw", ...) {
 
   checkmate::assert_string(
     config$paths$data$imports$raw,
+    min.chars = 1
+  )
+  checkmate::assert_string(
+    config$paths$data$imports$standardization,
     min.chars = 1
   )
   checkmate::assert_string(

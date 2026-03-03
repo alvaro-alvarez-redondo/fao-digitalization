@@ -61,7 +61,7 @@ get_post_processing_audit_paths <- function(config) {
 
   audit_root_dir <- config$paths$data$audit$audit_root_dir
 
-  diagnostics_dir <- fs::path(audit_root_dir, "clean_harmonize_diagnostics")
+  diagnostics_dir <- fs::path(audit_root_dir, "post_processing_diagnostics")
 
   return(list(
     audit_root_dir = audit_root_dir,
