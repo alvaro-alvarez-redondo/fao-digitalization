@@ -317,13 +317,16 @@ normalize_rule_values_for_validation <- function(
   na_placeholder = "..NA_INTERNAL.."
 ) {
   checkmate::assert_data_frame(rules_dt, min.rows = 0)
-  validated_stage_name <- validate_post_processing_stage_name(stage_name)
+  validate_post_processing_stage_name(stage_name)
   checkmate::assert_string(na_placeholder, min.chars = 1)
 
-  target_value_column <- get_stage_target_value_column(validated_stage_name)
-
   allowed_na_columns <- intersect(
-    c("value_source_raw", "value_target_raw", target_value_column),
+    c(
+      "value_source_raw",
+      "value_target_raw",
+      "value_target_clean",
+      "value_target_harmonize"
+    ),
     colnames(rules_dt)
   )
 

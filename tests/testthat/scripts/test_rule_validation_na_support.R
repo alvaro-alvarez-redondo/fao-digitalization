@@ -83,3 +83,28 @@ testthat::test_that("apply_conditional_rule_group matches NA keys deterministica
   testthat::expect_equal(result$data$unit[[2]], "kg")
   testthat::expect_equal(result$audit$affected_rows[[1]], 1L)
 })
+
+
+testthat::test_that("validate_canonical_rules allows NA in value columns for harmonize stage", {
+  dataset_dt <- data.table::data.table(
+    product = c("Wheat", "Rice"),
+    variable = c("Prod", "Prod")
+  )
+
+  rules_dt <- data.table::data.table(
+    column_source = c("product", "product"),
+    value_source_raw = c(NA_character_, "Rice"),
+    column_target = c("variable", "variable"),
+    value_target_raw = c(NA_character_, "Prod"),
+    value_target_harmonize = c(NA_character_, "Production")
+  )
+
+  testthat::expect_invisible(
+    validate_canonical_rules(
+      rules_dt = rules_dt,
+      dataset_dt = dataset_dt,
+      rule_file_id = "harmonize_rules_template.xlsx",
+      stage_name = "harmonize"
+    )
+  )
+})
