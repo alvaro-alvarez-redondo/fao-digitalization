@@ -143,6 +143,7 @@ get_required_object_or_null <- function(object_name, env) {
 #' @param dataset_name Character scalar dataset identifier.
 #' @return Post-processed `data.table` with `pipeline_diagnostics` attribute.
 #' @importFrom checkmate assert_data_frame assert_list assert_string
+#' @importFrom progressr with_progress progressor
 run_post_processing_pipeline_batch <- function(
   raw_dt,
   config,
@@ -152,80 +153,96 @@ run_post_processing_pipeline_batch <- function(
   checkmate::assert_list(config, min.len = 1)
   checkmate::assert_string(dataset_name, min.chars = 1)
 
-  audited_raw_dt <- audit_data_output(
-    dataset_dt = raw_dt,
-    config = config
-  )
+  total_steps <- 8
 
-  audit_paths <- initialize_post_processing_audit_root(config)
+  return(progressr::with_progress({
+    progress <- progressr::progressor(steps = total_steps)
 
-  template_paths <- generate_post_processing_rule_templates(
-    config = config,
-    overwrite = TRUE
-  )
-
-  preflight_result <- collect_post_processing_preflight(
-    config = config,
-    dataset_columns = colnames(audited_raw_dt),
-    expected_columns = colnames(audited_raw_dt)
-  )
-  assert_post_processing_preflight(preflight_result)
-
-  execution_timestamp_utc <- format(
-    Sys.time(),
-    "%Y-%m-%dT%H:%M:%SZ",
-    tz = "UTC"
-  )
-
-  cleaned_dt <- run_cleaning_layer_batch(
-    dataset_dt = audited_raw_dt,
-    config = config,
-    dataset_name = dataset_name
-  )
-
-  normalized_dt <- run_units_standardization_stage(
-    cleaned_dt = cleaned_dt,
-    config = config
-  )
-
-  harmonized_dt <- run_harmonize_layer_batch(
-    dataset_dt = normalized_dt,
-    config = config,
-    dataset_name = dataset_name
-  )
-
-  clean_audit <- attr(cleaned_dt, "layer_audit")
-  harmonize_audit <- attr(harmonized_dt, "layer_audit")
-
-  audit_output_path <- persist_post_processing_audit(
-    clean_audit_dt = clean_audit,
-    harmonize_audit_dt = harmonize_audit,
-    standardize_diagnostics = attr(normalized_dt, "layer_diagnostics"),
-    dataset_name = dataset_name,
-    execution_timestamp_utc = execution_timestamp_utc,
-    config = config
-  )
-
-  diagnostics <- list(
-    clean = attr(cleaned_dt, "layer_diagnostics"),
-    standardize_units = attr(normalized_dt, "layer_diagnostics"),
-    harmonize = attr(harmonized_dt, "layer_diagnostics"),
-    outputs = list(
-      audit_output_path = audit_output_path,
-      audit_root_dir = audit_paths$audit_root_dir,
-      diagnostics_dir = audit_paths$diagnostics_dir,
-      templates_dir = audit_paths$templates_dir,
-      clean_template_path = template_paths[["clean"]],
-      harmonize_template_path = template_paths[["harmonize"]],
-      data_audit_output_path = config$paths$data$audit$audit_file_path
+    progress("Post-Processing Pipeline Progress: auditing raw data")
+    audited_raw_dt <- audit_data_output(
+      dataset_dt = raw_dt,
+      config = config
     )
-  )
 
-  attr(harmonized_dt, "pipeline_diagnostics") <- diagnostics
-  attr(harmonized_dt, "stage_cleaned") <- cleaned_dt
-  attr(harmonized_dt, "stage_normalized") <- normalized_dt
+    progress("Post-Processing Pipeline Progress: initializing audit directories")
+    audit_paths <- initialize_post_processing_audit_root(config)
 
-  return(harmonized_dt)
+    progress("Post-Processing Pipeline Progress: generating rule templates")
+    template_paths <- generate_post_processing_rule_templates(
+      config = config,
+      overwrite = TRUE
+    )
+
+    progress("Post-Processing Pipeline Progress: collecting preflight checks")
+    preflight_result <- collect_post_processing_preflight(
+      config = config,
+      dataset_columns = colnames(audited_raw_dt),
+      expected_columns = colnames(audited_raw_dt)
+    )
+
+    progress("Post-Processing Pipeline Progress: asserting preflight checks")
+    assert_post_processing_preflight(preflight_result)
+
+    execution_timestamp_utc <- format(
+      Sys.time(),
+      "%Y-%m-%dT%H:%M:%SZ",
+      tz = "UTC"
+    )
+
+    progress("Post-Processing Pipeline Progress: running clean layer")
+    cleaned_dt <- run_cleaning_layer_batch(
+      dataset_dt = audited_raw_dt,
+      config = config,
+      dataset_name = dataset_name
+    )
+
+    progress("Post-Processing Pipeline Progress: running standardize layer")
+    normalized_dt <- run_units_standardization_stage(
+      cleaned_dt = cleaned_dt,
+      config = config
+    )
+
+    progress("Post-Processing Pipeline Progress: running harmonize layer")
+    harmonized_dt <- run_harmonize_layer_batch(
+      dataset_dt = normalized_dt,
+      config = config,
+      dataset_name = dataset_name
+    )
+
+    clean_audit <- attr(cleaned_dt, "layer_audit")
+    harmonize_audit <- attr(harmonized_dt, "layer_audit")
+
+    progress("Post-Processing Pipeline Progress: persisting diagnostics")
+    audit_output_path <- persist_post_processing_audit(
+      clean_audit_dt = clean_audit,
+      harmonize_audit_dt = harmonize_audit,
+      standardize_diagnostics = attr(normalized_dt, "layer_diagnostics"),
+      dataset_name = dataset_name,
+      execution_timestamp_utc = execution_timestamp_utc,
+      config = config
+    )
+
+    diagnostics <- list(
+      clean = attr(cleaned_dt, "layer_diagnostics"),
+      standardize_units = attr(normalized_dt, "layer_diagnostics"),
+      harmonize = attr(harmonized_dt, "layer_diagnostics"),
+      outputs = list(
+        audit_output_path = audit_output_path,
+        audit_root_dir = audit_paths$audit_root_dir,
+        diagnostics_dir = audit_paths$diagnostics_dir,
+        templates_dir = audit_paths$templates_dir,
+        clean_template_path = template_paths[["clean"]],
+        harmonize_template_path = template_paths[["harmonize"]],
+        data_audit_output_path = config$paths$data$audit$audit_file_path
+      )
+    )
+
+    attr(harmonized_dt, "pipeline_diagnostics") <- diagnostics
+    attr(harmonized_dt, "stage_cleaned") <- cleaned_dt
+    attr(harmonized_dt, "stage_normalized") <- normalized_dt
+
+    return(harmonized_dt)
+  }))
 }
 
 # backward-compatible alias
