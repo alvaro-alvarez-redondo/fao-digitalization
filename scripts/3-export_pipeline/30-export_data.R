@@ -110,6 +110,10 @@ collect_layer_tables_for_export <- function(
     return(candidate_tables[[1L]])
   })
 
+  canonical_table_list <- canonical_table_list[
+    !grepl("_post_processed$", names(canonical_table_list))
+  ]
+
   ordered_names <- sort(names(canonical_table_list))
   canonical_table_list <- canonical_table_list[ordered_names]
 
