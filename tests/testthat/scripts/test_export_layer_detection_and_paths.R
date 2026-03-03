@@ -68,7 +68,6 @@ testthat::test_that("build_layer_tables_by_sheet enforces fixed sheet keys", {
 
   by_sheet <- build_layer_tables_by_sheet(layer_tables)
 
-  testthat::expect_identical(names(by_sheet), c("raw", "clean", "standardize", "harmonize"))
+  testthat::expect_identical(names(by_sheet), c("raw", "clean", "harmonize"))
   testthat::expect_true(nrow(by_sheet$clean) == 0)
-  testthat::expect_true(nrow(by_sheet$standardize) == 0)
 })

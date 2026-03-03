@@ -31,6 +31,116 @@ testthat::test_that("build_column_unique_cache returns empty vectors for missing
   cache <- build_column_unique_cache(layer_by_sheet, union_columns)
 
   testthat::expect_true(length(cache$clean$country) == 0)
-  testthat::expect_true(length(cache$standardize$country) == 0)
   testthat::expect_setequal(cache$raw$country, c("a", "b"))
+})
+
+testthat::test_that("export_lists excludes standardized sheet and value workbook", {
+  lists_dir <- tempfile("lists-export-")
+
+  config <- list(
+    paths = list(
+      data = list(
+        exports = list(
+          lists = lists_dir
+        )
+      )
+    )
+  )
+
+  data_objects <- list(
+    demo_raw = data.table::data.table(country = c("a", "b"), value = c("1", "2")),
+    demo_cleaned = data.table::data.table(country = c("a", "b"), value = c("1", "2")),
+    demo_normalized = data.table::data.table(country = c("a", "b"), value = c("1", "2")),
+    demo_harmonized = data.table::data.table(country = c("a", "b"), value = c("1", "2"))
+  )
+
+  output_paths <- export_lists(
+    config = config,
+    data_objects = data_objects,
+    overwrite = TRUE,
+    env = new.env(parent = emptyenv())
+  )
+
+  testthat::expect_true("country" %in% names(output_paths))
+  testthat::expect_false("value" %in% names(output_paths))
+
+  workbook_sheets <- openxlsx::getSheetNames(output_paths[["country"]])
+  testthat::expect_false("standardize" %in% workbook_sheets)
+})
+
+testthat::test_that("write_column_lists_workbook writes clean_harmonize for equal tables", {
+  lists_dir <- tempfile("lists-equal-")
+
+  config <- list(
+    paths = list(
+      data = list(
+        exports = list(
+          lists = lists_dir
+        )
+      )
+    )
+  )
+
+  unique_cache <- list(
+    raw = list(country = c("a", "b")),
+    clean = list(country = c("c", "d")),
+    harmonize = list(country = c("c", "d"))
+  )
+
+  workbook_path <- write_column_lists_workbook(
+    column_name = "country",
+    unique_cache = unique_cache,
+    config = config,
+    overwrite = TRUE
+  )
+
+  workbook_sheets <- openxlsx::getSheetNames(workbook_path)
+
+  testthat::expect_setequal(workbook_sheets, c("raw", "clean_harmonize"))
+  testthat::expect_false("clean" %in% workbook_sheets)
+  testthat::expect_false("harmonize" %in% workbook_sheets)
+})
+
+testthat::test_that("write_column_lists_workbook writes clean and harmonize for different tables", {
+  lists_dir <- tempfile("lists-different-")
+
+  config <- list(
+    paths = list(
+      data = list(
+        exports = list(
+          lists = lists_dir
+        )
+      )
+    )
+  )
+
+  unique_cache <- list(
+    raw = list(country = c("a", "b")),
+    clean = list(country = c("c", "d")),
+    harmonize = list(country = c("c", "e"))
+  )
+
+  workbook_path <- write_column_lists_workbook(
+    column_name = "country",
+    unique_cache = unique_cache,
+    config = config,
+    overwrite = TRUE
+  )
+
+  workbook_sheets <- openxlsx::getSheetNames(workbook_path)
+
+  testthat::expect_setequal(workbook_sheets, c("raw", "clean", "harmonize"))
+  testthat::expect_false("clean_harmonize" %in% workbook_sheets)
+})
+
+testthat::test_that("clean/harmonize comparison ignores row and column order differences", {
+  clean_dt <- data.table::data.table(value = c("x", "y", "z"), code = c("1", "2", "3"))
+  harmonize_dt <- data.table::data.table(code = c("3", "1", "2"), value = c("z", "x", "y"))
+
+  is_identical <- are_clean_harmonize_tables_identical(
+    clean_values_dt = clean_dt,
+    harmonize_values_dt = harmonize_dt
+  )
+
+  testthat::expect_true(is_identical)
 })

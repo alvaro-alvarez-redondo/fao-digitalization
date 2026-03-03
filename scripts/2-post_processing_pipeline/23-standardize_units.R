@@ -236,17 +236,19 @@ validate_conversion_rules <- function(conversion_dt) {
     cli::cli_abort("conversion addend values must be finite")
   }
 
-  keyed_rules <- data.table::copy(conversion_dt)
-  keyed_rules[, product_key := normalize_string(product)]
-  keyed_rules[, source_unit_key := normalize_string(source_unit)]
-  keyed_rules[, target_unit_key := normalize_string(target_unit)]
+  source_pairs <- unique(data.table::data.table(
+    product_key = normalize_string(conversion_dt$product),
+    unit_key = normalize_string(conversion_dt$source_unit)
+  ))
+  target_pairs <- unique(data.table::data.table(
+    product_key = normalize_string(conversion_dt$product),
+    unit_key = normalize_string(conversion_dt$target_unit)
+  ))
 
-  chained_rules <- merge(
-    keyed_rules[, .(product_key, source_unit_key)],
-    keyed_rules[, .(product_key, target_unit_key)],
-    by.x = c("product_key", "source_unit_key"),
-    by.y = c("product_key", "target_unit_key")
-  )
+  data.table::setkey(source_pairs, product_key, unit_key)
+  data.table::setkey(target_pairs, product_key, unit_key)
+
+  chained_rules <- source_pairs[target_pairs, nomatch = 0L]
 
   if (nrow(chained_rules) > 0L) {
     cli::cli_abort(
@@ -330,21 +332,19 @@ apply_standardize_rules <- function(
     )
   }
 
+  unit_keys <- normalize_string(normalized_dt[[unit_column]])
+
   if (nrow(prepared_rules_dt) == 0L) {
     normalized_dt[, (value_column) := numeric_values]
 
     return(list(
       data = normalized_dt,
       matched_count = 0L,
-      unmatched_count = as.integer(sum(
-        !is.na(normalize_string(normalized_dt[[unit_column]])) &
-          nzchar(normalize_string(normalized_dt[[unit_column]]))
-      ))
+      unmatched_count = as.integer(sum(!is.na(unit_keys) & nzchar(unit_keys)))
     ))
   }
 
   product_keys <- normalize_string(normalized_dt[[product_column]])
-  unit_keys <- normalize_string(normalized_dt[[unit_column]])
 
   join_input <- data.table::data.table(
     product_key = product_keys,

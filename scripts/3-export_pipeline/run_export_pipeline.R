@@ -2,6 +2,11 @@
 # description: source export components and run deterministic per-layer exports
 # for processed data and lists workbooks.
 
+if (!exists("get_pipeline_constants", mode = "function", inherits = TRUE)) {
+  source(here::here("scripts", "0-general_pipeline", "01-setup.R"), echo = FALSE)
+}
+
+
 export_scripts <- c(
   "30-export_data.R",
   "31-export_lists.R"
@@ -98,6 +103,21 @@ assert_export_paths_contract <- function(export_result) {
   return(invisible(TRUE))
 }
 
+export_scripts <- c(
+  "30-export_data.R",
+  "31-export_lists.R"
+)
+
+purrr::walk(
+  export_scripts,
+  \(script_name) {
+    source(
+      here::here("scripts", "3-export_pipeline", script_name),
+      echo = FALSE
+    )
+  }
+)
+
 #' @title Run export pipeline automatically
 #' @description Executes `run_export_pipeline()` when automatic mode is enabled.
 #' @param auto_run Logical scalar controlling automatic execution.
@@ -108,6 +128,8 @@ assert_export_paths_contract <- function(export_result) {
 run_export_pipeline_auto <- function(auto_run, env = .GlobalEnv) {
   checkmate::assert_flag(auto_run)
   checkmate::assert_environment(env)
+
+  pipeline_constants <- get_pipeline_constants()
 
   if (!isTRUE(auto_run)) {
     return(invisible(NULL))
@@ -127,11 +149,22 @@ run_export_pipeline_auto <- function(auto_run, env = .GlobalEnv) {
     env = env
   )
 
-  assign("export_paths", export_paths, envir = env)
+  assignment_helper <- pipeline_constants$helper_requirements$assignment_helper
+
+  if (!exists(assignment_helper, mode = "function", inherits = TRUE)) {
+    cli::cli_abort(
+      "missing shared helper {.fn {assignment_helper}}; source {.file {pipeline_constants$helper_requirements$assignment_helper_source}}"
+    )
+  }
+
+  assignment_values <- list(export_paths)
+  names(assignment_values) <- pipeline_constants$object_names$export_paths
+
+  assign_environment_values(values = assignment_values, env = env)
 
   return(invisible(export_paths))
 }
 
 run_export_pipeline_auto(
-  auto_run = isTRUE(getOption("fao.run_export_pipeline.auto", TRUE))
+  auto_run = isTRUE(getOption(get_pipeline_constants()$auto_run_options$export, TRUE))
 )

@@ -5,9 +5,9 @@
 #' @title Get fixed layer sheet order for lists exports
 #' @description Returns deterministic sheet order for column-centric list
 #' exports.
-#' @return Character vector: `raw`, `clean`, `standardize`, `harmonize`.
+#' @return Character vector: `raw`, `clean`, `harmonize`.
 get_lists_sheet_order <- function() {
-  return(c("raw", "clean", "standardize", "harmonize"))
+  return(c("raw", "clean", "harmonize"))
 }
 
 #' @title Map object name to layer sheet label
@@ -99,7 +99,7 @@ compute_unique_column_values <- function(data_dt, column_name) {
 
 #' @title Build layer tables keyed by sheet names
 #' @description Creates deterministic layer table map keyed by
-#' `raw/clean/standardize/harmonize`, filling missing layers with empty tables.
+#' `raw/clean/harmonize`, filling missing layers with empty tables.
 #' @param layer_tables Named list of detected layer data tables.
 #' @return Named list of data.tables keyed by sheet name.
 #' @importFrom checkmate assert_list
@@ -165,6 +165,48 @@ collect_union_columns <- function(layer_by_sheet) {
   return(union_columns)
 }
 
+#' @title Normalize table for strict deterministic comparison
+#' @description Aligns column names, column order, and row order so strict
+#' `identical()` comparison can be applied deterministically.
+#' @param data_dt Data table for normalization.
+#' @return Normalized data.table.
+#' @importFrom checkmate assert_data_table
+normalize_table_for_comparison <- function(data_dt) {
+  checkmate::assert_data_table(data_dt)
+
+  normalized_dt <- data.table::copy(data_dt)
+  normalized_columns <- sort(names(normalized_dt))
+
+  if (length(normalized_columns) == 0L) {
+    return(normalized_dt)
+  }
+
+  data.table::setcolorder(normalized_dt, normalized_columns)
+  data.table::setorderv(normalized_dt, normalized_columns, na.last = TRUE)
+
+  return(normalized_dt)
+}
+
+#' @title Compare clean and harmonize unique-value tables deterministically
+#' @description Returns `TRUE` when clean and harmonize tables are strictly
+#' equal after deterministic normalization of column order and row order.
+#' @param clean_values_dt Data table for clean values.
+#' @param harmonize_values_dt Data table for harmonize values.
+#' @return Logical scalar.
+#' @importFrom checkmate assert_data_table
+are_clean_harmonize_tables_identical <- function(
+  clean_values_dt,
+  harmonize_values_dt
+) {
+  checkmate::assert_data_table(clean_values_dt)
+  checkmate::assert_data_table(harmonize_values_dt)
+
+  normalized_clean <- normalize_table_for_comparison(clean_values_dt)
+  normalized_harmonize <- normalize_table_for_comparison(harmonize_values_dt)
+
+  return(identical(normalized_clean, normalized_harmonize))
+}
+
 #' @title Build unique-values cache by layer and column
 #' @description Precomputes unique values for every `(layer, column)` pair.
 #' @param layer_by_sheet Named list of layer tables by sheet label.
@@ -189,8 +231,9 @@ build_column_unique_cache <- function(layer_by_sheet, union_columns) {
 }
 
 #' @title Write one column-centric lists workbook
-#' @description Writes one workbook per column with fixed ordered sheets:
-#' `raw`, `clean`, `standardize`, `harmonize`.
+#' @description Writes one workbook per column with deterministic sheet logic:
+#' always `raw`; `clean` and `harmonize` are written separately when they
+#' differ, otherwise a single `clean_harmonize` sheet is written.
 #' @param column_name Character scalar column name.
 #' @param unique_cache Named cache from `build_column_unique_cache()`.
 #' @param config Named configuration list.
@@ -216,19 +259,36 @@ write_column_lists_workbook <- function(
   )
 
   workbook <- openxlsx::createWorkbook()
-  sheet_order <- get_lists_sheet_order()
 
-  for (sheet_name in sheet_order) {
-    values <- unique_cache[[sheet_name]][[column_name]]
+  raw_values <- unique_cache$raw[[column_name]]
+  clean_values <- unique_cache$clean[[column_name]]
+  harmonize_values <- unique_cache$harmonize[[column_name]]
 
-    if (is.null(values)) {
-      values <- character(0)
-    }
+  if (is.null(raw_values)) {
+    raw_values <- character(0)
+  }
+  if (is.null(clean_values)) {
+    clean_values <- character(0)
+  }
+  if (is.null(harmonize_values)) {
+    harmonize_values <- character(0)
+  }
 
-    values_dt <- data.table::data.table(value = values)
+  raw_values_dt <- data.table::data.table(value = raw_values)
+  clean_values_dt <- data.table::data.table(value = clean_values)
+  harmonize_values_dt <- data.table::data.table(value = harmonize_values)
 
-    openxlsx::addWorksheet(workbook, sheet_name)
-    openxlsx::writeData(workbook, sheet_name, values_dt)
+  openxlsx::addWorksheet(workbook, "raw")
+  openxlsx::writeData(workbook, "raw", raw_values_dt)
+
+  if (are_clean_harmonize_tables_identical(clean_values_dt, harmonize_values_dt)) {
+    openxlsx::addWorksheet(workbook, "clean_harmonize")
+    openxlsx::writeData(workbook, "clean_harmonize", clean_values_dt)
+  } else {
+    openxlsx::addWorksheet(workbook, "clean")
+    openxlsx::writeData(workbook, "clean", clean_values_dt)
+    openxlsx::addWorksheet(workbook, "harmonize")
+    openxlsx::writeData(workbook, "harmonize", harmonize_values_dt)
   }
 
   openxlsx::saveWorkbook(workbook, workbook_path, overwrite = overwrite)
@@ -238,8 +298,9 @@ write_column_lists_workbook <- function(
 
 #' @title Export column-centric lists workbooks
 #' @description Exports one workbook per column. Each workbook contains fixed
-#' ordered layer sheets (`raw`, `clean`, `standardize`, `harmonize`) with
-#' sorted unique values for that column per layer.
+#' deterministic layer sheet outputs: always `raw`, plus either a merged
+#' `clean_harmonize` sheet or separate `clean` and `harmonize` sheets.
+#' The `value` column workbook is excluded from list exports.
 #' @param config Named configuration list.
 #' @param data_objects Optional named list of data.frame/data.table objects.
 #' @param overwrite Logical scalar overwrite flag.
@@ -276,8 +337,10 @@ export_lists <- function(
     union_columns = union_columns
   )
 
+  export_columns <- union_columns[union_columns != "value"]
+
   output_paths <- setNames(
-    lapply(union_columns, function(column_name) {
+    lapply(export_columns, function(column_name) {
       write_column_lists_workbook(
         column_name = column_name,
         unique_cache = unique_cache,
@@ -285,7 +348,7 @@ export_lists <- function(
         overwrite = overwrite
       )
     }),
-    union_columns
+    export_columns
   )
 
   return(unlist(output_paths, use.names = TRUE))
