@@ -42,7 +42,6 @@ canonicalize_layer_object_name <- function(object_name) {
   canonical_name <- sub("_clean$", "_cleaned", canonical_name)
   canonical_name <- sub("_harmonize$", "_harmonized", canonical_name)
   canonical_name <- sub("_standardize$", "_normalized", canonical_name)
-  canonical_name <- sub("_post_processed$", "_normalized", canonical_name)
 
   return(canonical_name)
 }
@@ -62,7 +61,7 @@ canonicalize_layer_object_name <- function(object_name) {
 collect_layer_tables_for_export <- function(
   data_objects = NULL,
   env = .GlobalEnv,
-  layer_suffixes = c("raw", "cleaned", "normalized", "harmonized", "post_processed", "clean", "standardize", "harmonize")
+  layer_suffixes = c("raw", "cleaned", "normalized", "harmonized", "clean", "standardize", "harmonize")
 ) {
   checkmate::assert_environment(env)
   checkmate::assert_character(layer_suffixes, min.len = 1, any.missing = FALSE)
@@ -72,6 +71,7 @@ collect_layer_tables_for_export <- function(
   if (is.null(data_objects)) {
     candidate_names <- ls(envir = env, all.names = TRUE)
     candidate_names <- candidate_names[grepl(layer_pattern, candidate_names)]
+    candidate_names <- candidate_names[!grepl("_post_processed$", candidate_names)]
 
     detected_tables <- purrr::keep(
       setNames(lapply(candidate_names, get, envir = env, inherits = TRUE), candidate_names),
@@ -83,7 +83,8 @@ collect_layer_tables_for_export <- function(
     object_names <- names(data_objects)
     valid_name_mask <- !is.na(object_names) &
       nzchar(object_names) &
-      grepl(layer_pattern, object_names)
+      grepl(layer_pattern, object_names) &
+      !grepl("_post_processed$", object_names)
 
     detected_tables <- data_objects[valid_name_mask]
     detected_tables <- purrr::keep(detected_tables, is.data.frame)
@@ -104,13 +105,7 @@ collect_layer_tables_for_export <- function(
   canonical_table_list <- split(detected_tables, canonical_names)
 
   canonical_table_list <- lapply(canonical_table_list, function(candidate_tables) {
-    preferred_index <- which(!grepl("_post_processed$", names(candidate_tables)))[1]
-
-    if (is.na(preferred_index)) {
-      preferred_index <- 1L
-    }
-
-    candidate_tables[[preferred_index]]
+    return(candidate_tables[[1L]])
   })
 
   ordered_names <- sort(names(canonical_table_list))

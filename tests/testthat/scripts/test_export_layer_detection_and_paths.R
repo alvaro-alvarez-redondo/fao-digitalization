@@ -41,11 +41,12 @@ testthat::test_that("build export paths follow required naming conventions", {
 })
 
 
-testthat::test_that("collect_layer_tables_for_export canonicalizes legacy layer names", {
+testthat::test_that("collect_layer_tables_for_export canonicalizes legacy names and drops post_processed", {
   env <- new.env(parent = emptyenv())
   env$fao_data_raw <- data.frame(a = 1:2)
   env$fao_data_clean <- data.frame(a = 1:2)
   env$fao_data_harmonize <- data.frame(a = 1:2)
+  env$fao_data_standardize <- data.frame(a = 1:2)
   env$fao_data_post_processed <- data.frame(a = 1:2)
 
   layer_tables <- collect_layer_tables_for_export(data_objects = NULL, env = env)
@@ -54,4 +55,5 @@ testthat::test_that("collect_layer_tables_for_export canonicalizes legacy layer 
     names(layer_tables),
     c("fao_data_raw", "fao_data_cleaned", "fao_data_harmonized", "fao_data_normalized")
   )
+  testthat::expect_false("fao_data_post_processed" %in% names(layer_tables))
 })
