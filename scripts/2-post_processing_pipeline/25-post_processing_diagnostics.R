@@ -135,6 +135,28 @@ build_post_processing_diagnostics <- function(clean_audit_dt, harmonize_audit_dt
     fill = TRUE
   )
 
+
+  required_audit_columns <- c(
+    "execution_stage",
+    "rule_file_identifier",
+    "column_source",
+    "value_source_raw",
+    "column_target",
+    "value_target_raw",
+    "value_target_clean",
+    "affected_rows"
+  )
+
+  missing_audit_columns <- setdiff(required_audit_columns, names(combined_audit))
+  if (length(missing_audit_columns) > 0L) {
+    for (column_name in missing_audit_columns) {
+      combined_audit[, (column_name) := NA_character_]
+    }
+  }
+
+  combined_audit[, affected_rows := suppressWarnings(as.integer(affected_rows))]
+  combined_audit[is.na(affected_rows), affected_rows := 0L]
+
   stage_summary <- if (nrow(combined_audit) == 0) {
     data.table::data.table(
       execution_stage = character(),
@@ -196,19 +218,32 @@ build_post_processing_diagnostics <- function(clean_audit_dt, harmonize_audit_dt
   stage_order <- c("clean", "standardize", "harmonize")
   stage_summary <- stage_summary[order(match(execution_stage, stage_order))]
 
-  rule_summary <- combined_audit[
-    ,
-    .(affected_rows = as.integer(sum(affected_rows))),
-    by = .(
-      execution_stage,
-      rule_file_identifier,
-      column_source,
-      value_source_raw,
-      column_target,
-      value_target_raw,
-      value_target_clean
+  rule_summary <- if (nrow(combined_audit) == 0L) {
+    data.table::data.table(
+      execution_stage = character(),
+      rule_file_identifier = character(),
+      column_source = character(),
+      value_source_raw = character(),
+      column_target = character(),
+      value_target_raw = character(),
+      value_target_clean = character(),
+      affected_rows = integer()
     )
-  ][order(execution_stage, rule_file_identifier, column_source, column_target)]
+  } else {
+    combined_audit[
+      ,
+      .(affected_rows = as.integer(sum(affected_rows))),
+      by = .(
+        execution_stage,
+        rule_file_identifier,
+        column_source,
+        value_source_raw,
+        column_target,
+        value_target_raw,
+        value_target_clean
+      )
+    ][order(execution_stage, rule_file_identifier, column_source, column_target)]
+  }
 
   return(list(
     stage_summary = stage_summary,
