@@ -62,6 +62,10 @@ resolve_units_standardization_runner <- function() {
     return(get("run_standardize_units_layer_batch", mode = "function", inherits = TRUE))
   }
 
+  if (exists("run_number_standardization_layer_batch", mode = "function", inherits = TRUE)) {
+    return(get("run_number_standardization_layer_batch", mode = "function", inherits = TRUE))
+  }
+
   if (exists("run_number_standarization_layer_batch", mode = "function", inherits = TRUE)) {
     return(get("run_number_standarization_layer_batch", mode = "function", inherits = TRUE))
   }
@@ -71,7 +75,7 @@ resolve_units_standardization_runner <- function() {
   }
 
   cli::cli_abort(
-    "No units standarization runner found. Expected {.fn run_standardize_units_layer_batch}, {.fn run_number_standarization_layer_batch}, or {.fn run_number_harmonization_layer_batch}."
+    "No units standardization runner found. Expected {.fn run_standardize_units_layer_batch}, {.fn run_number_standardization_layer_batch}, {.fn run_number_standarization_layer_batch}, or {.fn run_number_harmonization_layer_batch}."
   )
 }
 
@@ -194,6 +198,7 @@ run_post_processing_pipeline_batch <- function(
   audit_output_path <- persist_post_processing_audit(
     clean_audit_dt = clean_audit,
     harmonize_audit_dt = harmonize_audit,
+    standardize_diagnostics = attr(normalized_dt, "layer_diagnostics"),
     dataset_name = dataset_name,
     execution_timestamp_utc = execution_timestamp_utc,
     config = config
@@ -249,6 +254,7 @@ run_standardize_units_data <- function(cleaned_dt, config) {
 persist_stage_audit_workbook <- function(
   clean_audit_dt,
   harmonize_audit_dt,
+  standardize_diagnostics = list(),
   dataset_name,
   execution_timestamp_utc,
   config
@@ -256,6 +262,7 @@ persist_stage_audit_workbook <- function(
   return(persist_post_processing_audit(
     clean_audit_dt = clean_audit_dt,
     harmonize_audit_dt = harmonize_audit_dt,
+    standardize_diagnostics = standardize_diagnostics,
     dataset_name = dataset_name,
     execution_timestamp_utc = execution_timestamp_utc,
     config = config

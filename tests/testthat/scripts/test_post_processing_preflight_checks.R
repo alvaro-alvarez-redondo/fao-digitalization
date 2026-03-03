@@ -2,14 +2,14 @@ testthat::test_that("preflight flags invalid file naming patterns", {
   root_dir <- tempfile("fao-preflight-")
   dir.create(root_dir, recursive = TRUE)
 
-  cleaning_dir <- file.path(root_dir, "data", "1-import", "clean_imports")
-  harmonization_dir <- file.path(root_dir, "data", "1-import", "harmonize_imports")
+  cleaning_dir <- file.path(root_dir, "data", "1-import", "11-clean_imports")
+  harmonization_dir <- file.path(root_dir, "data", "1-import", "13-harmonize_imports")
   audit_root_dir <- file.path(root_dir, "data", "2-post_processing")
 
   dir.create(cleaning_dir, recursive = TRUE)
   dir.create(harmonization_dir, recursive = TRUE)
   dir.create(file.path(audit_root_dir, "templates"), recursive = TRUE)
-  dir.create(file.path(audit_root_dir, "clean_harmonize_diagnostics"), recursive = TRUE)
+  dir.create(file.path(audit_root_dir, "post_processing_diagnostics"), recursive = TRUE)
 
   file.create(file.path(cleaning_dir, "bad_clean_name.xlsx"))
   file.create(file.path(harmonization_dir, "bad_harmonize_name.xlsx"))
@@ -41,14 +41,14 @@ testthat::test_that("preflight detects column convention mismatch", {
   root_dir <- tempfile("fao-preflight-")
   dir.create(root_dir, recursive = TRUE)
 
-  cleaning_dir <- file.path(root_dir, "data", "1-import", "clean_imports")
-  harmonization_dir <- file.path(root_dir, "data", "1-import", "harmonize_imports")
+  cleaning_dir <- file.path(root_dir, "data", "1-import", "11-clean_imports")
+  harmonization_dir <- file.path(root_dir, "data", "1-import", "13-harmonize_imports")
   audit_root_dir <- file.path(root_dir, "data", "2-post_processing")
 
   dir.create(cleaning_dir, recursive = TRUE)
   dir.create(harmonization_dir, recursive = TRUE)
   dir.create(file.path(audit_root_dir, "templates"), recursive = TRUE)
-  dir.create(file.path(audit_root_dir, "clean_harmonize_diagnostics"), recursive = TRUE)
+  dir.create(file.path(audit_root_dir, "post_processing_diagnostics"), recursive = TRUE)
 
   file.create(file.path(cleaning_dir, "clean_rules.xlsx"))
   file.create(file.path(harmonization_dir, "harmonize_rules.xlsx"))

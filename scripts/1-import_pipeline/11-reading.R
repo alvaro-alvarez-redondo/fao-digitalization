@@ -135,8 +135,8 @@ normalize_pipeline_read_result <- function(read_result) {
 
 #' @title Compute keep-row mask for required base columns
 #' @description Computes a logical vector selecting rows where at least one
-#' required base column is non-missing and non-empty, without materializing a
-#' matrix copy of the subset.
+#' required base column is non-missing and non-empty using a vectorized
+#' matrix evaluation over selected base columns.
 #' @param read_dt data.frame or data.table containing required columns.
 #' @param base_cols character vector of required base column names.
 #' @return logical vector with one element per row in `read_dt`.
@@ -151,12 +151,10 @@ compute_non_empty_base_rows <- function(read_dt, base_cols) {
     min.len = 1
   ))
 
-  non_empty_by_column <- purrr::map(base_cols, function(base_col) {
-    column_values <- read_dt[[base_col]]
-    !is.na(column_values) & trimws(column_values) != ""
-  })
+  base_subset_dt <- data.table::as.data.table(read_dt)[, ..base_cols]
+  non_empty_matrix <- !is.na(base_subset_dt) & trimws(as.matrix(base_subset_dt)) != ""
 
-  keep_row <- Reduce(`|`, non_empty_by_column, init = rep(FALSE, nrow(read_dt)))
+  keep_row <- rowSums(non_empty_matrix) > 0L
 
   return(keep_row)
 }
@@ -178,7 +176,7 @@ compute_non_empty_base_rows <- function(read_dt, base_cols) {
 #' @importFrom cli format_warning
 #' @examples
 #' config_example <- list(column_required = c("country", "year"))
-#' # read_excel_sheet("1-import/raw_imports/example.xlsx", "sheet1", config_example)
+#' # read_excel_sheet("1-import/10-raw_imports/example.xlsx", "sheet1", config_example)
 read_excel_sheet <- function(file_path, sheet_name, config) {
   assert_or_abort(checkmate::check_string(file_path, min.chars = 1))
   assert_or_abort(checkmate::check_string(sheet_name, min.chars = 1))
@@ -256,7 +254,7 @@ read_excel_sheet <- function(file_path, sheet_name, config) {
 #' @importFrom cli format_warning
 #' @examples
 #' config_example <- list(column_required = c("country", "year"))
-#' # read_file_sheets("1-import/raw_imports/example.xlsx", config_example)
+#' # read_file_sheets("1-import/10-raw_imports/example.xlsx", config_example)
 read_file_sheets <- function(file_path, config) {
   assert_or_abort(checkmate::check_string(file_path, min.chars = 1))
   assert_or_abort(checkmate::check_list(config, any.missing = FALSE))
