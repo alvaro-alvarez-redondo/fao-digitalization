@@ -4,50 +4,47 @@
 
 FAO Digitalization Pipeline
 
-## 2. Short Technical Description
+## 2. Technical Description
 
-This repository implements a script-oriented R data pipeline for ingestion, transformation, validation, post-processing (cleaning and harmonization), audit artifact generation, and export of FAO workbook data. Execution is stage-based and orchestrated through `scripts/run_pipeline.R`.
+This repository is a script-oriented R pipeline that processes FAO source workbooks through deterministic stages:
 
-## 3. Installation
+1. General bootstrap (dependency checks, configuration construction, directory preparation)
+2. Import (file discovery, read, transformation, validation)
+3. Post-processing (audit, cleaning, unit standardization, harmonization)
+4. Export (processed layer workbooks and unique-list outputs)
 
-### 3.1 Prerequisites
+Execution is orchestrated by `scripts/run_pipeline.R`, which sources stage runners in fixed order.
+
+## 3. Installation (renv enforced)
+
+### Prerequisites
 
 - R >= 4.1
 - `renv`
 
-### 3.2 Project-local environment bootstrap with `renv`
+### Setup
 
 ```r
 install.packages("renv")
 renv::init(bare = TRUE)
 renv::install(c(
   "checkmate", "cli", "data.table", "dplyr", "fs", "here", "openxlsx",
-  "progressr", "purrr", "readr", "readxl", "renv", "stringi", "stringr",
-  "tibble", "tidyr", "tidyselect", "testthat", "withr"
+  "progressr", "purrr", "readr", "readxl", "stringi", "stringr",
+  "testthat", "withr"
 ))
-```
-
-### 3.3 Development install workflow
-
-```r
-renv::activate()
-# this repository is script-first; source scripts directly for development
-source(here::here("scripts", "run_pipeline.R"), local = TRUE)
+renv::snapshot()
 ```
 
 ## 4. Dependency Management
 
-- Runtime dependencies are centralized in `scripts/0-general_pipeline/00-dependencies.R` (`required_packages`, `check_dependencies()`, `load_dependencies()`).
-- Dependency auditing is available via:
-  - `collect_namespaced_dependencies()`
-  - `audit_dependency_registry()`
-- Dependency installation is designed to run via `renv::install()` under project-local environments.
-- Current repository state has no `DESCRIPTION`/`NAMESPACE` package manifest and no `renv.lock`; dependency governance is script-driven.
+- Runtime dependencies and load/check helpers are defined in `scripts/0-general_pipeline/00-dependencies.R`.
+- Project setup constants and configuration constructors are defined in `scripts/0-general_pipeline/01-setup.R`.
+- Shared helpers are defined in `scripts/0-general_pipeline/02-helpers.R`.
+- Dependency installation and version locking are expected to be managed via `renv`.
 
-## 5. Quick Start Example
+## 5. Quick Start (deterministic example)
 
 ```r
-# deterministic invocation from repository root
 source(here::here("scripts", "run_pipeline.R"), local = TRUE)
 
 options(
@@ -64,131 +61,107 @@ run_pipeline(
 )
 ```
 
-## 6. Core API Overview
+## 6. Exported API Overview
 
-### Top-level orchestration
+Primary API exposed via `scripts/run_pipeline.R`:
 
-- `run_pipeline(show_view = interactive(), pipeline_root = here::here("scripts"))`: Runs all stages in order.
+- `run_pipeline(show_view = interactive(), pipeline_root = here::here("scripts"))`
 
-### General stage
+Core stage entry points used by the orchestrator:
 
-- `run_general_pipeline(dataset_name = "fao_data_raw")`: Loads dependencies and config.
-- `load_pipeline_config(dataset_name = "fao_data_raw", ...)`: Builds deterministic path/config structure.
+- `run_general_pipeline(dataset_name = get_pipeline_constants()$dataset_default_name)`
+- `run_import_pipeline(config)`
+- `run_post_processing_pipeline_batch(raw_dt, config, dataset_name, unit_column, value_column, product_column)`
+- `run_export_pipeline(config, data_objects = NULL, overwrite = TRUE, env = .GlobalEnv)`
 
-### Import stage
+Auto-run wrappers:
 
-- `run_import_pipeline(config)`: Discovers, reads, transforms, validates import files.
-- `run_import_pipeline_auto(auto_run, env = .GlobalEnv)`: Conditional environment-driven auto-run.
+- `run_import_pipeline_auto(auto_run, env = .GlobalEnv)`
+- `run_post_processing_pipeline_auto(auto_run, env = .GlobalEnv)`
+- `run_export_pipeline_auto(auto_run, env = .GlobalEnv)`
 
-### Post-processing stage
+Contract helpers:
 
-- `run_post_processing_pipeline_batch(raw_dt, config, unit_column, value_column, product_column)`: Executes audit, cleaning, taxonomy harmonization, unit harmonization.
-- `run_post_processing_pipeline_auto(auto_run, env = .GlobalEnv)`: Conditional environment-driven auto-run.
-
-### Export stage
-
-- `run_export_pipeline(fao_data_raw, config, overwrite = TRUE)`: Exports processed dataset and unique-list workbook.
-- `run_export_pipeline_auto(auto_run, env = .GlobalEnv)`: Conditional environment-driven auto-run.
-
-### Audit and contracts
-
-- `audit_data_output(dataset_dt, config)`: Produces audit findings, mirror artifacts, and parsed output.
-- `run_master_validation(dataset_dt, audit_columns_by_type, selected_validations = NULL)`: Validator dispatch for audit findings.
-- `assert_transform_result_contract(transform_result)`: Enforces stable import transform output schema.
-- `assert_export_paths_contract(export_result)`: Enforces stable export output schema.
+- `assert_transform_result_contract(transform_result)`
+- `assert_export_paths_contract(export_result)`
 
 ## 7. Architecture Overview
 
-### Repository layout
-
-- `scripts/0-general_pipeline/`: Dependency checks, setup, shared helpers, general bootstrap.
-- `scripts/1-import_pipeline/`: File discovery, reading, transformation, validation, import output assembly.
-- `scripts/2-post_processing_pipeline/`: Audit, cleaning, categorical harmonization, numeric unit harmonization, stage orchestration.
-- `scripts/3-export_pipeline/`: Data export and unique-list export.
-- `scripts/run_pipeline.R`: Global stage orchestrator.
-- `tests/testthat/scripts/`: Stage-scoped and cross-stage tests.
-
-### Separation of concerns
-
-- Orchestration scripts coordinate stage execution and diagnostics wiring.
-- Stage scripts hold business logic and schema validation.
-- Utility scripts centralize helper behaviors (rule IO, schema checks, diagnostics builders).
-
-### Validation strategy
-
-- Primary validation uses `checkmate` assertions/checks at function boundaries.
-- Runtime messaging and fail-fast errors use `cli`.
-- Contract helpers enforce stable list/data-table outputs in critical stage boundaries.
+- `scripts/0-general_pipeline/`
+  - `00-dependencies.R`: dependency registry/check/load
+  - `01-setup.R`: constants and configuration
+  - `02-helpers.R`: shared utility functions
+  - `run_general_pipeline.R`: stage bootstrap
+- `scripts/1-import_pipeline/`: file IO, reading, transforms, validation, import runner
+- `scripts/2-post_processing_pipeline/`: audit, clean, standardize units, harmonize, diagnostics, post-processing runner
+- `scripts/3-export_pipeline/`: processed-data and unique-list exporters, export runner
+- `scripts/run_pipeline.R`: global orchestrator
+- `tests/testthat/scripts/`: deterministic `testthat` suites
 
 ## 8. Engineering Standards
 
-- **R version requirement**: R >= 4.1.
-- **Pipe standard**: Native pipe `|>` only.
-- **Naming policy**: snake_case for functions and variables.
-- **Validation policy**: `checkmate` assertions/checks on external inputs and schema-sensitive internals.
-- **Messaging policy**: `cli::cli_warn()`, `cli::cli_alert_info()`, `cli::cli_abort()` for user-facing diagnostics.
-- **Documentation policy**: function-level roxygen2 blocks in scripts.
-- **Testing policy**: deterministic `testthat` tests with explicit edge-case and contract checks.
+- Native pipe `|>`
+- Snake case naming
+- `<-` assignment
+- Explicit `return()` in functions
+- Input validation through `checkmate`
+- Structured diagnostics/errors through `cli`
+- Function-level roxygen documentation in script files
+- Deterministic stage ordering and deterministic output contracts
 
-## 9. Performance Notes
+## 9. Performance Notes (if benchmarks exist)
 
-No benchmark artifacts or benchmark scripts are currently committed in the repository. Performance improvements in pipeline scripts are implemented via vectorized `data.table` joins and reducer-based stage application patterns.
+No committed benchmark artifacts are present. Current optimizations are implemented in code paths (for example, keyed `data.table` joins and minimized repeated normalization in unit-standardization functions).
 
 ## 10. Reproducibility & Determinism
 
-- Reproducibility is designed around `renv` project-local environments.
-- A `renv.lock` file is not currently present; strict version pinning is therefore not fully enforced.
-- Deterministic behavior is emphasized through:
-  - explicit schema contracts,
-  - deterministic stage ordering,
-  - no stochastic transformations in stage logic.
-- No seeded randomness policy is required by current pipeline logic because no random operations are used.
+- Deterministic execution order is fixed by the orchestrator.
+- Centralized constants (`get_pipeline_constants()`) reduce hard-coded drift across stages.
+- Data contracts are enforced with explicit assertions.
+- Pipeline behavior is designed to be deterministic for identical inputs and options.
 
 ## 11. Testing & Coverage
 
-### Test execution
+Run all tests:
 
 ```r
 source(here::here("tests", "testthat", "test_all.r"), echo = FALSE)
 ```
 
-or:
+Run test directory directly:
 
 ```r
 testthat::test_dir(here::here("tests", "testthat", "scripts"), reporter = "summary")
 ```
 
-### Coverage status
+Coverage notes:
 
-- Test suites cover general, import, post-processing, export, and pipeline-runner compatibility paths.
-- Formal numeric coverage reports are not committed (no `covr` artifact present).
+- Tests include layer detection, post-processing rule handling, schema contracts, compatibility aliases, and pipeline path validation.
+- Formal coverage report artifacts are not committed in this repository.
 
-## 12. CI/CD Status
+## 12. CI/CD
 
-- No CI workflow configuration is currently committed (`.github/workflows` not present).
-- Recommended baseline: add a CI pipeline running `renv::restore()` and `testthat::test_dir()` on each pull request.
+No CI workflow configuration is currently committed under `.github/workflows`.
+
+Recommended baseline CI pipeline:
+
+1. Restore environment with `renv`
+2. Execute `testthat` suite
+3. Fail on any non-zero test result
 
 ## 13. Backward Compatibility Policy
 
-- Stage-runner signatures should remain stable unless a breaking change is explicitly documented.
-- Contract helpers should be used to preserve expected list/data-table output structures.
-- Recommended semantic versioning policy for future package-style evolution:
-  - patch: non-breaking fixes,
-  - minor: backward-compatible additions,
-  - major: breaking changes.
-- Deprecation lifecycle recommendation:
-  1. introduce wrapper with warning,
-  2. retain compatibility for at least one minor cycle,
-  3. remove in next major release.
+- Preserve function signatures and return schemas for existing stage runners and wrappers.
+- Maintain compatibility aliases when renaming symbols.
+- When incompatible changes are unavoidable, provide wrappers and deprecation path before removal.
 
-## 14. Contributing Guidelines
+## 14. Contributing
 
-- Keep changes scoped to a single stage when possible.
-- Preserve deterministic behavior and explicit validation.
-- Add/adjust tests alongside code changes, including contract tests for stage boundaries.
-- Use native pipe, snake_case naming, explicit `return()`, and `checkmate`/`cli` conventions.
-- Avoid introducing hidden side effects in non-orchestration functions.
+- Keep changes scoped and deterministic.
+- Update/add tests with every behavior or contract change.
+- Reuse centralized constants from `01-setup.R` for options, script names, and object names.
+- Avoid introducing implicit global-state dependencies outside orchestration entry points.
 
 ## 15. License
 
-No license file is currently present in this repository. Add a `LICENSE` file to define usage and distribution terms.
+No license file is currently present in the repository. Add a `LICENSE` file to define usage and redistribution terms.

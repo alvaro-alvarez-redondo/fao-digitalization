@@ -1,3 +1,7 @@
+if (!exists("get_pipeline_constants", mode = "function", inherits = TRUE)) {
+  source(here::here("scripts", "0-general_pipeline", "01-setup.R"), echo = FALSE)
+}
+
 #' @title Run full project pipeline
 #' @description Runs the general, import, post-processing, and export pipeline
 #'   scripts in deterministic sequence.
@@ -80,15 +84,14 @@ resolve_pipeline_files <- function(pipeline_root) {
   checkmate::assert_string(pipeline_root, na.ok = FALSE, min.chars = 1)
   checkmate::assert_directory_exists(pipeline_root)
 
+  pipeline_constants <- get_pipeline_constants()
+  stage_runner_names <- pipeline_constants$script_names$pipeline_stage_runners
+
   pipeline_files <- c(
-    file.path(pipeline_root, "0-general_pipeline", "run_general_pipeline.R"),
-    file.path(pipeline_root, "1-import_pipeline", "run_import_pipeline.R"),
-    file.path(
-      pipeline_root,
-      "2-post_processing_pipeline",
-      "run_post_processing_pipeline.R"
-    ),
-    file.path(pipeline_root, "3-export_pipeline", "run_export_pipeline.R")
+    file.path(pipeline_root, "0-general_pipeline", stage_runner_names[[1L]]),
+    file.path(pipeline_root, "1-import_pipeline", stage_runner_names[[2L]]),
+    file.path(pipeline_root, "2-post_processing_pipeline", stage_runner_names[[3L]]),
+    file.path(pipeline_root, "3-export_pipeline", stage_runner_names[[4L]])
   )
 
   return(pipeline_files)
@@ -128,11 +131,12 @@ maybe_view_pipeline_output <- function(show_view) {
   checkmate::assert_flag(show_view)
 
   if (show_view) {
+    pipeline_constants <- get_pipeline_constants()
     object_priority <- c(
-      "fao_data_harmonized",
-      "fao_data_normalized",
-      "fao_data_cleaned",
-      "fao_data_raw"
+      pipeline_constants$object_names$harmonized,
+      pipeline_constants$object_names$normalized,
+      pipeline_constants$object_names$cleaned,
+      pipeline_constants$object_names$raw
     )
 
     available_objects <- object_priority[vapply(
@@ -156,6 +160,6 @@ maybe_view_pipeline_output <- function(show_view) {
   return(invisible(TRUE))
 }
 
-if (isTRUE(getOption("fao.run_pipeline.auto", TRUE))) {
+if (isTRUE(getOption(get_pipeline_constants()$auto_run_options$pipeline, TRUE))) {
   run_pipeline()
 }

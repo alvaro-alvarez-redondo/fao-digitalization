@@ -3,6 +3,11 @@
 # dependencies are installed and loaded, then builds configuration and creates
 # required directories.
 
+if (!exists("get_pipeline_constants", mode = "function", inherits = TRUE)) {
+  source(here::here("scripts", "0-general_pipeline", "01-setup.R"), echo = FALSE)
+}
+
+
 #' @title source general scripts
 #' @description validates a character vector of script names, resolves each
 #' script path from `scripts/0-general_pipeline`, validates file existence, sources
@@ -46,13 +51,10 @@ source_general_scripts <- function(script_names) {
 #' @examples
 #' config <- run_general_pipeline("fao_data_raw")
 #' names(config)
-run_general_pipeline <- function(dataset_name = "fao_data_raw") {
+run_general_pipeline <- function(dataset_name = get_pipeline_constants()$dataset_default_name) {
   checkmate::assert_string(dataset_name, min.chars = 1)
-  general_scripts <- c(
-    "00-dependencies.R",
-    "01-setup.R",
-    "02-helpers.R"
-  )
+  pipeline_constants <- get_pipeline_constants()
+  general_scripts <- pipeline_constants$script_names$general
 
   total_steps <- 5
 
@@ -85,6 +87,8 @@ run_general_pipeline <- function(dataset_name = "fao_data_raw") {
   return(config)
 }
 
-if (isTRUE(getOption("fao.run_general_pipeline.auto", TRUE))) {
+pipeline_constants <- get_pipeline_constants()
+
+if (isTRUE(getOption(pipeline_constants$auto_run_options$general, TRUE))) {
   config <- run_general_pipeline()
 }

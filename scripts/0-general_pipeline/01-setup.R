@@ -7,6 +7,53 @@ options(
   scipen = 999
 )
 
+
+#' @title Get centralized pipeline constants
+#' @description Returns deterministic hard-coded constants used across pipeline
+#' scripts, including option keys, script names, object names, and message
+#' literals.
+#' @return Named list of centralized constants.
+#' @examples
+#' constants <- get_pipeline_constants()
+#' names(constants)
+get_pipeline_constants <- function() {
+  return(list(
+    dataset_default_name = "fao_data_raw",
+    auto_run_options = list(
+      pipeline = "fao.run_pipeline.auto",
+      general = "fao.run_general_pipeline.auto",
+      import = "fao.run_import_pipeline.auto",
+      post_processing = "fao.run_post_processing_pipeline.auto",
+      post_processing_legacy = "fao.run_clean_harmonize_pipeline.auto",
+      export = "fao.run_export_pipeline.auto"
+    ),
+    script_names = list(
+      general = c("00-dependencies.R", "01-setup.R", "02-helpers.R"),
+      pipeline_stage_runners = c(
+        "run_general_pipeline.R",
+        "run_import_pipeline.R",
+        "run_post_processing_pipeline.R",
+        "run_export_pipeline.R"
+      )
+    ),
+    object_names = list(
+      raw = "fao_data_raw",
+      wide_raw = "fao_data_wide_raw",
+      cleaned = "fao_data_cleaned",
+      normalized = "fao_data_normalized",
+      harmonized = "fao_data_harmonized",
+      export_paths = "export_paths",
+      collected_reading_errors = "collected_reading_errors",
+      collected_errors = "collected_errors",
+      collected_warnings = "collected_warnings"
+    ),
+    helper_requirements = list(
+      assignment_helper = "assign_environment_values",
+      assignment_helper_source = "scripts/0-general_pipeline/02-helpers.R"
+    )
+  ))
+}
+
 #' @title load pipeline config
 #' @description builds and returns a deterministic configuration object for the
 #' pipeline, including project-root-relative paths, file names, semantic column
@@ -35,7 +82,7 @@ options(
 #' @examples
 #' config <- load_pipeline_config("fao_data_raw")
 #' names(config)
-load_pipeline_config <- function(dataset_name = "fao_data_raw", ...) {
+load_pipeline_config <- function(dataset_name = get_pipeline_constants()$dataset_default_name, ...) {
   optional_args <- list(...)
 
   inferred_dataset_name <- NULL
@@ -65,7 +112,7 @@ load_pipeline_config <- function(dataset_name = "fao_data_raw", ...) {
     is.null(resolved_dataset_name) ||
       !nzchar(trimws(as.character(resolved_dataset_name)))
   ) {
-    resolved_dataset_name <- "fao_data_raw"
+    resolved_dataset_name <- get_pipeline_constants()$dataset_default_name
   }
 
   checkmate::assert_string(resolved_dataset_name, min.chars = 1)

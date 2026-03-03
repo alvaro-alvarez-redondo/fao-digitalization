@@ -2,6 +2,10 @@
 # description: load clean-stage rule files and execute vectorized conditional
 # harmonization via shared post-processing engine.
 
+if (!exists("get_pipeline_constants", mode = "function", inherits = TRUE)) {
+  source(here::here("scripts", "0-general_pipeline", "01-setup.R"), echo = FALSE)
+}
+
 #' @title Load cleaning rule payloads
 #' @description Discovers cleaning rule files and returns deterministic payloads.
 #' @param config Named configuration list.
@@ -26,7 +30,7 @@ load_cleaning_rule_payloads <- function(config) {
 run_cleaning_layer_batch <- function(
   dataset_dt,
   config,
-  dataset_name = "fao_data_raw"
+  dataset_name = get_pipeline_constants()$dataset_default_name
 ) {
   checkmate::assert_data_frame(dataset_dt, min.rows = 0)
   checkmate::assert_list(config, min.len = 1)
