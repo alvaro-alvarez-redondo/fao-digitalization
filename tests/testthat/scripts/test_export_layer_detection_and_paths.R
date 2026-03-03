@@ -39,7 +39,7 @@ testthat::test_that("build export paths follow required naming conventions", {
   column_lists_path <- build_column_lists_export_path(config, "country")
 
   testthat::expect_match(basename(processed_path), "^dataset_clean\\.xlsx$")
-  testthat::expect_match(basename(column_lists_path), "^country\\.xlsx$")
+  testthat::expect_match(basename(column_lists_path), "^unique_country_list\\.xlsx$")
 })
 
 

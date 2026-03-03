@@ -45,7 +45,7 @@ infer_layer_sheet_name <- function(object_name) {
 #' workbook path.
 #' @param config Named configuration list.
 #' @param column_name Character scalar column name.
-#' @return Character scalar path ending with `.xlsx`.
+#' @return Character scalar path ending with `_list.xlsx`.
 #' @importFrom checkmate assert_list assert_string
 #' @importFrom fs dir_create path
 build_column_lists_export_path <- function(config, column_name) {
@@ -61,7 +61,10 @@ build_column_lists_export_path <- function(config, column_name) {
   lists_dir <- here::here(lists_dir)
   fs::dir_create(lists_dir, recurse = TRUE)
 
-  return(fs::path(lists_dir, paste0(normalize_filename(column_name), ".xlsx")))
+  return(fs::path(
+    lists_dir,
+    paste0("unique_", normalize_filename(column_name), "_list.xlsx")
+  ))
 }
 
 #' @title Compute sorted unique values for one column
