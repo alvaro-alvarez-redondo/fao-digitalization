@@ -1,102 +1,40 @@
 # script: 31-export_lists.r
-# description: export unique values from selected columns into excel list outputs.
+# description: export per-table unique-value lists into deterministic list
+# workbooks.
 
-#' @title validate export lists config
-#' @description validate the nested configuration required by list-export helpers.
-#' @param config named list expected to contain a named `export_config` sub-list
-#' with `lists_to_export` and `lists_workbook_name` fields.
-#' @return invisible `TRUE` when configuration is valid.
-#' @importFrom checkmate check_list check_character check_string
-validate_export_lists_config <- function(config) {
-  assert_or_abort(checkmate::check_list(config, names = "named"))
-  assert_or_abort(checkmate::check_list(config$export_config, names = "named"))
-  assert_or_abort(checkmate::check_character(
-    config$export_config$lists_to_export,
-    min.len = 1,
-    any.missing = FALSE
+#' @title Build lists export path for an object
+#' @description Resolves the lists export directory from config, ensures the
+#' directory exists, and returns an object-name-based lists workbook path.
+#' @param config Named configuration list with `paths$data$exports$lists`.
+#' @param object_name Character scalar object name.
+#' @return Character scalar path ending with `_lists.xlsx`.
+#' @importFrom checkmate assert_list assert_string
+#' @importFrom fs dir_create path
+build_lists_export_path <- function(config, object_name) {
+  checkmate::assert_list(config, min.len = 1)
+  checkmate::assert_string(object_name, min.chars = 1)
+
+  lists_dir <- get_config_string(
+    config = config,
+    path = c("paths", "data", "exports", "lists"),
+    field_name = "config$paths$data$exports$lists"
+  )
+
+  lists_dir <- here::here(lists_dir)
+  fs::dir_create(lists_dir, recurse = TRUE)
+
+  return(fs::path(
+    lists_dir,
+    paste0(normalize_filename(object_name), "_lists.xlsx")
   ))
-  assert_or_abort(checkmate::check_string(
-    config$export_config$lists_workbook_name,
-    min.chars = 1
-  ))
-
-  return(invisible(TRUE))
 }
 
-#' @title get unique column values
-#' @description extract, de-duplicate, and sort values from a selected column in
-#' a data frame.
-#' @param df data frame containing the source records; validated with
-#' `checkmate::check_data_frame(min.rows = 1)`.
-#' @param col_name single character string naming an existing column in df;
-#' validated with `checkmate::check_string(min.chars = 1)` and a membership
-#' check against available column names.
-#' @return atomic vector containing sorted unique values from the selected
-#' column.
-#' @importFrom checkmate check_data_frame check_string check_choice
-#' @examples
-#' data_example <- data.frame(country = c("argentina", "brazil", "argentina"))
-#' get_unique_column(data_example, "country")
-get_unique_column <- function(df, col_name) {
-  assert_or_abort(checkmate::check_data_frame(df, min.rows = 1))
-  assert_or_abort(checkmate::check_string(col_name, min.chars = 1))
-
-  data_dt <- ensure_data_table(df)
-  assert_or_abort(checkmate::check_choice(col_name, choices = colnames(data_dt)))
-
-  return(sort(unique(data_dt[[col_name]])))
-}
-
-#' @title export single column list
-#' @description export sorted unique values from one selected column to an excel
-#' file and return the output path.
-#' @param df data frame containing the source records; validated with
-#' `checkmate::check_data_frame(min.rows = 1)`.
-#' @param col_name single character string naming an existing column in df;
-#' validated with `checkmate::check_string(min.chars = 1)`.
-#' @param config named list with export configuration values required by
-#' `generate_export_path()`, validated with
-#' `checkmate::check_list(names = "named")`.
-#' @param overwrite logical flag indicating whether an existing file should be
-#' replaced; validated with `checkmate::check_flag()`.
-#' @return character scalar containing the generated file path for the exported
-#' excel file.
-#' @importFrom checkmate check_data_frame check_string check_list check_flag
-#' @importFrom openxlsx createWorkbook addWorksheet writeData saveWorkbook
-#' @examples
-#' config <- list(output_dir = tempdir())
-#' data_example <- data.frame(country = c("argentina", "brazil"))
-#' export_single_column_list(data_example, "country", config, overwrite = TRUE)
-export_single_column_list <- function(df, col_name, config, overwrite = TRUE) {
-  assert_or_abort(checkmate::check_data_frame(df, min.rows = 1))
-  assert_or_abort(checkmate::check_string(col_name, min.chars = 1))
-  assert_or_abort(checkmate::check_list(config, names = "named"))
-  assert_or_abort(checkmate::check_flag(overwrite))
-
-  validate_export_import(df, col_name)
-
-  values <- get_unique_column(df, col_name)
-  export_path <- generate_export_path(config, col_name, type = "lists")
-
-  workbook <- openxlsx::createWorkbook()
-  openxlsx::addWorksheet(workbook, "data")
-  openxlsx::writeData(workbook, "data", values)
-  openxlsx::saveWorkbook(workbook, export_path, overwrite = overwrite)
-
-  return(export_path)
-}
-
-#' @title normalize sheet name
-#' @description normalize column names into excel-safe worksheet names limited to
-#' thirty-one characters.
-#' @param col_name atomic vector of column names to normalize; validated with
-#' `checkmate::check_atomic_vector(min.len = 1, any.missing = TRUE)`.
-#' @return character vector of normalized worksheet names with empty values
-#' replaced by unknown.
+#' @title Normalize sheet name
+#' @description Normalizes worksheet names to Excel-safe identifiers.
+#' @param col_name Atomic vector of sheet labels.
+#' @return Character vector of normalized sheet names.
 #' @importFrom checkmate check_atomic_vector
 #' @importFrom stringr str_sub
-#' @examples
-#' normalize_sheet_name(c("country name", ""))
 normalize_sheet_name <- function(col_name) {
   assert_or_abort(checkmate::check_atomic_vector(
     col_name,
@@ -114,56 +52,105 @@ normalize_sheet_name <- function(col_name) {
   return(sheet_name)
 }
 
-#' @title export selected unique lists
-#' @description export unique values from configured columns into one workbook
-#' with one worksheet per column.
-#' @param df data frame containing the source records; validated with
-#' `checkmate::check_data_frame(min.rows = 1)`.
-#' @param config named list containing export configuration, list columns, and
-#' workbook name; validated with `checkmate::check_list(names = "named")`.
-#' @param overwrite logical flag indicating whether an existing file should be
-#' replaced; validated with `checkmate::check_flag()`.
-#' @return character scalar containing the generated file path for the exported
-#' workbook.
-#' @importFrom checkmate check_data_frame check_list check_flag check_subset
-#' @importFrom purrr walk
+#' @title Build unique-column lists for one table
+#' @description Computes sorted unique values for each column in a data table.
+#' @param data_dt Data table.
+#' @return Named list where each element is a data.table with one column.
+#' @importFrom checkmate assert_data_table
+#' @importFrom data.table data.table
+build_unique_lists_by_column <- function(data_dt) {
+  checkmate::assert_data_table(data_dt)
+
+  column_names <- names(data_dt)
+
+  unique_lists <- lapply(column_names, function(column_name) {
+    values <- data_dt[[column_name]]
+    unique_values <- unique(values)
+
+    if (is.character(unique_values)) {
+      unique_values <- sort(unique_values, na.last = TRUE)
+    } else {
+      unique_values <- sort(unique_values, na.last = TRUE)
+    }
+
+    data.table::data.table(value = unique_values)
+  })
+
+  names(unique_lists) <- column_names
+
+  return(unique_lists)
+}
+
+#' @title Write one table lists workbook
+#' @description Writes one workbook with one sheet per column containing sorted
+#' unique values.
+#' @param data_dt Data table.
+#' @param object_name Character scalar source object name.
+#' @param config Named configuration list.
+#' @param overwrite Logical scalar overwrite flag.
+#' @return Character scalar path of written workbook.
+#' @importFrom checkmate assert_data_table assert_string assert_list assert_flag
 #' @importFrom openxlsx createWorkbook addWorksheet writeData saveWorkbook
-#' @examples
-#' config <- list(
-#'   output_dir = tempdir(),
-#'   export_config = list(
-#'     lists_to_export = c("country"),
-#'     lists_workbook_name = "fao_unique_lists_raw"
-#'   )
-#' )
-#' data_example <- data.frame(country = c("argentina", "brazil"))
-#' export_selected_unique_lists(data_example, config, overwrite = TRUE)
-export_selected_unique_lists <- function(df, config, overwrite = TRUE) {
-  assert_or_abort(checkmate::check_data_frame(df, min.rows = 1))
-  assert_or_abort(checkmate::check_flag(overwrite))
-  validate_export_lists_config(config)
+write_table_lists_workbook <- function(
+  data_dt,
+  object_name,
+  config,
+  overwrite = TRUE
+) {
+  checkmate::assert_data_table(data_dt)
+  checkmate::assert_string(object_name, min.chars = 1)
+  checkmate::assert_list(config, min.len = 1)
+  checkmate::assert_flag(overwrite)
 
-  columns_to_export <- config$export_config$lists_to_export
-  assert_or_abort(checkmate::check_subset(columns_to_export, choices = names(df)))
-
-  validate_export_import(df, "fao_unique_lists_raw")
-
-  workbook_path <- generate_export_path(
-    config,
-    config$export_config$lists_workbook_name,
-    type = "lists"
-  )
+  workbook_path <- build_lists_export_path(config = config, object_name = object_name)
+  unique_lists <- build_unique_lists_by_column(data_dt)
 
   workbook <- openxlsx::createWorkbook()
 
-  purrr::walk(columns_to_export, function(col_name) {
-    values <- get_unique_column(df, col_name)
-    sheet_name <- normalize_sheet_name(col_name)
+  purrr::iwalk(unique_lists, function(list_dt, column_name) {
+    sheet_name <- normalize_sheet_name(column_name)
     openxlsx::addWorksheet(workbook, sheet_name)
-    openxlsx::writeData(workbook, sheet_name, values)
+    openxlsx::writeData(workbook, sheet_name, list_dt)
   })
 
   openxlsx::saveWorkbook(workbook, workbook_path, overwrite = overwrite)
 
   return(workbook_path)
+}
+
+#' @title Export lists workbooks for layer tables
+#' @description Exports one lists workbook per detected layer table.
+#' @param config Named configuration list.
+#' @param data_objects Optional named list of data.frame/data.table objects.
+#' @param overwrite Logical scalar overwrite flag.
+#' @param env Environment for automatic object detection when `data_objects` is
+#' `NULL`.
+#' @return Named character vector of list workbook paths.
+#' @importFrom checkmate assert_list assert_flag assert_environment
+#' @importFrom purrr imap_chr
+export_lists <- function(
+  config,
+  data_objects = NULL,
+  overwrite = TRUE,
+  env = .GlobalEnv
+) {
+  checkmate::assert_list(config, names = "named")
+  checkmate::assert_flag(overwrite)
+  checkmate::assert_environment(env)
+
+  layer_tables <- collect_layer_tables_for_export(
+    data_objects = data_objects,
+    env = env
+  )
+
+  list_paths <- purrr::imap_chr(layer_tables, function(data_dt, object_name) {
+    write_table_lists_workbook(
+      data_dt = data_dt,
+      object_name = object_name,
+      config = config,
+      overwrite = overwrite
+    )
+  })
+
+  return(list_paths)
 }
