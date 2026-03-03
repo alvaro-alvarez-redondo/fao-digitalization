@@ -10,7 +10,11 @@
 #' @importFrom checkmate assert_data_frame assert_character assert_string
 validate_rule_schema <- function(rule_dt, required_columns, rule_label) {
   checkmate::assert_data_frame(rule_dt, min.rows = 1)
-  checkmate::assert_character(required_columns, min.len = 1, any.missing = FALSE)
+  checkmate::assert_character(
+    required_columns,
+    min.len = 1,
+    any.missing = FALSE
+  )
   checkmate::assert_string(rule_label, min.chars = 1)
 
   missing_columns <- setdiff(required_columns, names(rule_dt))
@@ -21,9 +25,13 @@ validate_rule_schema <- function(rule_dt, required_columns, rule_label) {
     ))
   }
 
-  columns_with_na <- required_columns[vapply(required_columns, function(column_name) {
-    anyNA(rule_dt[[column_name]])
-  }, logical(1))]
+  columns_with_na <- required_columns[vapply(
+    required_columns,
+    function(column_name) {
+      anyNA(rule_dt[[column_name]])
+    },
+    logical(1)
+  )]
 
   if (length(columns_with_na) > 0L) {
     cli::cli_abort(c(
@@ -37,7 +45,7 @@ validate_rule_schema <- function(rule_dt, required_columns, rule_label) {
 
 #' @title Normalize conversion rule columns
 #' @description Renames legacy conversion rule columns to cohesive internal names
-#' (`unit_source`, `unit_target`, `conversion_factor`, `offset`) while preserving
+#' (`source_unit`, `target_unit`, `multiplier`, `addend`) while preserving
 #' backward compatibility for input files using legacy headers.
 #' @param conversion_dt conversion rules data.table/data.frame.
 #' @return data.table with normalized internal column names.
@@ -45,22 +53,24 @@ validate_rule_schema <- function(rule_dt, required_columns, rule_label) {
 normalize_conversion_rule_columns <- function(conversion_dt) {
   checkmate::assert_data_frame(conversion_dt, min.rows = 0)
 
-  normalized_conversion_dt <- data.table::copy(data.table::as.data.table(conversion_dt))
+  normalized_conversion_dt <- data.table::copy(data.table::as.data.table(
+    conversion_dt
+  ))
 
   rename_mapping <- c(
-    from_unit = "unit_source",
-    source_unit = "unit_source",
-    to_unit = "unit_target",
-    target_unit = "unit_target",
-    factor = "conversion_factor",
-    multiplier = "conversion_factor",
-    addend = "offset"
+    from_unit = "source_unit",
+    to_unit = "target_unit",
+    factor = "multiplier",
+    offset = "addend"
   )
 
   for (legacy_name in names(rename_mapping)) {
     modern_name <- rename_mapping[[legacy_name]]
 
-    if (!modern_name %in% names(normalized_conversion_dt) && legacy_name %in% names(normalized_conversion_dt)) {
+    if (
+      !modern_name %in% names(normalized_conversion_dt) &&
+        legacy_name %in% names(normalized_conversion_dt)
+    ) {
       data.table::setnames(normalized_conversion_dt, legacy_name, modern_name)
     }
   }
@@ -81,7 +91,10 @@ normalize_conversion_rule_columns <- function(conversion_dt) {
 #' \dontrun{ensure_standardize_template_exists(config)}
 ensure_standardize_template_exists <- function(config) {
   checkmate::assert_list(config, min.len = 1)
-  checkmate::assert_string(config$paths$data$audit$audit_root_dir, min.chars = 1)
+  checkmate::assert_string(
+    config$paths$data$audit$audit_root_dir,
+    min.chars = 1
+  )
 
   templates_dir <- fs::path(config$paths$data$audit$audit_root_dir, "templates")
 
@@ -95,10 +108,10 @@ ensure_standardize_template_exists <- function(config) {
 
     template_dt <- data.table::data.table(
       product = character(0),
-      unit_source = character(0),
-      unit_target = character(0),
-      conversion_factor = numeric(0),
-      offset = numeric(0)
+      source_unit = character(0),
+      target_unit = character(0),
+      multiplier = numeric(0),
+      addend = numeric(0)
     )
 
     workbook <- openxlsx::createWorkbook()
@@ -122,7 +135,10 @@ ensure_standardize_template_exists <- function(config) {
 #' \dontrun{read_all_standardize_rule_files(config)}
 read_all_standardize_rule_files <- function(config) {
   checkmate::assert_list(config, min.len = 1)
-  checkmate::assert_string(config$paths$data$imports$standardization, min.chars = 1)
+  checkmate::assert_string(
+    config$paths$data$imports$standardization,
+    min.chars = 1
+  )
 
   standardization_dir <- config$paths$data$imports$standardization
   fs::dir_create(standardization_dir, recurse = TRUE)
@@ -161,7 +177,11 @@ read_all_standardize_rule_files <- function(config) {
     )
   })
 
-  combined_rules <- data.table::rbindlist(rules_by_file, use.names = TRUE, fill = TRUE)
+  combined_rules <- data.table::rbindlist(
+    rules_by_file,
+    use.names = TRUE,
+    fill = TRUE
+  )
 
   return(list(
     rules = combined_rules,
@@ -180,35 +200,47 @@ read_all_standardize_rule_files <- function(config) {
 validate_conversion_rules <- function(conversion_dt) {
   checkmate::assert_data_frame(conversion_dt, min.rows = 1)
 
-  required_columns <- c("product", "unit_source", "unit_target", "conversion_factor", "offset")
-  validate_rule_schema(conversion_dt, required_columns, "standardization conversion")
+  required_columns <- c(
+    "product",
+    "source_unit",
+    "target_unit",
+    "multiplier",
+    "addend"
+  )
+  validate_rule_schema(
+    conversion_dt,
+    required_columns,
+    "standardization conversion"
+  )
 
-  duplicate_rows <- conversion_dt[, .N, by = .(product, unit_source)][N > 1L]
+  duplicate_rows <- conversion_dt[, .N, by = .(product, source_unit)][N > 1L]
   if (nrow(duplicate_rows) > 0L) {
-    cli::cli_abort("conversion rules contain duplicate {.val (product, unit_source)} definitions")
+    cli::cli_abort(
+      "conversion rules contain duplicate {.val (product, source_unit)} definitions"
+    )
   }
 
-  multiplier_num <- suppressWarnings(as.numeric(conversion_dt$conversion_factor))
-  offset_num <- suppressWarnings(as.numeric(conversion_dt$offset))
+  multiplier_num <- suppressWarnings(as.numeric(conversion_dt$multiplier))
+  addend_num <- suppressWarnings(as.numeric(conversion_dt$addend))
 
   if (any(!is.finite(multiplier_num))) {
-    cli::cli_abort("conversion_factor values must be finite")
+    cli::cli_abort("conversion multiplier values must be finite")
   }
 
-  if (any(!is.finite(offset_num))) {
-    cli::cli_abort("conversion offset values must be finite")
+  if (any(!is.finite(addend_num))) {
+    cli::cli_abort("conversion addend values must be finite")
   }
 
   keyed_rules <- data.table::copy(conversion_dt)
   keyed_rules[, product_key := normalize_string(product)]
-  keyed_rules[, unit_source_key := normalize_string(unit_source)]
-  keyed_rules[, unit_target_key := normalize_string(unit_target)]
+  keyed_rules[, source_unit_key := normalize_string(source_unit)]
+  keyed_rules[, target_unit_key := normalize_string(target_unit)]
 
   chained_rules <- merge(
-    keyed_rules[, .(product_key, unit_source_key)],
-    keyed_rules[, .(product_key, unit_target_key)],
-    by.x = c("product_key", "unit_source_key"),
-    by.y = c("product_key", "unit_target_key")
+    keyed_rules[, .(product_key, source_unit_key)],
+    keyed_rules[, .(product_key, target_unit_key)],
+    by.x = c("product_key", "source_unit_key"),
+    by.y = c("product_key", "target_unit_key")
   )
 
   if (nrow(chained_rules) > 0L) {
@@ -231,32 +263,16 @@ prepare_standardize_rules <- function(raw_rules_dt) {
 
   prepared_rules_dt <- normalize_conversion_rule_columns(raw_rules_dt)
 
-  allowed_columns <- c(
-    "product",
-    "unit_source",
-    "unit_target",
-    "conversion_factor",
-    "offset",
-    "source_rule_file"
-  )
-  unexpected_columns <- setdiff(names(prepared_rules_dt), allowed_columns)
-  if (length(unexpected_columns) > 0L) {
-    cli::cli_abort(c(
-      "standardization rules contain unexpected columns.",
-      "x" = paste(unexpected_columns, collapse = ", ")
-    ))
-  }
-
   if (nrow(prepared_rules_dt) == 0L) {
     return(prepared_rules_dt)
   }
 
   validate_conversion_rules(prepared_rules_dt)
 
-  prepared_rules_dt[, conversion_factor_num := as.numeric(conversion_factor)]
-  prepared_rules_dt[, offset_num := as.numeric(offset)]
+  prepared_rules_dt[, multiplier_num := as.numeric(multiplier)]
+  prepared_rules_dt[, addend_num := as.numeric(addend)]
   prepared_rules_dt[, product_key := normalize_string(product)]
-  prepared_rules_dt[, unit_key := normalize_string(unit_source)]
+  prepared_rules_dt[, unit_key := normalize_string(source_unit)]
 
   data.table::setkey(prepared_rules_dt, product_key, unit_key)
 
@@ -301,7 +317,9 @@ apply_standardize_rules <- function(
   numeric_values <- coerce_numeric_safe(normalized_dt[[value_column]])
   invalid_mask <- !is.na(normalized_dt[[value_column]]) & is.na(numeric_values)
   if (any(invalid_mask)) {
-    invalid_values <- unique(as.character(normalized_dt[[value_column]][invalid_mask]))
+    invalid_values <- unique(as.character(normalized_dt[[value_column]][
+      invalid_mask
+    ]))
     cli::cli_abort(
       "value column contains non-numeric values that cannot be standardized: {paste(invalid_values, collapse = ', ')}"
     )
@@ -313,24 +331,34 @@ apply_standardize_rules <- function(
     return(list(
       data = normalized_dt,
       matched_count = 0L,
-      unmatched_count = as.integer(sum(!is.na(normalize_string(normalized_dt[[unit_column]])) & nzchar(normalize_string(normalized_dt[[unit_column]]))))
+      unmatched_count = as.integer(sum(
+        !is.na(normalize_string(normalized_dt[[unit_column]])) &
+          nzchar(normalize_string(normalized_dt[[unit_column]]))
+      ))
     ))
   }
 
   product_keys <- normalize_string(normalized_dt[[product_column]])
   unit_keys <- normalize_string(normalized_dt[[unit_column]])
 
-  join_input <- data.table::data.table(product_key = product_keys, unit_key = unit_keys)
+  join_input <- data.table::data.table(
+    product_key = product_keys,
+    unit_key = unit_keys
+  )
   join_result <- prepared_rules_dt[join_input]
 
-  is_matched <- !is.na(join_result$unit_target)
+  is_matched <- !is.na(join_result$target_unit)
 
   if (any(is_matched)) {
     numeric_values[is_matched] <-
-      numeric_values[is_matched] * join_result$conversion_factor_num[is_matched] +
-      join_result$offset_num[is_matched]
+      numeric_values[is_matched] *
+      join_result$multiplier_num[is_matched] +
+      join_result$addend_num[is_matched]
 
-    normalized_dt[is_matched, (unit_column) := join_result$unit_target[is_matched]]
+    normalized_dt[
+      is_matched,
+      (unit_column) := join_result$target_unit[is_matched]
+    ]
   }
 
   normalized_dt[, (value_column) := numeric_values]
@@ -411,7 +439,10 @@ attach_standardize_diagnostics <- function(
 #' \dontrun{load_units_standardization_rules(config)}
 load_units_standardization_rules <- function(config) {
   checkmate::assert_list(config, min.len = 1)
-  checkmate::assert_string(config$paths$data$imports$standardization, min.chars = 1)
+  checkmate::assert_string(
+    config$paths$data$imports$standardization,
+    min.chars = 1
+  )
 
   template_path <- ensure_standardize_template_exists(config)
   raw_rules_payload <- read_all_standardize_rule_files(config)
