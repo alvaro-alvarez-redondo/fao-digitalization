@@ -108,3 +108,33 @@ testthat::test_that("validate_canonical_rules allows NA in value columns for har
     )
   )
 })
+
+
+testthat::test_that("empty target clean value is applied as NA_character_", {
+  dataset_dt <- data.table::data.table(
+    product = c("Wheat", "Rice"),
+    unit = c("kg", "kg")
+  )
+
+  group_rules <- data.table::data.table(
+    column_source = "product",
+    value_source_raw = "Wheat",
+    column_target = "unit",
+    value_target_raw = "kg",
+    value_target_clean = ""
+  )
+
+  result <- apply_conditional_rule_group(
+    dataset_dt = dataset_dt,
+    group_rules = group_rules,
+    stage_name = "clean",
+    dataset_name = "demo",
+    rule_file_id = "clean_rules_template.xlsx",
+    execution_timestamp_utc = "2026-01-01T00:00:00Z"
+  )
+
+  testthat::expect_true(is.na(result$data$unit[[1]]))
+  testthat::expect_equal(result$data$unit[[2]], "kg")
+  testthat::expect_equal(result$audit$affected_rows[[1]], 1L)
+  testthat::expect_true(is.na(result$audit$value_target_result[[1]]))
+})

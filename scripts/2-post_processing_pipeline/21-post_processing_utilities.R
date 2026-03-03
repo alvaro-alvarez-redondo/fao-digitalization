@@ -339,6 +339,7 @@ normalize_rule_values_for_validation <- function(
         replacement_values <- column_values
 
         if (is.character(replacement_values)) {
+          replacement_values[trimws(replacement_values) == ""] <- na_placeholder
           replacement_values[is.na(replacement_values)] <- na_placeholder
         }
 
@@ -525,6 +526,45 @@ build_conditional_rule_dictionary <- function(rules_dt, stage_name) {
   return(grouped_rules)
 }
 
+#' @title Encode target rule values with internal missing placeholder
+#' @description Converts empty strings and missing values in target rule values
+#' to an explicit internal placeholder for deterministic downstream handling.
+#' @param values Atomic vector values to encode.
+#' @param na_placeholder Character scalar internal missing token.
+#' @return Character vector with placeholder-encoded missing values.
+#' @importFrom checkmate assert_atomic assert_string
+encode_target_rule_value <- function(values, na_placeholder = "..NA_INTERNAL..") {
+  checkmate::assert_atomic(values, min.len = 0, any.missing = TRUE)
+  checkmate::assert_string(na_placeholder, min.chars = 1)
+
+  if (length(values) == 0L) {
+    return(character(0))
+  }
+
+  encoded_values <- as.character(values)
+  encoded_values[trimws(encoded_values) == ""] <- na_placeholder
+  encoded_values[is.na(encoded_values)] <- na_placeholder
+
+  return(encoded_values)
+}
+
+#' @title Decode internal placeholder back to `NA_character_`
+#' @description Reverts encoded missing target values to canonical
+#' `NA_character_` representation before rule application.
+#' @param values Character vector values to decode.
+#' @param na_placeholder Character scalar internal missing token.
+#' @return Character vector with placeholder decoded to `NA_character_`.
+#' @importFrom checkmate assert_character assert_string
+decode_target_rule_value <- function(values, na_placeholder = "..NA_INTERNAL..") {
+  checkmate::assert_character(values, any.missing = TRUE)
+  checkmate::assert_string(na_placeholder, min.chars = 1)
+
+  decoded_values <- values
+  decoded_values[decoded_values == na_placeholder] <- NA_character_
+
+  return(decoded_values)
+}
+
 #' @title Build deterministic matching keys with explicit NA handling
 #' @description Normalizes values to comparable string keys and maps missing
 #' values to an explicit internal token to guarantee deterministic NA matching
@@ -584,10 +624,13 @@ apply_conditional_rule_group <- function(
     value_source_raw,
     column_target,
     value_target_raw,
-    value_target_result = get(target_value_column),
+    value_target_result_placeholder = encode_target_rule_value(get(target_value_column)),
     source_key = encode_rule_match_key(value_source_raw),
     target_key = encode_rule_match_key(value_target_raw)
-  )])
+  )][
+    ,
+    value_target_result := decode_target_rule_value(value_target_result_placeholder)
+  ])
 
   source_values <- dataset_dt[[source_column]]
   target_values <- dataset_dt[[target_column]]
@@ -602,7 +645,7 @@ apply_conditional_rule_group <- function(
     on = .(source_key, target_key)
   ]
 
-  matched_row_mask <- !is.na(joined_dt$value_target_result)
+  matched_row_mask <- !is.na(joined_dt$column_source)
   matched_rows <- as.integer(sum(matched_row_mask))
 
   if (matched_rows > 0L) {
@@ -614,11 +657,11 @@ apply_conditional_rule_group <- function(
 
   matched_counts <- joined_dt[matched_row_mask, .(
     affected_rows = .N
-  ), by = .(source_key, target_key, value_target_result)]
+  ), by = .(source_key, target_key, value_target_result_placeholder)]
 
   audit_dt <- normalized_rules[
     matched_counts,
-    on = .(source_key, target_key, value_target_result)
+    on = .(source_key, target_key, value_target_result_placeholder)
   ][
     ,
     .(
