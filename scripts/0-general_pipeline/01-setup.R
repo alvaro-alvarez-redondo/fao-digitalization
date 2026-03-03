@@ -87,7 +87,9 @@ load_pipeline_config <- function(dataset_name = "fao_data_raw", ...) {
   project_root <- here::here()
   checkmate::assert_string(project_root, min.chars = 1)
 
-  build_path <- function(...) fs::path(project_root, ...)
+  build_path <- function(...) {
+    return(fs::path(project_root, ...))
+  }
 
   required_base_directories <- c(
     build_path("data"),

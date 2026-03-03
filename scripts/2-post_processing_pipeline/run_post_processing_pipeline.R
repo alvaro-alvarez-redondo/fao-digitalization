@@ -11,7 +11,9 @@ source_post_processing_script <- function(script_path) {
   checkmate::assert_string(script_path, min.chars = 1)
 
   if (!file.exists(script_path)) {
-    cli::cli_abort("Required post-processing script not found: {.path {script_path}}")
+    cli::cli_abort(
+      "Required post-processing script not found: {.path {script_path}}"
+    )
   }
 
   tryCatch(
@@ -58,20 +60,60 @@ source_post_processing_scripts <- function(
 source_post_processing_scripts()
 
 resolve_units_standardization_runner <- function() {
-  if (exists("run_standardize_units_layer_batch", mode = "function", inherits = TRUE)) {
-    return(get("run_standardize_units_layer_batch", mode = "function", inherits = TRUE))
+  if (
+    exists(
+      "run_standardize_units_layer_batch",
+      mode = "function",
+      inherits = TRUE
+    )
+  ) {
+    return(get(
+      "run_standardize_units_layer_batch",
+      mode = "function",
+      inherits = TRUE
+    ))
   }
 
-  if (exists("run_number_standardization_layer_batch", mode = "function", inherits = TRUE)) {
-    return(get("run_number_standardization_layer_batch", mode = "function", inherits = TRUE))
+  if (
+    exists(
+      "run_number_standardization_layer_batch",
+      mode = "function",
+      inherits = TRUE
+    )
+  ) {
+    return(get(
+      "run_number_standardization_layer_batch",
+      mode = "function",
+      inherits = TRUE
+    ))
   }
 
-  if (exists("run_number_standarization_layer_batch", mode = "function", inherits = TRUE)) {
-    return(get("run_number_standarization_layer_batch", mode = "function", inherits = TRUE))
+  if (
+    exists(
+      "run_number_standarization_layer_batch",
+      mode = "function",
+      inherits = TRUE
+    )
+  ) {
+    return(get(
+      "run_number_standarization_layer_batch",
+      mode = "function",
+      inherits = TRUE
+    ))
   }
 
-  if (exists("run_number_harmonization_layer_batch", mode = "function", inherits = TRUE)) {
-    return(get("run_number_harmonization_layer_batch", mode = "function", inherits = TRUE))
+  if (
+    exists(
+      "run_number_harmonization_layer_batch",
+      mode = "function",
+      inherits = TRUE
+    )
+  ) {
+    return(get(
+      "run_number_harmonization_layer_batch",
+      mode = "function",
+      inherits = TRUE
+    ))
   }
 
   cli::cli_abort(
@@ -110,33 +152,6 @@ get_required_object_or_null <- function(object_name, env) {
   return(get(object_name, envir = env, inherits = TRUE))
 }
 
-#' @title Persist post-processed dataset
-#' @description Writes final post-processed dataset to configured processed export path.
-#' @param dataset_dt Post-processed dataset.
-#' @param config Named configuration list.
-#' @param dataset_name Character scalar dataset name.
-#' @return Character scalar output file path.
-#' @importFrom checkmate assert_data_frame assert_list assert_string
-persist_post_processed_dataset <- function(dataset_dt, config, dataset_name) {
-  checkmate::assert_data_frame(dataset_dt, min.rows = 0)
-  checkmate::assert_list(config, min.len = 1)
-  checkmate::assert_string(dataset_name, min.chars = 1)
-  checkmate::assert_string(config$paths$data$exports$processed, min.chars = 1)
-
-  output_dir <- config$paths$data$exports$processed
-  fs::dir_create(output_dir, recurse = TRUE)
-
-  output_path <- fs::path(output_dir, paste0(dataset_name, "_post_processed.xlsx"))
-
-  openxlsx::write.xlsx(
-    x = data.table::as.data.table(dataset_dt),
-    file = output_path,
-    overwrite = TRUE
-  )
-
-  return(output_path)
-}
-
 #' @title Run post-processing pipeline batch
 #' @description Runs deterministic preflight, clean stage, units standardization stage,
 #' harmonize stage, and persistence of dataset and audit artifacts.
@@ -173,7 +188,11 @@ run_post_processing_pipeline_batch <- function(
   )
   assert_post_processing_preflight(preflight_result)
 
-  execution_timestamp_utc <- format(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC")
+  execution_timestamp_utc <- format(
+    Sys.time(),
+    "%Y-%m-%dT%H:%M:%SZ",
+    tz = "UTC"
+  )
 
   cleaned_dt <- run_cleaning_layer_batch(
     dataset_dt = audited_raw_dt,
@@ -204,18 +223,11 @@ run_post_processing_pipeline_batch <- function(
     config = config
   )
 
-  dataset_output_path <- persist_post_processed_dataset(
-    dataset_dt = harmonized_dt,
-    config = config,
-    dataset_name = dataset_name
-  )
-
   diagnostics <- list(
     clean = attr(cleaned_dt, "layer_diagnostics"),
     standardize_units = attr(normalized_dt, "layer_diagnostics"),
     harmonize = attr(harmonized_dt, "layer_diagnostics"),
     outputs = list(
-      dataset_output_path = dataset_output_path,
       audit_output_path = audit_output_path,
       audit_root_dir = audit_paths$audit_root_dir,
       diagnostics_dir = audit_paths$diagnostics_dir,
@@ -242,12 +254,19 @@ run_clean_data <- function(dataset_dt, config, dataset_name = "fao_data_raw") {
 }
 
 # backward-compatible wrapper for legacy symbol
-run_harmonize_data <- function(dataset_dt, config, dataset_name = "fao_data_raw") {
+run_harmonize_data <- function(
+  dataset_dt,
+  config,
+  dataset_name = "fao_data_raw"
+) {
   return(run_harmonize_layer_batch(dataset_dt, config, dataset_name))
 }
 
 run_standardize_units_data <- function(cleaned_dt, config) {
-  return(run_units_standardization_stage(cleaned_dt = cleaned_dt, config = config))
+  return(run_units_standardization_stage(
+    cleaned_dt = cleaned_dt,
+    config = config
+  ))
 }
 
 # backward-compatible wrapper for legacy symbol
@@ -300,7 +319,11 @@ run_post_processing_pipeline_auto <- function(auto_run, env = .GlobalEnv) {
   )
 
   assign("fao_data_cleaned", attr(harmonized_dt, "stage_cleaned"), envir = env)
-  assign("fao_data_normalized", attr(harmonized_dt, "stage_normalized"), envir = env)
+  assign(
+    "fao_data_normalized",
+    attr(harmonized_dt, "stage_normalized"),
+    envir = env
+  )
   assign("fao_data_harmonized", harmonized_dt, envir = env)
 
   return(invisible(harmonized_dt))

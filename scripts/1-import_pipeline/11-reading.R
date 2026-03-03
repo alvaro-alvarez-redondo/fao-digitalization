@@ -19,10 +19,10 @@ build_read_error <- function(context_message, file_path, details) {
   assert_or_abort(checkmate::check_string(file_path, min.chars = 1))
   assert_or_abort(checkmate::check_string(details, min.chars = 1))
 
-  cli::format_error(c(
+  return(cli::format_error(c(
     "{context_message} {.file {fs::path_file(file_path)}}.",
     "x" = details
-  ))
+  )))
 }
 
 #' @title safely execute read operation
@@ -44,7 +44,7 @@ safe_execute_read <- function(operation, context_message, file_path) {
   assert_or_abort(checkmate::check_string(context_message, min.chars = 1))
   assert_or_abort(checkmate::check_string(file_path, min.chars = 1))
 
-  tryCatch(
+  return(tryCatch(
     list(result = operation(), errors = character(0)),
     error = function(condition) {
       list(
@@ -52,7 +52,7 @@ safe_execute_read <- function(operation, context_message, file_path) {
         errors = build_read_error(context_message, file_path, condition$message)
       )
     }
-  )
+  ))
 }
 
 
@@ -67,7 +67,7 @@ safe_execute_read <- function(operation, context_message, file_path) {
 create_empty_read_result <- function(errors = character(0)) {
   assert_or_abort(checkmate::check_character(errors, any.missing = FALSE))
 
-  list(data = data.table::data.table(), errors = errors)
+  return(list(data = data.table::data.table(), errors = errors))
 }
 
 #' @title check read result errors
@@ -80,7 +80,7 @@ create_empty_read_result <- function(errors = character(0)) {
 has_read_errors <- function(read_result) {
   assert_or_abort(checkmate::check_list(read_result, min.len = 1))
 
-  !is.null(read_result$errors) && length(read_result$errors) > 0
+  return(!is.null(read_result$errors) && length(read_result$errors) > 0)
 }
 
 #' @title assert read result contract
@@ -233,7 +233,7 @@ read_excel_sheet <- function(file_path, sheet_name, config) {
   filtered_dt <- read_dt[keep_row]
   filtered_dt[, variable := sheet_name]
 
-  list(data = filtered_dt, errors = missing_base_errors)
+  return(list(data = filtered_dt, errors = missing_base_errors))
 }
 
 #' @title read file sheets
@@ -304,7 +304,7 @@ read_file_sheets <- function(file_path, config) {
     sheets_list |> purrr::map("errors") |> unlist(use.names = FALSE)
   )
 
-  list(data = combined_data, errors = combined_errors)
+  return(list(data = combined_data, errors = combined_errors))
 }
 
 #' @title read pipeline files

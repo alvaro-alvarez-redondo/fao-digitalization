@@ -177,7 +177,7 @@ generate_post_processing_rule_templates <- function(config, overwrite = TRUE) {
     stage_names,
     function(stage_name) {
       write_stage_rule_template(
-        stage_name = validated_stage_name,
+        stage_name = stage_name,
         audit_paths = audit_paths,
         overwrite = overwrite
       )
@@ -302,12 +302,66 @@ coerce_rule_schema <- function(rule_dt, stage_name, rule_file_id) {
   return(canonical_dt)
 }
 
+#' @title Normalize permitted missing rule values for internal validation
+#' @description Converts allowed missing values in conditional rule value fields
+#' to an internal placeholder used only during validation joins/grouping, while
+#' preserving original rule semantics for downstream application.
+#' @param rules_dt Canonical rule table.
+#' @param stage_name Character scalar stage label.
+#' @param na_placeholder Character scalar internal placeholder token.
+#' @return Named list with `rules_for_validation` and `allowed_na_columns`.
+#' @importFrom checkmate assert_data_frame assert_string
+normalize_rule_values_for_validation <- function(
+  rules_dt,
+  stage_name,
+  na_placeholder = "..NA_INTERNAL.."
+) {
+  checkmate::assert_data_frame(rules_dt, min.rows = 0)
+  validate_post_processing_stage_name(stage_name)
+  checkmate::assert_string(na_placeholder, min.chars = 1)
+
+  allowed_na_columns <- intersect(
+    c(
+      "value_source_raw",
+      "value_target_raw",
+      "value_target_clean",
+      "value_target_harmonize"
+    ),
+    colnames(rules_dt)
+  )
+
+  rules_for_validation <- data.table::copy(data.table::as.data.table(rules_dt))
+
+  if (length(allowed_na_columns) > 0L) {
+    rules_for_validation[
+      ,
+      (allowed_na_columns) := lapply(.SD, function(column_values) {
+        replacement_values <- column_values
+
+        if (is.character(replacement_values)) {
+          replacement_values[trimws(replacement_values) == ""] <- na_placeholder
+          replacement_values[is.na(replacement_values)] <- na_placeholder
+        }
+
+        return(replacement_values)
+      }),
+      .SDcols = allowed_na_columns
+    ]
+  }
+
+  return(list(
+    rules_for_validation = rules_for_validation,
+    allowed_na_columns = allowed_na_columns
+  ))
+}
+
 #' @title Validate canonical rules
 #' @description Validates schema completeness, dataset-column presence, rule-key
 #' uniqueness, conflict-free mappings, and type compatibility.
 #' @param rules_dt Canonical rule table.
 #' @param dataset_dt Dataset to mutate.
 #' @param rule_file_id Character scalar rule file identifier.
+#' @param stage_name Character scalar execution stage label.
 #' @return Invisibly returns `TRUE`.
 #' @importFrom checkmate assert_data_frame assert_string
 validate_canonical_rules <- function(rules_dt, dataset_dt, rule_file_id, stage_name) {
@@ -329,9 +383,22 @@ validate_canonical_rules <- function(rules_dt, dataset_dt, rule_file_id, stage_n
     return(invisible(TRUE))
   }
 
-  columns_with_na <- required_columns[vapply(required_columns, function(column_name) {
-    anyNA(rules_dt[[column_name]])
-  }, logical(1))]
+  validation_context <- normalize_rule_values_for_validation(
+    rules_dt = rules_dt,
+    stage_name = validated_stage_name
+  )
+  rules_for_validation <- validation_context$rules_for_validation
+  allowed_na_columns <- validation_context$allowed_na_columns
+
+  strict_required_columns <- setdiff(required_columns, allowed_na_columns)
+  columns_with_na <- strict_required_columns[vapply(
+    strict_required_columns,
+    function(column_name) {
+      anyNA(rules_dt[[column_name]])
+    },
+    logical(1)
+  )]
+
   if (length(columns_with_na) > 0) {
     cli::cli_abort(c(
       "Rule file {.file {rule_file_id}} contains missing values in required columns.",
@@ -351,7 +418,7 @@ validate_canonical_rules <- function(rules_dt, dataset_dt, rule_file_id, stage_n
     ))
   }
 
-  duplicate_key_dt <- rules_dt[
+  duplicate_key_dt <- rules_for_validation[
     ,
     .N,
     by = .(column_source, value_source_raw, column_target, value_target_raw)
@@ -366,7 +433,7 @@ validate_canonical_rules <- function(rules_dt, dataset_dt, rule_file_id, stage_n
 
   target_value_column <- get_stage_target_value_column(validated_stage_name)
 
-  conflict_dt <- rules_dt[
+  conflict_dt <- rules_for_validation[
     ,
     .(target_value_count = uniqueN(get(target_value_column))),
     by = .(column_source, value_source_raw, column_target, value_target_raw)
@@ -459,6 +526,67 @@ build_conditional_rule_dictionary <- function(rules_dt, stage_name) {
   return(grouped_rules)
 }
 
+#' @title Encode target rule values with internal missing placeholder
+#' @description Converts empty strings and missing values in target rule values
+#' to an explicit internal placeholder for deterministic downstream handling.
+#' @param values Atomic vector values to encode.
+#' @param na_placeholder Character scalar internal missing token.
+#' @return Character vector with placeholder-encoded missing values.
+#' @importFrom checkmate assert_atomic assert_string
+encode_target_rule_value <- function(values, na_placeholder = "..NA_INTERNAL..") {
+  checkmate::assert_atomic(values, min.len = 0, any.missing = TRUE)
+  checkmate::assert_string(na_placeholder, min.chars = 1)
+
+  if (length(values) == 0L) {
+    return(character(0))
+  }
+
+  encoded_values <- as.character(values)
+  encoded_values[trimws(encoded_values) == ""] <- na_placeholder
+  encoded_values[is.na(encoded_values)] <- na_placeholder
+
+  return(encoded_values)
+}
+
+#' @title Decode internal placeholder back to `NA_character_`
+#' @description Reverts encoded missing target values to canonical
+#' `NA_character_` representation before rule application.
+#' @param values Character vector values to decode.
+#' @param na_placeholder Character scalar internal missing token.
+#' @return Character vector with placeholder decoded to `NA_character_`.
+#' @importFrom checkmate assert_character assert_string
+decode_target_rule_value <- function(values, na_placeholder = "..NA_INTERNAL..") {
+  checkmate::assert_character(values, any.missing = TRUE)
+  checkmate::assert_string(na_placeholder, min.chars = 1)
+
+  decoded_values <- values
+  decoded_values[decoded_values == na_placeholder] <- NA_character_
+
+  return(decoded_values)
+}
+
+#' @title Build deterministic matching keys with explicit NA handling
+#' @description Normalizes values to comparable string keys and maps missing
+#' values to an explicit internal token to guarantee deterministic NA matching
+#' behavior during join operations.
+#' @param values Atomic vector values to encode.
+#' @param na_key Character scalar NA token used for matching keys.
+#' @return Character vector key.
+#' @importFrom checkmate assert_atomic assert_string
+encode_rule_match_key <- function(values, na_key = "..NA_MATCH_KEY..") {
+  checkmate::assert_atomic(values, min.len = 0, any.missing = TRUE)
+  checkmate::assert_string(na_key, min.chars = 1)
+
+  if (length(values) == 0L) {
+    return(character(0))
+  }
+
+  encoded_key <- normalize_string(values)
+  encoded_key[is.na(encoded_key)] <- na_key
+
+  return(encoded_key)
+}
+
 #' @title Apply one conditional dictionary group
 #' @description Executes vectorized matching and mutation for one
 #' `(column_source, column_target)` group and captures structured audit records.
@@ -496,17 +624,20 @@ apply_conditional_rule_group <- function(
     value_source_raw,
     column_target,
     value_target_raw,
-    value_target_result = get(target_value_column),
-    source_key = normalize_string(value_source_raw),
-    target_key = normalize_string(value_target_raw)
-  )])
+    value_target_result_placeholder = encode_target_rule_value(get(target_value_column)),
+    source_key = encode_rule_match_key(value_source_raw),
+    target_key = encode_rule_match_key(value_target_raw)
+  )][
+    ,
+    value_target_result := decode_target_rule_value(value_target_result_placeholder)
+  ])
 
   source_values <- dataset_dt[[source_column]]
   target_values <- dataset_dt[[target_column]]
 
   join_input <- data.table::data.table(
-    source_key = normalize_string(source_values),
-    target_key = normalize_string(target_values)
+    source_key = encode_rule_match_key(source_values),
+    target_key = encode_rule_match_key(target_values)
   )
 
   joined_dt <- normalized_rules[
@@ -514,7 +645,7 @@ apply_conditional_rule_group <- function(
     on = .(source_key, target_key)
   ]
 
-  matched_row_mask <- !is.na(joined_dt$value_target_result)
+  matched_row_mask <- !is.na(joined_dt$column_source)
   matched_rows <- as.integer(sum(matched_row_mask))
 
   if (matched_rows > 0L) {
@@ -526,11 +657,11 @@ apply_conditional_rule_group <- function(
 
   matched_counts <- joined_dt[matched_row_mask, .(
     affected_rows = .N
-  ), by = .(source_key, target_key, value_target_result)]
+  ), by = .(source_key, target_key, value_target_result_placeholder)]
 
   audit_dt <- normalized_rules[
     matched_counts,
-    on = .(source_key, target_key, value_target_result)
+    on = .(source_key, target_key, value_target_result_placeholder)
   ][
     ,
     .(
