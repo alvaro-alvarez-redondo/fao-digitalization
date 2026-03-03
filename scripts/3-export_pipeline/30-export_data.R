@@ -72,6 +72,7 @@ collect_layer_tables_for_export <- function(
     candidate_names <- ls(envir = env, all.names = TRUE)
     candidate_names <- candidate_names[grepl(layer_pattern, candidate_names)]
     candidate_names <- candidate_names[!grepl("_post_processed$", candidate_names)]
+    candidate_names <- candidate_names[!grepl("_wide_raw$", candidate_names)]
 
     detected_tables <- purrr::keep(
       setNames(lapply(candidate_names, get, envir = env, inherits = TRUE), candidate_names),
@@ -84,7 +85,8 @@ collect_layer_tables_for_export <- function(
     valid_name_mask <- !is.na(object_names) &
       nzchar(object_names) &
       grepl(layer_pattern, object_names) &
-      !grepl("_post_processed$", object_names)
+      !grepl("_post_processed$", object_names) &
+      !grepl("_wide_raw$", object_names)
 
     detected_tables <- data_objects[valid_name_mask]
     detected_tables <- purrr::keep(detected_tables, is.data.frame)
