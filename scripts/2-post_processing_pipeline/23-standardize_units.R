@@ -65,7 +65,9 @@ normalize_conversion_rule_columns <- function(conversion_dt) {
   )
 
   legacy_names <- names(rename_mapping)
-  available_legacy <- legacy_names[legacy_names %in% names(normalized_conversion_dt)]
+  available_legacy <- legacy_names[
+    legacy_names %in% names(normalized_conversion_dt)
+  ]
 
   if (length(available_legacy) > 0L) {
     target_names <- unname(rename_mapping[available_legacy])
@@ -109,8 +111,6 @@ ensure_standardize_template_exists <- function(config) {
   template_path <- fs::path(templates_dir, "standardize_units_template.xlsx")
 
   if (!file.exists(template_path)) {
-    cli::cli_alert_info("Creating numeric standardization template...")
-
     template_dt <- data.table::data.table(
       product = character(0),
       source_unit = character(0),
