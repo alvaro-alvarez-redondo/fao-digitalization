@@ -153,7 +153,7 @@ run_post_processing_pipeline_batch <- function(
   checkmate::assert_list(config, min.len = 1)
   checkmate::assert_string(dataset_name, min.chars = 1)
 
-  total_steps <- 8
+  total_steps <- 9
 
   return(progressr::with_progress({
     progress <- progressr::progressor(steps = total_steps)
