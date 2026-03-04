@@ -21,6 +21,7 @@ get_canonical_rule_columns <- function(stage_name = NULL) {
     return(c(
       "column_source",
       "value_source_raw",
+      "value_source_harmonize",
       "column_target",
       "value_target_raw",
       "value_target_harmonize"
@@ -30,6 +31,7 @@ get_canonical_rule_columns <- function(stage_name = NULL) {
   return(c(
     "column_source",
     "value_source_raw",
+    "value_source_clean",
     "column_target",
     "value_target_raw",
     "value_target_clean"
@@ -69,6 +71,20 @@ get_stage_target_value_column <- function(stage_name) {
   }
 
   return("value_target_clean")
+}
+
+#' @title Get canonical source value column for stage
+#' @description Returns stage-specific source value column name.
+#' @param stage_name Character scalar stage label.
+#' @return Character scalar source value column name.
+get_stage_source_value_column <- function(stage_name) {
+  validated_stage_name <- validate_post_processing_stage_name(stage_name)
+
+  if (identical(validated_stage_name, "harmonize")) {
+    return("value_source_harmonize")
+  }
+
+  return("value_source_clean")
 }
 
 #' @title Get stage-specific rule template columns
@@ -281,11 +297,16 @@ coerce_rule_schema <- function(rule_dt, stage_name, rule_file_id) {
   canonical_columns <- get_canonical_rule_columns(validated_stage_name)
   available_columns <- colnames(rule_dt)
 
+  source_result_column <- get_stage_source_value_column(validated_stage_name)
+  optional_columns <- source_result_column
+
   missing_columns <- setdiff(canonical_columns, available_columns)
-  if (length(missing_columns) > 0L) {
+  missing_required_columns <- setdiff(missing_columns, optional_columns)
+
+  if (length(missing_required_columns) > 0L) {
     cli::cli_abort(c(
       "Rule file {.file {rule_file_id}} is missing required columns.",
-      "x" = paste(missing_columns, collapse = ", ")
+      "x" = paste(missing_required_columns, collapse = ", ")
     ))
   }
 
@@ -297,7 +318,13 @@ coerce_rule_schema <- function(rule_dt, stage_name, rule_file_id) {
     ))
   }
 
-  canonical_dt <- data.table::as.data.table(rule_dt)[, ..canonical_columns]
+  canonical_dt <- data.table::as.data.table(rule_dt)
+
+  if (!(source_result_column %in% colnames(canonical_dt))) {
+    canonical_dt[, (source_result_column) := NA_character_]
+  }
+
+  canonical_dt <- canonical_dt[, ..canonical_columns]
 
   return(canonical_dt)
 }
@@ -323,6 +350,8 @@ normalize_rule_values_for_validation <- function(
   allowed_na_columns <- intersect(
     c(
       "value_source_raw",
+      "value_source_clean",
+      "value_source_harmonize",
       "value_target_raw",
       "value_target_clean",
       "value_target_harmonize"
@@ -471,6 +500,7 @@ validate_canonical_rules <- function(rules_dt, dataset_dt, rule_file_id, stage_n
   }
 
   target_value_column <- get_stage_target_value_column(validated_stage_name)
+  source_value_column <- get_stage_source_value_column(validated_stage_name)
 
   conflict_dt <- rules_for_validation[
     ,
@@ -482,6 +512,19 @@ validate_canonical_rules <- function(rules_dt, dataset_dt, rule_file_id, stage_n
     cli::cli_abort(c(
       "Conflicting rules detected in {.file {rule_file_id}}.",
       "x" = "A single source/target key maps to multiple target values."
+    ))
+  }
+
+  source_conflict_dt <- rules_for_validation[
+    ,
+    .(source_value_count = uniqueN(get(source_value_column))),
+    by = .(column_source, value_source_raw)
+  ][source_value_count > 1L]
+
+  if (nrow(source_conflict_dt) > 0) {
+    cli::cli_abort(c(
+      "Conflicting source rewrite rules detected in {.file {rule_file_id}}.",
+      "x" = "A single (column_source, value_source_raw) maps to multiple source result values."
     ))
   }
 
@@ -528,6 +571,19 @@ validate_canonical_rules <- function(rules_dt, dataset_dt, rule_file_id, stage_n
 
   rules_dt[, check_type_compatibility(column_source[1], value_source_raw, "value_source_raw"), by = column_source]
   rules_dt[, check_type_compatibility(column_target[1], value_target_raw, "value_target_raw"), by = column_target]
+
+  rules_with_source_result <- rules_dt[!is.na(get(source_value_column))]
+  if (nrow(rules_with_source_result) > 0L) {
+    rules_with_source_result[
+      ,
+      check_type_compatibility(
+        column_source[1],
+        get(source_value_column),
+        source_value_column
+      ),
+      by = column_source
+    ]
+  }
 
   return(invisible(TRUE))
 }
@@ -653,6 +709,7 @@ apply_conditional_rule_group <- function(
   checkmate::assert_string(execution_timestamp_utc, min.chars = 1)
 
   target_value_column <- get_stage_target_value_column(validated_stage_name)
+  source_value_column <- get_stage_source_value_column(validated_stage_name)
 
   group_dt <- data.table::as.data.table(group_rules)
   source_column <- group_dt$column_source[[1]]
@@ -661,6 +718,7 @@ apply_conditional_rule_group <- function(
   normalized_rules <- unique(group_dt[, .(
     column_source,
     value_source_raw,
+    source_value_raw = get(source_value_column),
     column_target,
     value_target_raw,
     value_target_result_placeholder = encode_target_rule_value(get(target_value_column)),
@@ -668,15 +726,20 @@ apply_conditional_rule_group <- function(
     target_key = encode_rule_match_key(value_target_raw)
   )][
     ,
-    value_target_result := decode_target_rule_value(value_target_result_placeholder)
+    `:=`(
+      value_source_result = as.character(source_value_raw),
+      value_target_result = decode_target_rule_value(value_target_result_placeholder)
+    )
   ])
 
-  source_values <- dataset_dt[[source_column]]
-  target_values <- dataset_dt[[target_column]]
+  normalized_rules[trimws(value_source_result) == "", value_source_result := NA_character_]
+
+  source_values_pre_update <- dataset_dt[[source_column]]
+  target_values_pre_update <- dataset_dt[[target_column]]
 
   join_input <- data.table::data.table(
-    source_key = encode_rule_match_key(source_values),
-    target_key = encode_rule_match_key(target_values)
+    source_key = encode_rule_match_key(source_values_pre_update),
+    target_key = encode_rule_match_key(target_values_pre_update)
   )
 
   joined_dt <- normalized_rules[
@@ -685,28 +748,61 @@ apply_conditional_rule_group <- function(
   ]
 
   matched_row_mask <- !is.na(joined_dt$column_source)
+  source_update_mask <- matched_row_mask & !is.na(joined_dt$value_source_result)
   matched_rows <- as.integer(sum(matched_row_mask))
 
   if (matched_rows > 0L) {
-    dataset_dt[
-      matched_row_mask,
-      (target_column) := joined_dt$value_target_result[matched_row_mask]
-    ]
+    if (identical(source_column, target_column)) {
+      if (any(source_update_mask)) {
+        dataset_dt[
+          source_update_mask,
+          (source_column) := joined_dt$value_source_result[source_update_mask]
+        ]
+      }
+
+      dataset_dt[
+        matched_row_mask,
+        (target_column) := joined_dt$value_target_result[matched_row_mask]
+      ]
+    } else {
+      if (any(source_update_mask)) {
+        dataset_dt[
+          source_update_mask,
+          (source_column) := joined_dt$value_source_result[source_update_mask]
+        ]
+      }
+
+      dataset_dt[
+        matched_row_mask,
+        (target_column) := joined_dt$value_target_result[matched_row_mask]
+      ]
+    }
   }
 
   matched_counts <- joined_dt[matched_row_mask, .(
     affected_rows = .N
-  ), by = .(source_key, target_key, value_target_result_placeholder)]
+  ), by = .(
+    source_key,
+    target_key,
+    value_source_result,
+    value_target_result_placeholder
+  )]
 
   audit_dt <- normalized_rules[
     matched_counts,
-    on = .(source_key, target_key, value_target_result_placeholder)
+    on = .(
+      source_key,
+      target_key,
+      value_source_result,
+      value_target_result_placeholder
+    )
   ][
     ,
     .(
       dataset_name = dataset_name,
       column_source,
       value_source_raw,
+      value_source_result,
       column_target,
       value_target_raw,
       value_target_result,
