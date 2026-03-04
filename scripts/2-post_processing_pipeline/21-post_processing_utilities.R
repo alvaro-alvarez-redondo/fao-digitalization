@@ -355,6 +355,45 @@ normalize_rule_values_for_validation <- function(
   ))
 }
 
+#' @title Ensure rule-referenced dataset columns exist
+#' @description Adds any missing `column_source` or `column_target` columns
+#' referenced by canonical rules to the dataset as `NA_character_` before
+#' validation and rule execution.
+#' @param dataset_dt Data table to mutate by reference.
+#' @param rules_dt Canonical rule table.
+#' @return Mutated `dataset_dt` with missing referenced columns initialized.
+#' @importFrom checkmate assert_data_table assert_data_frame
+#' @importFrom data.table setcolorder
+ensure_rule_referenced_columns <- function(dataset_dt, rules_dt) {
+  checkmate::assert_data_table(dataset_dt)
+  checkmate::assert_data_frame(rules_dt, min.rows = 0)
+
+  if (nrow(rules_dt) == 0L) {
+    return(dataset_dt)
+  }
+
+  referenced_columns <- unique(c(rules_dt$column_source, rules_dt$column_target))
+  referenced_columns <- referenced_columns[!is.na(referenced_columns) & nzchar(referenced_columns)]
+
+  if (length(referenced_columns) == 0L) {
+    return(dataset_dt)
+  }
+
+  existing_columns <- colnames(dataset_dt)
+  missing_columns <- setdiff(referenced_columns, existing_columns)
+
+  if (length(missing_columns) > 0L) {
+    dataset_dt[, (missing_columns) := NA_character_]
+
+    data.table::setcolorder(
+      dataset_dt,
+      c(existing_columns, missing_columns)
+    )
+  }
+
+  return(dataset_dt)
+}
+
 #' @title Validate canonical rules
 #' @description Validates schema completeness, dataset-column presence, rule-key
 #' uniqueness, conflict-free mappings, and type compatibility.

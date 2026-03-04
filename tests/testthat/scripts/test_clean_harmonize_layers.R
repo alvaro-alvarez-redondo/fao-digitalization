@@ -110,3 +110,54 @@ testthat::test_that("stage-prefixed schemas are accepted by coerce_rule_schema",
 
   testthat::expect_equal(canonical_dt$value_target_clean[[1]], "kilogram")
 })
+
+
+testthat::test_that("clean layer auto-creates missing rule-referenced columns", {
+  root_dir <- tempfile("fao-clean-missing-cols-")
+  dir.create(root_dir, recursive = TRUE)
+
+  clean_dir <- file.path(root_dir, "data", "1-import", "11-clean_imports")
+  harmonize_dir <- file.path(root_dir, "data", "1-import", "13-harmonize_imports")
+  dir.create(clean_dir, recursive = TRUE)
+  dir.create(harmonize_dir, recursive = TRUE)
+
+  clean_rules <- data.frame(
+    column_source = "source_missing",
+    value_source_raw = "match_me",
+    column_target = "target_missing",
+    value_target_raw = "before",
+    value_target_clean = "after",
+    stringsAsFactors = FALSE
+  )
+
+  readr::write_csv(clean_rules, file.path(clean_dir, "clean_rules_missing_columns.csv"))
+
+  config <- list(
+    paths = list(
+      data = list(
+        imports = list(
+          cleaning = clean_dir,
+          harmonization = harmonize_dir
+        )
+      )
+    )
+  )
+
+  input_dt <- data.frame(
+    product = c("Wheat", "Rice"),
+    variable = c("Prod", "Prod"),
+    unit = c("kg", "kg"),
+    stringsAsFactors = FALSE
+  )
+
+  cleaned_dt <- run_cleaning_layer_batch(
+    dataset_dt = input_dt,
+    config = config,
+    dataset_name = "demo"
+  )
+
+  testthat::expect_true("source_missing" %in% colnames(cleaned_dt))
+  testthat::expect_true("target_missing" %in% colnames(cleaned_dt))
+  testthat::expect_true(all(is.na(cleaned_dt$source_missing)))
+  testthat::expect_true(all(is.na(cleaned_dt$target_missing)))
+})

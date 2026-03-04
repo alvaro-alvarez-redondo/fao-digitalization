@@ -44,12 +44,14 @@ normalize_string <- function(string) {
     any.missing = TRUE
   ))
 
-  string |>
+  normalized_string <- string |>
     as.character() |>
     stringr::str_to_lower() |>
     stringi::stri_trans_general("latin-ascii") |>
     stringr::str_replace_all("[^a-z0-9 ]", " ") |>
     stringr::str_squish()
+
+  return(normalized_string)
 }
 
 #' @title normalize file-friendly names

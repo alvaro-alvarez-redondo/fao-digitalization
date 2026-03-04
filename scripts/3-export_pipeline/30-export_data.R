@@ -54,7 +54,7 @@ canonicalize_layer_object_name <- function(object_name) {
 #' `NULL`.
 #' @param layer_suffixes Character vector of supported layer suffixes.
 #' @return Named list of data.table objects keyed by original object names.
-#' @importFrom checkmate assert_environment assert_character
+#' @importFrom checkmate assert_environment assert_character assert_list
 #' @importFrom cli cli_abort
 #' @importFrom data.table as.data.table
 #' @importFrom purrr keep map
@@ -64,39 +64,47 @@ collect_layer_tables_for_export <- function(
   layer_suffixes = c("raw", "cleaned", "normalized", "harmonized", "clean", "standardize", "harmonize")
 ) {
   checkmate::assert_environment(env)
-  checkmate::assert_character(layer_suffixes, min.len = 1, any.missing = FALSE)
+  checkmate::assert_character(layer_suffixes, min.len = 1, any.missing = FALSE, unique = TRUE)
 
   layer_pattern <- paste0("_(", paste(layer_suffixes, collapse = "|"), ")$")
 
+  is_valid_layer_name <- function(object_name) {
+    return(
+      !is.na(object_name) &&
+        nzchar(object_name) &&
+        grepl(layer_pattern, object_name) &&
+        !grepl("_post_processed$", object_name) &&
+        !grepl("_wide_raw$", object_name)
+    )
+  }
+
   if (is.null(data_objects)) {
     candidate_names <- ls(envir = env, all.names = TRUE)
-    candidate_names <- candidate_names[grepl(layer_pattern, candidate_names)]
-    candidate_names <- candidate_names[!grepl("_post_processed$", candidate_names)]
-    candidate_names <- candidate_names[!grepl("_wide_raw$", candidate_names)]
+    valid_candidate_names <- Filter(is_valid_layer_name, candidate_names)
 
     detected_tables <- purrr::keep(
-      setNames(lapply(candidate_names, get, envir = env, inherits = TRUE), candidate_names),
+      setNames(lapply(valid_candidate_names, get, envir = env, inherits = TRUE), valid_candidate_names),
       is.data.frame
     )
   } else {
-    checkmate::assert_list(data_objects, names = "named")
+    checkmate::assert_list(data_objects, names = "named", any.missing = TRUE)
 
     object_names <- names(data_objects)
-    valid_name_mask <- !is.na(object_names) &
-      nzchar(object_names) &
-      grepl(layer_pattern, object_names) &
-      !grepl("_post_processed$", object_names) &
-      !grepl("_wide_raw$", object_names)
+    valid_name_mask <- vapply(object_names, is_valid_layer_name, logical(1))
 
     detected_tables <- data_objects[valid_name_mask]
     detected_tables <- purrr::keep(detected_tables, is.data.frame)
   }
 
   if (length(detected_tables) == 0L) {
-    cli::cli_abort(
-      "no layer tables detected for export. expected names ending in: {.val {layer_suffixes}}"
-    )
+    cli::cli_abort(c(
+      "no layer tables detected for export.",
+      "x" = "expected object names ending in: {.val {layer_suffixes}}",
+      "i" = "excluded suffixes include {.val _post_processed} and {.val _wide_raw}"
+    ))
   }
+
+  detected_tables <- detected_tables[sort(names(detected_tables))]
 
   canonical_names <- vapply(
     names(detected_tables),
