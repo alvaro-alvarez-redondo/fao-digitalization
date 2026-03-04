@@ -81,6 +81,62 @@ normalize_filename <- function(filename) {
   return(normalized_filename)
 }
 
+
+#' @title Normalize dataset column names in place
+#' @description Normalizes all dataset column names with `normalize_filename()`
+#'   and updates names by reference with `data.table::setnames()`.
+#' @param dataset_dt Dataset as data.frame or data.table.
+#' @return Invisibly returns modified `dataset_dt`.
+#' @importFrom checkmate assert_data_frame
+normalize_dataset_column_names <- function(dataset_dt) {
+  checkmate::assert_data_frame(dataset_dt, min.rows = 0)
+
+  dataset_table <- data.table::as.data.table(dataset_dt)
+  normalized_names <- normalize_filename(colnames(dataset_table))
+
+  data.table::setnames(dataset_table, normalized_names)
+
+  invisible(dataset_table)
+}
+
+#' @title Normalize canonical rule source/target columns
+#' @description Normalizes `column_source` and `column_target` values using
+#'   `normalize_filename()`.
+#' @param rules_dt Canonical rule table as data.frame or data.table.
+#' @return Canonical rule table with normalized source/target column names.
+#' @importFrom checkmate assert_data_frame
+normalize_rule_columns <- function(rules_dt) {
+  checkmate::assert_data_frame(rules_dt, min.rows = 0)
+
+  rules_table <- data.table::as.data.table(rules_dt)
+  required_columns <- c("column_source", "column_target")
+  missing_columns <- setdiff(required_columns, colnames(rules_table))
+
+  if (length(missing_columns) > 0L) {
+    cli::cli_abort(c(
+      "cannot normalize rule column references.",
+      "x" = "missing required columns: {.val {missing_columns}}"
+    ))
+  }
+
+  non_character_columns <- required_columns[!vapply(
+    rules_table[, ..required_columns],
+    is.character,
+    logical(1)
+  )]
+
+  if (length(non_character_columns) > 0L) {
+    cli::cli_abort(c(
+      "cannot normalize rule column references.",
+      "x" = "required columns must be character: {.val {non_character_columns}}"
+    ))
+  }
+
+  rules_table[, (required_columns) := lapply(.SD, normalize_filename), .SDcols = required_columns]
+
+  rules_table
+}
+
 #' @title coerce vector values to numeric safely
 #' @description converts an atomic vector to numeric using a stable character
 #' intermediary. empty strings are treated as missing values and non-numeric

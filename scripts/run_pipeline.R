@@ -75,6 +75,63 @@ assert_pipeline_runtime_dependencies <- function() {
   return(invisible(TRUE))
 }
 
+#' @title Get expected ordered stage runner names
+#' @description Returns the canonical ordered stage runner file names used by
+#'   the pipeline orchestration contract.
+#' @return Character vector of expected stage runner file names.
+#' @keywords internal
+get_expected_stage_runner_names <- function() {
+  return(c(
+    "run_general_pipeline.R",
+    "run_import_pipeline.R",
+    "run_post_processing_pipeline.R",
+    "run_export_pipeline.R"
+  ))
+}
+
+#' @title Validate configured stage runner names
+#' @description Ensures configured stage runner names match the canonical
+#'   deterministic contract.
+#' @param stage_runner_names Character vector from configuration constants.
+#' @return Invisibly returns `TRUE` when validation succeeds.
+#' @keywords internal
+validate_stage_runner_names <- function(stage_runner_names) {
+  checkmate::assert_character(
+    stage_runner_names,
+    len = 4,
+    any.missing = FALSE,
+    unique = TRUE
+  )
+
+  expected_stage_runner_names <- get_expected_stage_runner_names()
+
+  if (!identical(stage_runner_names, expected_stage_runner_names)) {
+    cli::cli_abort(
+      c(
+        "invalid pipeline stage runner configuration.",
+        "x" = "expected ordered stage runner names: {.val {expected_stage_runner_names}}",
+        "i" = "configured names: {.val {stage_runner_names}}"
+      )
+    )
+  }
+
+  return(invisible(TRUE))
+}
+
+#' @title Resolve stage directories
+#' @description Returns canonical stage directory names aligned by index with
+#'   stage runner names.
+#' @return Character vector with deterministic pipeline stage folder names.
+#' @keywords internal
+get_pipeline_stage_directories <- function() {
+  return(c(
+    "0-general_pipeline",
+    "1-import_pipeline",
+    "2-post_processing_pipeline",
+    "3-export_pipeline"
+  ))
+}
+
 #' @title Resolve pipeline script paths
 #' @description Builds ordered script paths for all pipeline stages.
 #' @param pipeline_root Character scalar existing directory.
@@ -86,12 +143,12 @@ resolve_pipeline_files <- function(pipeline_root) {
 
   pipeline_constants <- get_pipeline_constants()
   stage_runner_names <- pipeline_constants$script_names$pipeline_stage_runners
+  validate_stage_runner_names(stage_runner_names)
 
-  pipeline_files <- c(
-    file.path(pipeline_root, "0-general_pipeline", stage_runner_names[[1L]]),
-    file.path(pipeline_root, "1-import_pipeline", stage_runner_names[[2L]]),
-    file.path(pipeline_root, "2-post_processing_pipeline", stage_runner_names[[3L]]),
-    file.path(pipeline_root, "3-export_pipeline", stage_runner_names[[4L]])
+  pipeline_files <- file.path(
+    pipeline_root,
+    get_pipeline_stage_directories(),
+    stage_runner_names
   )
 
   return(pipeline_files)
@@ -123,7 +180,8 @@ run_pipeline_script <- function(pipeline_file) {
 }
 
 #' @title Optionally view pipeline output object
-#' @description Opens the most advanced available pipeline dataset in RStudio viewer if requested.
+#' @description Opens the most advanced available pipeline dataset in RStudio
+#'   viewer if requested.
 #' @param show_view Logical scalar controlling view behavior.
 #' @return Invisibly returns `TRUE`.
 #' @keywords internal

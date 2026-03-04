@@ -355,11 +355,61 @@ normalize_rule_values_for_validation <- function(
   ))
 }
 
+
+
+#' @title Ensure rule-referenced columns exist in dataset
+#' @description Adds missing dataset columns referenced by `column_source` and
+#'   `column_target` using `NA_character_` defaults.
+#' @param rules_dt Canonical rule table.
+#' @param dataset_dt Dataset to modify by reference.
+#' @return Invisibly returns modified `dataset_dt`.
+#' @importFrom checkmate assert_data_frame
+ensure_rule_columns_exist <- function(rules_dt, dataset_dt) {
+  checkmate::assert_data_frame(rules_dt, min.rows = 0)
+  checkmate::assert_data_frame(dataset_dt, min.rows = 0)
+
+  rules_table <- data.table::as.data.table(rules_dt)
+  dataset_table <- data.table::as.data.table(dataset_dt)
+
+  missing_rule_columns <- setdiff(c("column_source", "column_target"), colnames(rules_table))
+
+  if (length(missing_rule_columns) > 0L) {
+    cli::cli_abort(c(
+      "cannot ensure rule-referenced dataset columns.",
+      "x" = "rules are missing required columns: {.val {missing_rule_columns}}"
+    ))
+  }
+
+  if (!is.character(rules_table$column_source) || !is.character(rules_table$column_target)) {
+    cli::cli_abort(c(
+      "cannot ensure rule-referenced dataset columns.",
+      "x" = "rules columns {.val column_source} and {.val column_target} must be character"
+    ))
+  }
+
+  required_columns <- unique(c(rules_table$column_source, rules_table$column_target))
+  required_columns <- required_columns[!is.na(required_columns) & nzchar(required_columns)]
+
+  if (length(required_columns) == 0L) {
+    return(invisible(dataset_table))
+  }
+
+  missing_columns <- setdiff(required_columns, colnames(dataset_table))
+
+  if (length(missing_columns) == 0L) {
+    return(invisible(dataset_table))
+  }
+
+  dataset_table[, (missing_columns) := NA_character_]
+
+  return(invisible(dataset_table))
+}
+
 #' @title Validate canonical rules
 #' @description Validates schema completeness, dataset-column presence, rule-key
 #' uniqueness, conflict-free mappings, and type compatibility.
 #' @param rules_dt Canonical rule table.
-#' @param dataset_dt Dataset to mutate.
+#' @param dataset_dt Dataset used for rule compatibility validation.
 #' @param rule_file_id Character scalar rule file identifier.
 #' @param stage_name Character scalar execution stage label.
 #' @return Invisibly returns `TRUE`.
@@ -406,15 +456,15 @@ validate_canonical_rules <- function(rules_dt, dataset_dt, rule_file_id, stage_n
     ))
   }
 
-  dataset_columns <- colnames(dataset_dt)
-  missing_source <- setdiff(unique(rules_dt$column_source), dataset_columns)
-  missing_target <- setdiff(unique(rules_dt$column_target), dataset_columns)
+  missing_columns <- setdiff(
+    unique(c(rules_dt$column_source, rules_dt$column_target)),
+    colnames(dataset_dt)
+  )
 
-  if (length(missing_source) > 0 || length(missing_target) > 0) {
+  if (length(missing_columns) > 0L) {
     cli::cli_abort(c(
       "Rule columns are not present in dataset for {.file {rule_file_id}}.",
-      if (length(missing_source) > 0) paste0("x source: ", paste(missing_source, collapse = ", ")),
-      if (length(missing_target) > 0) paste0("x target: ", paste(missing_target, collapse = ", "))
+      "x" = "missing columns: {.val {missing_columns}}"
     ))
   }
 

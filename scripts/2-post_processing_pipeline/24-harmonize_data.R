@@ -54,20 +54,28 @@ run_harmonize_layer_batch <- function(
         rule_file_id = payload$rule_file_id
       )
 
+      normalized_data <- normalize_dataset_column_names(state$data)
+      normalized_rules <- normalize_rule_columns(canonical_rules)
+      ensure_rule_columns_exist(
+        rules_dt = normalized_rules,
+        dataset_dt = normalized_data
+      )
+
       validate_canonical_rules(
-        rules_dt = canonical_rules,
-        dataset_dt = state$data,
+        rules_dt = normalized_rules,
+        dataset_dt = normalized_data,
         rule_file_id = payload$rule_file_id,
         stage_name = "harmonize"
       )
 
-      if (nrow(canonical_rules) == 0) {
+      if (nrow(normalized_rules) == 0) {
+        state$data <- normalized_data
         return(state)
       }
 
       payload_result <- apply_rule_payload(
-        dataset_dt = state$data,
-        canonical_rules = canonical_rules,
+        dataset_dt = normalized_data,
+        canonical_rules = normalized_rules,
         stage_name = "harmonize",
         dataset_name = dataset_name,
         rule_file_id = payload$rule_file_id,
