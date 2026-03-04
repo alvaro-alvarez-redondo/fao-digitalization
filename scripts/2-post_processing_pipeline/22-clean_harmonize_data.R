@@ -75,6 +75,11 @@ run_rule_stage_layer_batch <- function(
         rule_file_id = payload$rule_file_id
       )
 
+      state$data <- ensure_rule_referenced_columns(
+        dataset_dt = state$data,
+        rules_dt = canonical_rules
+      )
+
       validate_canonical_rules(
         rules_dt = canonical_rules,
         dataset_dt = state$data,

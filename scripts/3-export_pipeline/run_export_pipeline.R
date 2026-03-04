@@ -103,21 +103,6 @@ assert_export_paths_contract <- function(export_result) {
   return(invisible(TRUE))
 }
 
-export_scripts <- c(
-  "30-export_data.R",
-  "31-export_lists.R"
-)
-
-purrr::walk(
-  export_scripts,
-  \(script_name) {
-    source(
-      here::here("scripts", "3-export_pipeline", script_name),
-      echo = FALSE
-    )
-  }
-)
-
 #' @title Run export pipeline automatically
 #' @description Executes `run_export_pipeline()` when automatic mode is enabled.
 #' @param auto_run Logical scalar controlling automatic execution.

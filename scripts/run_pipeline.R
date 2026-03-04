@@ -13,6 +13,9 @@ if (!exists("get_pipeline_constants", mode = "function", inherits = TRUE)) {
 #'
 #' @return Invisibly returns `TRUE` when all pipeline scripts execute
 #'   successfully.
+#' @importFrom checkmate assert_flag assert_string assert_directory_exists assert_character
+#' @importFrom cli cli_abort cli_alert_info
+#' @importFrom purrr walk
 #'
 #' @examples
 #' \dontrun{
@@ -87,11 +90,24 @@ resolve_pipeline_files <- function(pipeline_root) {
   pipeline_constants <- get_pipeline_constants()
   stage_runner_names <- pipeline_constants$script_names$pipeline_stage_runners
 
-  pipeline_files <- c(
-    file.path(pipeline_root, "0-general_pipeline", stage_runner_names[[1L]]),
-    file.path(pipeline_root, "1-import_pipeline", stage_runner_names[[2L]]),
-    file.path(pipeline_root, "2-post_processing_pipeline", stage_runner_names[[3L]]),
-    file.path(pipeline_root, "3-export_pipeline", stage_runner_names[[4L]])
+  checkmate::assert_character(
+    stage_runner_names,
+    min.len = 4,
+    max.len = 4,
+    any.missing = FALSE
+  )
+
+  stage_directories <- c(
+    "0-general_pipeline",
+    "1-import_pipeline",
+    "2-post_processing_pipeline",
+    "3-export_pipeline"
+  )
+
+  pipeline_files <- file.path(
+    pipeline_root,
+    stage_directories,
+    stage_runner_names
   )
 
   return(pipeline_files)
@@ -117,9 +133,19 @@ run_pipeline_script <- function(pipeline_file) {
     "{.strong running pipeline script: {.val {pipeline_name}}}"
   )
 
-  source(pipeline_file, local = FALSE, echo = FALSE)
-
-  return(invisible(TRUE))
+  tryCatch(
+    {
+      source(pipeline_file, local = FALSE, echo = FALSE)
+      return(invisible(TRUE))
+    },
+    error = function(error_condition) {
+      cli::cli_abort(c(
+        "pipeline script execution failed.",
+        "x" = "script: {.path {pipeline_file}}",
+        "x" = "details: {error_condition$message}"
+      ))
+    }
+  )
 }
 
 #' @title Optionally view pipeline output object
