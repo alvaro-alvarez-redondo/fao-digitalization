@@ -157,9 +157,13 @@ build_post_processing_diagnostics <- function(
       "rule_file_identifier",
       "column_source",
       "value_source_raw",
+      "value_source_stage",
+      "value_source_clean",
+      "value_source_harmonize",
       "column_target",
       "value_target_raw",
       "value_target_clean",
+      "value_target_harmonize",
       "affected_rows"
     )
 
@@ -179,9 +183,13 @@ build_post_processing_diagnostics <- function(
         rule_file_identifier = character(),
         column_source = character(),
         value_source_raw = character(),
+        value_source_stage = character(),
+        value_source_clean = character(),
+        value_source_harmonize = character(),
         column_target = character(),
         value_target_raw = character(),
         value_target_clean = character(),
+        value_target_harmonize = character(),
         affected_rows = integer()
       ))
     }
@@ -192,9 +200,13 @@ build_post_processing_diagnostics <- function(
         rule_file_identifier,
         column_source,
         value_source_raw,
+        value_source_stage,
+        value_source_clean,
+        value_source_harmonize,
         column_target,
         value_target_raw,
-        value_target_clean
+        value_target_clean,
+        value_target_harmonize
       )
     ][
       order(rule_file_identifier, column_source, column_target)
@@ -206,9 +218,13 @@ build_post_processing_diagnostics <- function(
         rule_file_identifier,
         column_source,
         value_source_raw,
+        value_source_stage,
+        value_source_clean,
+        value_source_harmonize,
         column_target,
         value_target_raw,
         value_target_clean,
+        value_target_harmonize,
         affected_rows
       )
     ])

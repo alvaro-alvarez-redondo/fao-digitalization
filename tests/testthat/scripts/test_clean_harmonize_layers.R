@@ -19,6 +19,7 @@ testthat::test_that("clean and harmonize layers apply deterministic rule payload
   clean_rules <- data.frame(
     column_source = "product",
     value_source_raw = "Wheat",
+    value_source_clean = NA_character_,
     column_target = "unit",
     value_target_raw = "kg",
     value_target_clean = "kilogram",
@@ -28,9 +29,10 @@ testthat::test_that("clean and harmonize layers apply deterministic rule payload
   harmonize_rules <- data.frame(
     column_source = "product",
     value_source_raw = "Wheat",
+    value_source_harmonize = NA_character_,
     column_target = "variable",
     value_target_raw = "Prod",
-    value_target_clean = "Production",
+    value_target_harmonize = "Production",
     stringsAsFactors = FALSE
   )
 
@@ -86,6 +88,7 @@ testthat::test_that("stage-prefixed schemas are accepted by coerce_rule_schema",
   raw_rule_dt <- data.frame(
     clean_column_source = "product",
     clean_value_source_raw = "Wheat",
+    clean_value_source_clean = NA_character_,
     clean_column_target = "unit",
     clean_value_target_raw = "kg",
     clean_value_target_clean = "kilogram",
@@ -102,6 +105,7 @@ testthat::test_that("stage-prefixed schemas are accepted by coerce_rule_schema",
     c(
       "column_source",
       "value_source_raw",
+      "value_source_clean",
       "column_target",
       "value_target_raw",
       "value_target_clean"
@@ -123,6 +127,7 @@ testthat::test_that("clean and harmonize payload loaders keep input folders sepa
   readr::write_csv(data.frame(
     column_source = "product",
     value_source_raw = "wheat",
+    value_source_clean = NA_character_,
     column_target = "unit",
     value_target_raw = "kg",
     value_target_clean = "kilogram",
@@ -132,6 +137,7 @@ testthat::test_that("clean and harmonize payload loaders keep input folders sepa
   readr::write_csv(data.frame(
     column_source = "product",
     value_source_raw = "wheat",
+    value_source_harmonize = NA_character_,
     column_target = "variable",
     value_target_raw = "prod",
     value_target_harmonize = "production",

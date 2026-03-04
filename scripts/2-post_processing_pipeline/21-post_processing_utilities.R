@@ -21,6 +21,7 @@ get_canonical_rule_columns <- function(stage_name = NULL) {
     return(c(
       "column_source",
       "value_source_raw",
+      "value_source_harmonize",
       "column_target",
       "value_target_raw",
       "value_target_harmonize"
@@ -30,6 +31,7 @@ get_canonical_rule_columns <- function(stage_name = NULL) {
   return(c(
     "column_source",
     "value_source_raw",
+    "value_source_clean",
     "column_target",
     "value_target_raw",
     "value_target_clean"
@@ -69,6 +71,20 @@ get_stage_target_value_column <- function(stage_name) {
   }
 
   return("value_target_clean")
+}
+
+#' @title Get canonical source value column for stage
+#' @description Returns stage-specific source value column name.
+#' @param stage_name Character scalar stage label.
+#' @return Character scalar source value column name.
+get_stage_source_value_column <- function(stage_name) {
+  validated_stage_name <- validate_post_processing_stage_name(stage_name)
+
+  if (identical(validated_stage_name, "harmonize")) {
+    return("value_source_harmonize")
+  }
+
+  return("value_source_clean")
 }
 
 #' @title Get stage-specific rule template columns
@@ -282,6 +298,15 @@ coerce_rule_schema <- function(rule_dt, stage_name, rule_file_id) {
   available_columns <- colnames(rule_dt)
 
   missing_columns <- setdiff(canonical_columns, available_columns)
+  source_value_column <- get_stage_source_value_column(validated_stage_name)
+
+  if (source_value_column %in% missing_columns) {
+    rule_dt <- data.table::as.data.table(rule_dt)
+    rule_dt[, (source_value_column) := NA_character_]
+    available_columns <- colnames(rule_dt)
+    missing_columns <- setdiff(canonical_columns, available_columns)
+  }
+
   if (length(missing_columns) > 0L) {
     cli::cli_abort(c(
       "Rule file {.file {rule_file_id}} is missing required columns.",
@@ -323,6 +348,8 @@ normalize_rule_values_for_validation <- function(
   allowed_na_columns <- intersect(
     c(
       "value_source_raw",
+      "value_source_clean",
+      "value_source_harmonize",
       "value_target_raw",
       "value_target_clean",
       "value_target_harmonize"
@@ -426,6 +453,7 @@ validate_canonical_rules <- function(rules_dt, dataset_dt, rule_file_id, stage_n
   validated_stage_name <- validate_post_processing_stage_name(stage_name)
 
   required_columns <- get_canonical_rule_columns(validated_stage_name)
+  source_value_column <- get_stage_source_value_column(validated_stage_name)
   missing_rule_columns <- setdiff(required_columns, colnames(rules_dt))
   if (length(missing_rule_columns) > 0) {
     cli::cli_abort(c(
@@ -481,13 +509,13 @@ validate_canonical_rules <- function(rules_dt, dataset_dt, rule_file_id, stage_n
   duplicate_key_dt <- rules_for_validation[
     ,
     .N,
-    by = .(column_source, value_source_raw, column_target, value_target_raw)
+    by = .(column_source, source_value = get(source_value_column), column_target, value_target_raw)
   ][N > 1L]
 
   if (nrow(duplicate_key_dt) > 0) {
     cli::cli_abort(c(
       "Rule uniqueness validation failed for {.file {rule_file_id}}.",
-      "x" = "Each (column_source, value_source_raw, column_target, value_target_raw) must be unique."
+      "x" = "Each (column_source, stage source value, column_target, value_target_raw) must be unique."
     ))
   }
 
@@ -496,7 +524,7 @@ validate_canonical_rules <- function(rules_dt, dataset_dt, rule_file_id, stage_n
   conflict_dt <- rules_for_validation[
     ,
     .(target_value_count = uniqueN(get(target_value_column))),
-    by = .(column_source, value_source_raw, column_target, value_target_raw)
+    by = .(column_source, source_value = get(source_value_column), column_target, value_target_raw)
   ][target_value_count > 1L]
 
   if (nrow(conflict_dt) > 0) {
@@ -547,7 +575,7 @@ validate_canonical_rules <- function(rules_dt, dataset_dt, rule_file_id, stage_n
     return(invisible(TRUE))
   }
 
-  rules_dt[, check_type_compatibility(column_source[1], value_source_raw, "value_source_raw"), by = column_source]
+  rules_dt[, check_type_compatibility(column_source[1], get(source_value_column), source_value_column), by = column_source]
   rules_dt[, check_type_compatibility(column_target[1], value_target_raw, "value_target_raw"), by = column_target]
 
   return(invisible(TRUE))
@@ -568,11 +596,12 @@ build_conditional_rule_dictionary <- function(rules_dt, stage_name) {
   }
 
   target_value_column <- get_stage_target_value_column(validated_stage_name)
+  source_value_column <- get_stage_source_value_column(validated_stage_name)
 
   ordered_rules <- data.table::as.data.table(rules_dt)[order(
     column_source,
     column_target,
-    value_source_raw,
+    get(source_value_column),
     value_target_raw,
     get(target_value_column)
   )]
@@ -674,18 +703,33 @@ apply_conditional_rule_group <- function(
   checkmate::assert_string(execution_timestamp_utc, min.chars = 1)
 
   target_value_column <- get_stage_target_value_column(validated_stage_name)
+  source_value_column <- get_stage_source_value_column(validated_stage_name)
 
   group_dt <- data.table::as.data.table(group_rules)
+
+  if (!(source_value_column %in% colnames(group_dt))) {
+    group_dt[, (source_value_column) := NA_character_]
+  }
+
   source_column <- group_dt$column_source[[1]]
   target_column <- group_dt$column_target[[1]]
 
   normalized_rules <- unique(group_dt[, .(
     column_source,
     value_source_raw,
+    value_source_stage = data.table::fifelse(
+      is.na(get(source_value_column)) | trimws(get(source_value_column)) == "",
+      value_source_raw,
+      get(source_value_column)
+    ),
     column_target,
     value_target_raw,
     value_target_result_placeholder = encode_target_rule_value(get(target_value_column)),
-    source_key = encode_rule_match_key(value_source_raw),
+    source_key = encode_rule_match_key(data.table::fifelse(
+      is.na(get(source_value_column)) | trimws(get(source_value_column)) == "",
+      value_source_raw,
+      get(source_value_column)
+    )),
     target_key = encode_rule_match_key(value_target_raw)
   )][
     ,
@@ -728,6 +772,7 @@ apply_conditional_rule_group <- function(
       dataset_name = dataset_name,
       column_source,
       value_source_raw,
+      value_source_stage,
       column_target,
       value_target_raw,
       value_target_result,
@@ -736,7 +781,9 @@ apply_conditional_rule_group <- function(
       rule_file_identifier = rule_file_id,
       execution_stage = validated_stage_name
     )
-  ][order(column_source, column_target, value_source_raw, value_target_raw)]
+  ][order(column_source, column_target, value_source_stage, value_target_raw)]
+
+  audit_dt[, (source_value_column) := value_source_stage]
 
   return(list(data = dataset_dt, audit = audit_dt))
 }

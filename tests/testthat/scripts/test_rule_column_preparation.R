@@ -23,6 +23,7 @@ testthat::test_that("normalize_rule_columns normalizes accented source and targe
   rules_dt <- data.table::data.table(
     column_source = "Côuntry Name",
     value_source_raw = "Argentina",
+    value_source_clean = NA_character_,
     column_target = "Unit Value",
     value_target_raw = "kg",
     value_target_clean = "kilogram"
@@ -39,6 +40,7 @@ testthat::test_that("ensure_rule_columns_exist creates missing columns as charac
   rules_dt <- data.table::data.table(
     column_source = "product",
     value_source_raw = c("wheat", "rice"),
+    value_source_clean = NA_character_,
     column_target = "unit",
     value_target_raw = c("kg", "kg"),
     value_target_clean = c("kilogram", "kilogram")
@@ -56,6 +58,7 @@ testthat::test_that("ensure_rule_columns_exist is idempotent and does not duplic
   rules_dt <- data.table::data.table(
     column_source = "product",
     value_source_raw = c("wheat", "rice"),
+    value_source_clean = NA_character_,
     column_target = "unit",
     value_target_raw = c("kg", "kg"),
     value_target_clean = c("kilogram", "kilogram")
@@ -73,6 +76,7 @@ testthat::test_that("validate_canonical_rules creates missing referenced dataset
   rules_dt <- data.table::data.table(
     column_source = "country_name",
     value_source_raw = "Argentina",
+    value_source_clean = NA_character_,
     column_target = "missing_target_column",
     value_target_raw = NA_character_,
     value_target_clean = "kilogram"
@@ -98,6 +102,7 @@ testthat::test_that("validate_canonical_rules fails clearly for empty column ref
   rules_dt <- data.table::data.table(
     column_source = "",
     value_source_raw = "Argentina",
+    value_source_clean = NA_character_,
     column_target = "unit_value",
     value_target_raw = "kg",
     value_target_clean = "kilogram"
@@ -121,6 +126,7 @@ testthat::test_that("validate_canonical_rules creates missing target column on d
   rules_dt <- data.table::data.table(
     column_source = "product",
     value_source_raw = c("wheat", "rice"),
+    value_source_clean = NA_character_,
     column_target = "new_target",
     value_target_raw = c("wheat", "rice"),
     value_target_clean = c("grain", "grain")

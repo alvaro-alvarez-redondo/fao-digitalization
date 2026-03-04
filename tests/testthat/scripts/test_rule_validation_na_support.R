@@ -16,6 +16,7 @@ testthat::test_that("validate_canonical_rules allows NA in value columns for cle
   rules_dt <- data.table::data.table(
     column_source = c("product", "product"),
     value_source_raw = c(NA_character_, "Rice"),
+    value_source_clean = c(NA_character_, NA_character_),
     column_target = c("unit", "unit"),
     value_target_raw = c(NA_character_, "kg"),
     value_target_clean = c(NA_character_, "kilogram")
@@ -40,6 +41,7 @@ testthat::test_that("validate_canonical_rules remains fail-fast for structural r
   rules_dt <- data.table::data.table(
     column_source = NA_character_,
     value_source_raw = NA_character_,
+    value_source_clean = NA_character_,
     column_target = "unit",
     value_target_raw = "kg",
     value_target_clean = "kilogram"
@@ -65,6 +67,7 @@ testthat::test_that("apply_conditional_rule_group matches NA keys deterministica
   group_rules <- data.table::data.table(
     column_source = "product",
     value_source_raw = NA_character_,
+    value_source_clean = NA_character_,
     column_target = "unit",
     value_target_raw = NA_character_,
     value_target_clean = "unknown_unit"
@@ -94,6 +97,7 @@ testthat::test_that("validate_canonical_rules allows NA in value columns for har
   rules_dt <- data.table::data.table(
     column_source = c("product", "product"),
     value_source_raw = c(NA_character_, "Rice"),
+    value_source_harmonize = c(NA_character_, NA_character_),
     column_target = c("variable", "variable"),
     value_target_raw = c(NA_character_, "Prod"),
     value_target_harmonize = c(NA_character_, "Production")
@@ -119,6 +123,7 @@ testthat::test_that("empty target clean value is applied as NA_character_", {
   group_rules <- data.table::data.table(
     column_source = "product",
     value_source_raw = "Wheat",
+    value_source_clean = NA_character_,
     column_target = "unit",
     value_target_raw = "kg",
     value_target_clean = ""
