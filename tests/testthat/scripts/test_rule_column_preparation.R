@@ -67,26 +67,29 @@ testthat::test_that("ensure_rule_columns_exist is idempotent and does not duplic
   testthat::expect_identical(sum(colnames(dataset_dt) == "unit"), 1L)
 })
 
-testthat::test_that("validate_canonical_rules fails when normalization is skipped", {
+testthat::test_that("validate_canonical_rules creates missing referenced dataset columns", {
   dataset_dt <- data.table::data.table(country_name = c("Argentina"), unit_value = c("kg"))
 
   rules_dt <- data.table::data.table(
-    column_source = "Côuntry Name",
+    column_source = "country_name",
     value_source_raw = "Argentina",
-    column_target = "Unit Value",
-    value_target_raw = "kg",
+    column_target = "missing_target_column",
+    value_target_raw = NA_character_,
     value_target_clean = "kilogram"
   )
 
-  testthat::expect_error(
+  testthat::expect_invisible(
     validate_canonical_rules(
       rules_dt = rules_dt,
       dataset_dt = dataset_dt,
       rule_file_id = "clean_rules.csv",
       stage_name = "clean"
-    ),
-    regexp = "Rule columns are not present in dataset"
+    )
   )
+
+  testthat::expect_true("missing_target_column" %in% colnames(dataset_dt))
+  testthat::expect_type(dataset_dt$missing_target_column, "character")
+  testthat::expect_true(all(is.na(dataset_dt$missing_target_column)))
 })
 
 testthat::test_that("validate_canonical_rules fails clearly for empty column references", {

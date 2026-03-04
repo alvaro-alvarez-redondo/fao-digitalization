@@ -406,10 +406,12 @@ ensure_rule_columns_exist <- function(rules_dt, dataset_dt) {
 }
 
 #' @title Validate canonical rules
-#' @description Validates schema completeness, dataset-column presence, rule-key
-#' uniqueness, conflict-free mappings, and type compatibility.
+#' @description Validates schema completeness, rule-key uniqueness, conflict-free
+#' mappings, and type compatibility. Missing dataset columns referenced by rules
+#' are created as `NA_character_` before compatibility checks.
 #' @param rules_dt Canonical rule table.
-#' @param dataset_dt Dataset used for rule compatibility validation.
+#' @param dataset_dt Dataset used for rule compatibility validation. May be
+#'   modified by reference to add missing rule-referenced columns.
 #' @param rule_file_id Character scalar rule file identifier.
 #' @param stage_name Character scalar execution stage label.
 #' @return Invisibly returns `TRUE`.
@@ -468,17 +470,10 @@ validate_canonical_rules <- function(rules_dt, dataset_dt, rule_file_id, stage_n
     ))
   }
 
-  missing_columns <- setdiff(
-    reference_columns[!is.na(reference_columns)],
-    colnames(dataset_dt)
+  ensure_rule_columns_exist(
+    rules_dt = rules_dt,
+    dataset_dt = dataset_dt
   )
-
-  if (length(missing_columns) > 0L) {
-    cli::cli_abort(c(
-      "Rule columns are not present in dataset for {.file {rule_file_id}}.",
-      "x" = "missing columns: {.val {missing_columns}}"
-    ))
-  }
 
   duplicate_key_dt <- rules_for_validation[
     ,
