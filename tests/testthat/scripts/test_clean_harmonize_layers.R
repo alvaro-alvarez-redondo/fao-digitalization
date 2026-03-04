@@ -312,3 +312,54 @@ testthat::test_that("harmonize stage applies optional source rewrites", {
   testthat::expect_equal(harmonized_dt$variable[[2]], "Import")
   testthat::expect_equal(harmonized_dt$unit[[1]], "kilogram")
 })
+
+
+testthat::test_that("clean stage blank source rewrite assigns NA on matched rows", {
+  root_dir <- tempfile("fao-clean-source-blank-")
+  dir.create(root_dir, recursive = TRUE)
+
+  clean_dir <- file.path(root_dir, "data", "1-import", "11-clean_imports")
+  harmonize_dir <- file.path(root_dir, "data", "1-import", "13-harmonize_imports")
+  dir.create(clean_dir, recursive = TRUE)
+  dir.create(harmonize_dir, recursive = TRUE)
+
+  clean_rules <- data.frame(
+    column_source = "continent",
+    value_source_raw = "asia",
+    value_source_clean = "",
+    column_target = "product",
+    value_target_raw = "wheat",
+    value_target_clean = "asia wheat",
+    stringsAsFactors = FALSE
+  )
+
+  readr::write_csv(clean_rules, file.path(clean_dir, "clean_rules_blank_source.csv"))
+
+  config <- list(
+    paths = list(
+      data = list(
+        imports = list(
+          cleaning = clean_dir,
+          harmonization = harmonize_dir
+        )
+      )
+    )
+  )
+
+  input_dt <- data.frame(
+    continent = c("asia", "europe"),
+    product = c("wheat", "wheat"),
+    stringsAsFactors = FALSE
+  )
+
+  cleaned_dt <- run_cleaning_layer_batch(
+    dataset_dt = input_dt,
+    config = config,
+    dataset_name = "demo"
+  )
+
+  testthat::expect_true(is.na(cleaned_dt$continent[[1]]))
+  testthat::expect_equal(cleaned_dt$continent[[2]], "europe")
+  testthat::expect_equal(cleaned_dt$product[[1]], "asia wheat")
+  testthat::expect_equal(cleaned_dt$product[[2]], "wheat")
+})

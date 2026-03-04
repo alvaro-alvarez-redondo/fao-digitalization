@@ -774,7 +774,7 @@ apply_conditional_rule_group <- function(
   ]
 
   matched_row_mask <- !is.na(joined_dt$column_source)
-  source_update_mask <- matched_row_mask & !is.na(joined_dt$value_source_result)
+  source_update_mask <- matched_row_mask
   matched_rows <- as.integer(sum(matched_row_mask))
 
   if (matched_rows > 0L) {
