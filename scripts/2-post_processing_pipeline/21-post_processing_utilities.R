@@ -406,32 +406,39 @@ normalize_rule_values_for_validation <- function(
 #' @param rules_dt Canonical rule table.
 #' @return Mutated `dataset_dt` with missing referenced columns initialized.
 #' @importFrom checkmate assert_data_table assert_data_frame
-#' @importFrom data.table setcolorder
+#' @importFrom cli cli_abort
 ensure_rule_referenced_columns <- function(dataset_dt, rules_dt) {
   checkmate::assert_data_table(dataset_dt)
   checkmate::assert_data_frame(rules_dt, min.rows = 0)
+
+  existing_columns <- colnames(dataset_dt)
+
+  if (anyDuplicated(existing_columns) > 0L) {
+    duplicated_columns <- unique(existing_columns[duplicated(existing_columns)])
+
+    cli::cli_abort(c(
+      "dataset contains duplicate column names before rule-column materialization.",
+      "x" = paste(duplicated_columns, collapse = ", ")
+    ))
+  }
 
   if (nrow(rules_dt) == 0L) {
     return(dataset_dt)
   }
 
   referenced_columns <- unique(c(rules_dt$column_source, rules_dt$column_target))
+  referenced_columns <- as.character(referenced_columns)
+  referenced_columns <- trimws(referenced_columns)
   referenced_columns <- referenced_columns[!is.na(referenced_columns) & nzchar(referenced_columns)]
 
   if (length(referenced_columns) == 0L) {
     return(dataset_dt)
   }
 
-  existing_columns <- colnames(dataset_dt)
-  missing_columns <- setdiff(referenced_columns, existing_columns)
+  missing_columns <- referenced_columns[!(referenced_columns %in% existing_columns)]
 
   if (length(missing_columns) > 0L) {
     dataset_dt[, (missing_columns) := NA_character_]
-
-    data.table::setcolorder(
-      dataset_dt,
-      c(existing_columns, missing_columns)
-    )
   }
 
   return(dataset_dt)
@@ -489,8 +496,13 @@ validate_canonical_rules <- function(rules_dt, dataset_dt, rule_file_id, stage_n
   }
 
   dataset_columns <- colnames(dataset_dt)
-  missing_source <- setdiff(unique(rules_dt$column_source), dataset_columns)
-  missing_target <- setdiff(unique(rules_dt$column_target), dataset_columns)
+  source_columns <- unique(trimws(as.character(rules_dt$column_source)))
+  target_columns <- unique(trimws(as.character(rules_dt$column_target)))
+  source_columns <- source_columns[!is.na(source_columns) & nzchar(source_columns)]
+  target_columns <- target_columns[!is.na(target_columns) & nzchar(target_columns)]
+
+  missing_source <- setdiff(source_columns, dataset_columns)
+  missing_target <- setdiff(target_columns, dataset_columns)
 
   if (length(missing_source) > 0 || length(missing_target) > 0) {
     cli::cli_abort(c(
