@@ -49,10 +49,9 @@ source_post_processing_scripts <- function(
   script_names <- c(
     "20-data_audit.R",
     "21-post_processing_utilities.R",
-    "22-clean_data.R",
+    "22-clean_harmonize_data.R",
     "23-standardize_units.R",
-    "24-harmonize_data.R",
-    "25-post_processing_diagnostics.R"
+    "24-post_processing_diagnostics.R"
   )
 
   purrr::walk(script_names, function(script_name) {

@@ -6,8 +6,17 @@ options(
 source(
   here::here(
     "scripts",
+    "0-general_pipeline",
+    "01-setup.R"
+  ),
+  echo = FALSE
+)
+
+source(
+  here::here(
+    "scripts",
     "2-post_processing_pipeline",
-    "25-post_processing_diagnostics.R"
+    "24-post_processing_diagnostics.R"
   ),
   echo = FALSE
 )

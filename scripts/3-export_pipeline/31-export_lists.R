@@ -47,7 +47,7 @@ infer_layer_sheet_name <- function(object_name) {
 #' @param column_name Character scalar column name.
 #' @return Character scalar path ending with `_list.xlsx`.
 #' @importFrom checkmate assert_list assert_string
-#' @importFrom fs dir_create path
+#' @importFrom fs path
 build_column_lists_export_path <- function(config, column_name) {
   checkmate::assert_list(config, min.len = 1)
   checkmate::assert_string(column_name, min.chars = 1)
@@ -59,7 +59,7 @@ build_column_lists_export_path <- function(config, column_name) {
   )
 
   lists_dir <- here::here(lists_dir)
-  fs::dir_create(lists_dir, recurse = TRUE)
+  ensure_directories_exist(lists_dir, recurse = TRUE)
 
   return(fs::path(
     lists_dir,
