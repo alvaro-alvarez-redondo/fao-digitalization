@@ -249,7 +249,7 @@ get_config_string <- function(config, path, field_name) {
 #' with `here::here()` to guarantee project-root-relative output paths.
 #' @return character scalar path generated with `fs::path()`.
 #' @importFrom checkmate check_flag check_list check_string
-#' @importFrom fs dir_create path
+#' @importFrom fs path
 #' @importFrom here here
 #' @examples
 #' config <- list(
@@ -303,7 +303,7 @@ generate_export_path <- function(
     folder
   }
 
-  fs::dir_create(output_folder)
+  ensure_directories_exist(output_folder, recurse = TRUE)
 
   return(fs::path(output_folder, paste0(normalize_filename(base_name), suffix)))
 }

@@ -107,12 +107,12 @@ get_post_processing_audit_paths <- function(config) {
 #' @param config Named configuration list.
 #' @return Named list of post-processing audit paths.
 #' @importFrom checkmate assert_list
-#' @importFrom fs dir_create
+#'
 initialize_post_processing_audit_root <- function(config) {
   checkmate::assert_list(config, min.len = 1)
 
   audit_paths <- get_post_processing_audit_paths(config)
-  fs::dir_create(unlist(audit_paths, use.names = FALSE), recurse = TRUE)
+  ensure_directories_exist(unlist(audit_paths, use.names = FALSE), recurse = TRUE)
 
   return(audit_paths)
 }
@@ -237,7 +237,7 @@ load_stage_rule_payloads <- function(config, stage_name) {
   )
   checkmate::assert_string(imports_dir, min.chars = 1)
 
-  fs::dir_create(imports_dir, recurse = TRUE)
+  ensure_directories_exist(imports_dir, recurse = TRUE)
 
   stage_pattern <- switch(
     validated_stage_name,

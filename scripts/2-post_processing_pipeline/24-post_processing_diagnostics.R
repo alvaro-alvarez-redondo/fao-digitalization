@@ -239,7 +239,7 @@ build_post_processing_diagnostics <- function(
 #' @param config Named configuration list.
 #' @return Named character vector containing `rule_summary` workbook path.
 #' @importFrom checkmate assert_data_frame assert_string assert_list
-#' @importFrom fs dir_create path
+#' @importFrom fs path
 persist_post_processing_audit <- function(
   clean_audit_dt,
   harmonize_audit_dt,
@@ -263,7 +263,7 @@ persist_post_processing_audit <- function(
 
   audit_paths <- initialize_post_processing_audit_root(config)
   diagnostics_dir <- audit_paths$diagnostics_dir
-  fs::dir_create(diagnostics_dir, recurse = TRUE)
+  ensure_directories_exist(diagnostics_dir, recurse = TRUE)
 
   output_paths <- c(
     rule_summary = fs::path(

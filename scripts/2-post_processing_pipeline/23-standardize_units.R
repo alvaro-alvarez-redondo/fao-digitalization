@@ -92,7 +92,7 @@ normalize_conversion_rule_columns <- function(conversion_dt) {
 #' @param config Named configuration list.
 #' @return Character scalar template file path.
 #' @importFrom checkmate assert_list assert_string assert_directory_exists
-#' @importFrom fs dir_create path
+#' @importFrom fs path
 #' @importFrom openxlsx createWorkbook addWorksheet writeData saveWorkbook
 #' @examples
 #' \dontrun{ensure_standardize_template_exists(config)}
@@ -105,7 +105,7 @@ ensure_standardize_template_exists <- function(config) {
 
   templates_dir <- fs::path(config$paths$data$audit$audit_root_dir, "templates")
 
-  fs::dir_create(templates_dir, recurse = TRUE)
+  ensure_directories_exist(templates_dir, recurse = TRUE)
   checkmate::assert_directory_exists(templates_dir)
 
   template_path <- fs::path(templates_dir, "standardize_units_template.xlsx")
@@ -135,7 +135,7 @@ ensure_standardize_template_exists <- function(config) {
 #' @param config named configuration list.
 #' @return named list with `rules` and `source_paths`.
 #' @importFrom checkmate assert_list assert_string assert_directory_exists
-#' @importFrom fs dir_create dir_ls path_file
+#'  dir_ls path_file
 #' @examples
 #' \dontrun{read_all_standardize_rule_files(config)}
 read_all_standardize_rule_files <- function(config) {
@@ -146,7 +146,7 @@ read_all_standardize_rule_files <- function(config) {
   )
 
   standardization_dir <- config$paths$data$imports$standardization
-  fs::dir_create(standardization_dir, recurse = TRUE)
+  ensure_directories_exist(standardization_dir, recurse = TRUE)
   checkmate::assert_directory_exists(standardization_dir)
 
   rule_paths <- fs::dir_ls(
