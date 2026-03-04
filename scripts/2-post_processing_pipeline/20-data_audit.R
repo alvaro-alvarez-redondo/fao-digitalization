@@ -17,34 +17,18 @@
 prepare_audit_root <- function(audit_root_dir) {
   assert_or_abort(checkmate::check_string(audit_root_dir, min.chars = 1))
 
-  if (!fs::dir_exists(audit_root_dir)) {
-    return(invisible(FALSE))
-  }
+  deleted <- delete_directory_if_exists(
+    directory = audit_root_dir,
+    tolerate_permission_errors = TRUE
+  )
 
-  delete_result <- purrr::safely(fs::dir_delete)(audit_root_dir)
-
-  if (!is.null(delete_result$error)) {
-    error_message <- as.character(delete_result$error$message)
-    is_permission_error <- grepl(
-      "EPERM|permission denied|operation not permitted|access is denied",
-      error_message,
-      ignore.case = TRUE
-    )
-
-    if (is_permission_error) {
-      cli::cli_alert_info(
-        "audit root cleanup skipped due to locked/permission-protected files; continuing with existing folder {.path {audit_root_dir}}."
-      )
-
-      return(invisible(FALSE))
-    }
-
-    cli::cli_abort(
-      "failed to delete existing audit folder {.path {audit_root_dir}}: {error_message}"
+  if (!deleted && fs::dir_exists(audit_root_dir)) {
+    cli::cli_alert_info(
+      "audit root cleanup skipped due to locked/permission-protected files; continuing with existing folder {.path {audit_root_dir}}."
     )
   }
 
-  return(invisible(TRUE))
+  return(invisible(deleted))
 }
 
 #' @title empty audit findings data table

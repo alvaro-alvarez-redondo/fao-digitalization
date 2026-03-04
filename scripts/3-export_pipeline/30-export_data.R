@@ -10,7 +10,7 @@
 #' @param object_name Character scalar object name.
 #' @return Character scalar path ending with `.xlsx`.
 #' @importFrom checkmate assert_list assert_string
-#' @importFrom fs dir_create path
+#' @importFrom fs path
 build_processed_export_path <- function(config, object_name) {
   checkmate::assert_list(config, min.len = 1)
   checkmate::assert_string(object_name, min.chars = 1)
@@ -22,7 +22,7 @@ build_processed_export_path <- function(config, object_name) {
   )
 
   processed_dir <- here::here(processed_dir)
-  fs::dir_create(processed_dir, recurse = TRUE)
+  ensure_directories_exist(processed_dir, recurse = TRUE)
 
   return(fs::path(processed_dir, paste0(normalize_filename(object_name), ".xlsx")))
 }

@@ -143,7 +143,7 @@ load_pipeline_config <- function(dataset_name = get_pipeline_constants()$dataset
     build_path("data", "1-import")
   )
 
-  fs::dir_create(required_base_directories)
+  ensure_directories_exist(required_base_directories, recurse = TRUE)
   purrr::walk(required_base_directories, checkmate::assert_directory_exists)
 
   raw_imports_dir <- build_path("data", "1-import", "10-raw_imports")
@@ -175,7 +175,7 @@ load_pipeline_config <- function(dataset_name = get_pipeline_constants()$dataset
   )
 
   import_directories <- unlist(paths$data$imports, use.names = FALSE)
-  fs::dir_create(import_directories, recurse = TRUE)
+  ensure_directories_exist(import_directories, recurse = TRUE)
   purrr::walk(import_directories, checkmate::assert_directory_exists)
 
   files <- list(
@@ -328,6 +328,108 @@ load_pipeline_config <- function(dataset_name = get_pipeline_constants()$dataset
   return(config)
 }
 
+#' @title resolve audit root directory
+#' @description safely extracts the optional audit root directory from a
+#' pipeline-like `paths` list without assuming nested members are present.
+#' @param paths named or unnamed list that may contain
+#' `paths$data$audit$audit_root_dir`.
+#' @return character scalar audit root directory when configured; otherwise
+#' `NULL`.
+#' @importFrom checkmate assert_list assert_string
+#' @importFrom purrr pluck
+#' @examples
+#' resolve_audit_root_dir(list())
+resolve_audit_root_dir <- function(paths) {
+  checkmate::assert_list(paths)
+
+  audit_root_dir <- purrr::pluck(
+    paths,
+    "data",
+    "audit",
+    "audit_root_dir",
+    .default = NULL
+  )
+
+  if (!is.null(audit_root_dir)) {
+    checkmate::assert_string(audit_root_dir, min.chars = 1)
+  }
+
+  return(audit_root_dir)
+}
+
+
+#' @title ensure directories exist
+#' @description creates directories in deterministic sorted order.
+#' @param directories character vector of directory paths.
+#' @param recurse logical scalar passed to `fs::dir_create()`.
+#' @return invisible character vector of created directory paths.
+#' @importFrom checkmate assert_character assert_flag
+#' @importFrom fs dir_create
+#' @examples
+#' ensure_directories_exist(file.path(tempdir(), c("a", "b")))
+ensure_directories_exist <- function(directories, recurse = TRUE) {
+  checkmate::assert_character(directories, any.missing = FALSE)
+  checkmate::assert_flag(recurse)
+
+  if (length(directories) == 0) {
+    return(invisible(character(0)))
+  }
+
+  normalized_directories <- directories |>
+    unique() |>
+    sort()
+
+  fs::dir_create(normalized_directories, recurse = recurse)
+
+  return(invisible(normalized_directories))
+}
+
+#' @title delete directory if it exists
+#' @description deletes a directory path when it exists and optionally tolerates
+#' permission errors while keeping deterministic error handling.
+#' @param directory character scalar directory path.
+#' @param tolerate_permission_errors logical scalar; when `TRUE`, permission
+#' and lock-related deletion errors return `FALSE` instead of aborting.
+#' @return invisible logical scalar indicating whether a directory was deleted.
+#' @importFrom checkmate assert_string assert_flag
+#' @importFrom cli cli_abort
+#' @importFrom fs dir_exists dir_delete
+#' @importFrom purrr safely
+#' @examples
+#' delete_directory_if_exists(file.path(tempdir(), "nonexistent"))
+delete_directory_if_exists <- function(
+  directory,
+  tolerate_permission_errors = FALSE
+) {
+  checkmate::assert_string(directory, min.chars = 1)
+  checkmate::assert_flag(tolerate_permission_errors)
+
+  if (!fs::dir_exists(directory)) {
+    return(invisible(FALSE))
+  }
+
+  delete_result <- purrr::safely(fs::dir_delete)(directory)
+
+  if (!is.null(delete_result$error)) {
+    error_message <- as.character(delete_result$error$message)
+    permission_error <- grepl(
+      "EPERM|permission denied|operation not permitted|access is denied",
+      error_message,
+      ignore.case = TRUE
+    )
+
+    if (tolerate_permission_errors && permission_error) {
+      return(invisible(FALSE))
+    }
+
+    cli::cli_abort(
+      "failed to delete existing folder {.path {directory}}: {error_message}"
+    )
+  }
+
+  return(invisible(TRUE))
+}
+
 #' @title create required directories
 #' @description validates a nested list of paths, flattens it to a character
 #' vector, normalizes file paths to their parent directories, excludes audit
@@ -362,9 +464,10 @@ create_required_directories <- function(paths) {
 
       path_value
     }) |>
-    unique()
+    unique() |>
+    sort()
 
-  audit_root_dir <- paths$data$audit$audit_root_dir
+  audit_root_dir <- resolve_audit_root_dir(paths)
 
   if (is.character(audit_root_dir) && length(audit_root_dir) == 1) {
     normalized_audit_root <- fs::path_norm(audit_root_dir)
@@ -385,10 +488,10 @@ create_required_directories <- function(paths) {
   }
 
   if (length(all_directories) > 0) {
-    fs::dir_create(all_directories)
+    ensure_directories_exist(all_directories, recurse = TRUE)
   }
 
-  invisible(all_directories)
+  return(invisible(all_directories))
 }
 
 #' @title ensure output directories
@@ -409,7 +512,7 @@ ensure_output_directories <- function(output_paths) {
   }
 
   output_directories <- unique(fs::path_dir(output_paths))
-  fs::dir_create(output_directories, recurse = TRUE)
+  ensure_directories_exist(output_directories, recurse = TRUE)
 
-  invisible(output_directories)
+  return(invisible(output_directories))
 }
