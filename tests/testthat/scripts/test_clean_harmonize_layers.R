@@ -262,3 +262,53 @@ testthat::test_that("when source and target columns are identical target rewrite
   testthat::expect_equal(cleaned_dt$product[[1]], "Wheat target")
   testthat::expect_equal(cleaned_dt$product[[2]], "Rice")
 })
+
+
+testthat::test_that("harmonize stage applies optional source rewrites", {
+  root_dir <- tempfile("fao-harmonize-source-rewrite-")
+  dir.create(root_dir, recursive = TRUE)
+
+  clean_dir <- file.path(root_dir, "data", "1-import", "11-clean_imports")
+  harmonize_dir <- file.path(root_dir, "data", "1-import", "13-harmonize_imports")
+  dir.create(clean_dir, recursive = TRUE)
+  dir.create(harmonize_dir, recursive = TRUE)
+
+  harmonize_rules <- data.frame(
+    column_source = "variable",
+    value_source_raw = "Prod",
+    value_source_harmonize = "Production",
+    column_target = "unit",
+    value_target_raw = "kg",
+    value_target_harmonize = "kilogram",
+    stringsAsFactors = FALSE
+  )
+
+  readr::write_csv(harmonize_rules, file.path(harmonize_dir, "harmonize_rules_source_rewrite.csv"))
+
+  config <- list(
+    paths = list(
+      data = list(
+        imports = list(
+          cleaning = clean_dir,
+          harmonization = harmonize_dir
+        )
+      )
+    )
+  )
+
+  input_dt <- data.frame(
+    variable = c("Prod", "Import"),
+    unit = c("kg", "kg"),
+    stringsAsFactors = FALSE
+  )
+
+  harmonized_dt <- run_harmonize_layer_batch(
+    dataset_dt = input_dt,
+    config = config,
+    dataset_name = "demo"
+  )
+
+  testthat::expect_equal(harmonized_dt$variable[[1]], "Production")
+  testthat::expect_equal(harmonized_dt$variable[[2]], "Import")
+  testthat::expect_equal(harmonized_dt$unit[[1]], "kilogram")
+})

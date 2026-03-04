@@ -295,7 +295,23 @@ coerce_rule_schema <- function(rule_dt, stage_name, rule_file_id) {
   checkmate::assert_string(rule_file_id, min.chars = 1)
 
   canonical_columns <- get_canonical_rule_columns(validated_stage_name)
-  available_columns <- colnames(rule_dt)
+  stage_prefix <- paste0("^", validated_stage_name, "_")
+
+  canonical_dt <- data.table::as.data.table(rule_dt)
+  available_columns <- colnames(canonical_dt)
+
+  normalized_columns <- sub(stage_prefix, "", available_columns)
+  duplicated_normalized_columns <- normalized_columns[duplicated(normalized_columns)]
+
+  if (length(duplicated_normalized_columns) > 0L) {
+    cli::cli_abort(c(
+      "Rule file {.file {rule_file_id}} contains duplicate columns after stage-prefix normalization.",
+      "x" = paste(unique(duplicated_normalized_columns), collapse = ", ")
+    ))
+  }
+
+  data.table::setnames(canonical_dt, available_columns, normalized_columns)
+  available_columns <- colnames(canonical_dt)
 
   source_result_column <- get_stage_source_value_column(validated_stage_name)
   optional_columns <- source_result_column
@@ -317,8 +333,6 @@ coerce_rule_schema <- function(rule_dt, stage_name, rule_file_id) {
       "x" = paste(unexpected_columns, collapse = ", ")
     ))
   }
-
-  canonical_dt <- data.table::as.data.table(rule_dt)
 
   if (!(source_result_column %in% colnames(canonical_dt))) {
     canonical_dt[, (source_result_column) := NA_character_]
