@@ -5,8 +5,7 @@ options(
 
 source(here::here("scripts", "0-general_pipeline", "02-helpers.R"), echo = FALSE)
 source(here::here("scripts", "2-post_processing_pipeline", "21-post_processing_utilities.R"), echo = FALSE)
-source(here::here("scripts", "2-post_processing_pipeline", "22-clean_data.R"), echo = FALSE)
-source(here::here("scripts", "2-post_processing_pipeline", "24-harmonize_data.R"), echo = FALSE)
+source(here::here("scripts", "2-post_processing_pipeline", "22-clean_harmonize_data.R"), echo = FALSE)
 
 testthat::test_that("clean and harmonize layers apply deterministic rule payloads", {
   root_dir <- tempfile("fao-clean-harmonize-")
@@ -110,4 +109,51 @@ testthat::test_that("stage-prefixed schemas are accepted by coerce_rule_schema",
   ))
 
   testthat::expect_equal(canonical_dt$value_target_clean[[1]], "kilogram")
+})
+
+testthat::test_that("clean and harmonize payload loaders keep input folders separated", {
+  root_dir <- tempfile("fao-clean-harmonize-inputs-")
+  dir.create(root_dir, recursive = TRUE)
+
+  clean_dir <- file.path(root_dir, "data", "1-import", "11-clean_imports")
+  harmonize_dir <- file.path(root_dir, "data", "1-import", "13-harmonize_imports")
+  dir.create(clean_dir, recursive = TRUE)
+  dir.create(harmonize_dir, recursive = TRUE)
+
+  readr::write_csv(data.frame(
+    column_source = "product",
+    value_source_raw = "wheat",
+    column_target = "unit",
+    value_target_raw = "kg",
+    value_target_clean = "kilogram",
+    stringsAsFactors = FALSE
+  ), file.path(clean_dir, "clean_rules_only.csv"))
+
+  readr::write_csv(data.frame(
+    column_source = "product",
+    value_source_raw = "wheat",
+    column_target = "variable",
+    value_target_raw = "prod",
+    value_target_harmonize = "production",
+    stringsAsFactors = FALSE
+  ), file.path(harmonize_dir, "harmonize_rules_only.csv"))
+
+  config <- list(
+    paths = list(
+      data = list(
+        imports = list(
+          cleaning = clean_dir,
+          harmonization = harmonize_dir
+        )
+      )
+    )
+  )
+
+  clean_payloads <- load_cleaning_rule_payloads(config)
+  harmonize_payloads <- load_harmonize_rule_payloads(config)
+
+  testthat::expect_identical(length(clean_payloads), 1L)
+  testthat::expect_identical(length(harmonize_payloads), 1L)
+  testthat::expect_identical(clean_payloads[[1]]$rule_file_id, "clean_rules_only.csv")
+  testthat::expect_identical(harmonize_payloads[[1]]$rule_file_id, "harmonize_rules_only.csv")
 })
