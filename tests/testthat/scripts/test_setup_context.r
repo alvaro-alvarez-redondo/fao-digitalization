@@ -7,7 +7,7 @@ source(
   here::here(
     "scripts",
     "2-post_processing_pipeline",
-    "25-post_processing_diagnostics.R"
+    "24-post_processing_diagnostics.R"
   ),
   echo = FALSE
 )
