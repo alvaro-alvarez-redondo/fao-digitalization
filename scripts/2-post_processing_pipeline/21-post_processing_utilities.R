@@ -369,7 +369,10 @@ ensure_rule_columns_exist <- function(rules_dt, dataset_dt) {
   checkmate::assert_data_frame(dataset_dt, min.rows = 0)
 
   rules_table <- data.table::as.data.table(rules_dt)
-  dataset_table <- data.table::as.data.table(dataset_dt)
+
+  if (!data.table::is.data.table(dataset_dt)) {
+    data.table::setDT(dataset_dt)
+  }
 
   missing_rule_columns <- setdiff(c("column_source", "column_target"), colnames(rules_table))
 
@@ -391,18 +394,18 @@ ensure_rule_columns_exist <- function(rules_dt, dataset_dt) {
   required_columns <- required_columns[!is.na(required_columns) & nzchar(required_columns)]
 
   if (length(required_columns) == 0L) {
-    return(invisible(dataset_table))
+    return(invisible(dataset_dt))
   }
 
-  missing_columns <- setdiff(required_columns, colnames(dataset_table))
+  missing_columns <- setdiff(required_columns, colnames(dataset_dt))
 
   if (length(missing_columns) == 0L) {
-    return(invisible(dataset_table))
+    return(invisible(dataset_dt))
   }
 
-  dataset_table[, (missing_columns) := NA_character_]
+  dataset_dt[, (missing_columns) := NA_character_]
 
-  return(invisible(dataset_table))
+  return(invisible(dataset_dt))
 }
 
 #' @title Validate canonical rules
@@ -470,7 +473,7 @@ validate_canonical_rules <- function(rules_dt, dataset_dt, rule_file_id, stage_n
     ))
   }
 
-  ensure_rule_columns_exist(
+  dataset_dt <- ensure_rule_columns_exist(
     rules_dt = rules_dt,
     dataset_dt = dataset_dt
   )

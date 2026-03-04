@@ -113,3 +113,29 @@ testthat::test_that("validate_canonical_rules fails clearly for empty column ref
     regexp = "contains empty column references"
   )
 })
+
+
+testthat::test_that("validate_canonical_rules creates missing target column on data.table input", {
+  dataset_dt <- data.table::data.table(product = c("wheat", "rice"))
+
+  rules_dt <- data.table::data.table(
+    column_source = "product",
+    value_source_raw = c("wheat", "rice"),
+    column_target = "new_target",
+    value_target_raw = c("wheat", "rice"),
+    value_target_clean = c("grain", "grain")
+  )
+
+  testthat::expect_invisible(
+    validate_canonical_rules(
+      rules_dt = rules_dt,
+      dataset_dt = dataset_dt,
+      rule_file_id = "clean_rules.csv",
+      stage_name = "clean"
+    )
+  )
+
+  testthat::expect_true("new_target" %in% colnames(dataset_dt))
+  testthat::expect_type(dataset_dt$new_target, "character")
+  testthat::expect_true(all(is.na(dataset_dt$new_target)))
+})
