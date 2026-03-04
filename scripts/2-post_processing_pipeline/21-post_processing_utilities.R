@@ -456,8 +456,20 @@ validate_canonical_rules <- function(rules_dt, dataset_dt, rule_file_id, stage_n
     ))
   }
 
+  reference_columns <- unique(c(rules_dt$column_source, rules_dt$column_target))
+  empty_reference_columns <- reference_columns[
+    !is.na(reference_columns) & !nzchar(trimws(reference_columns))
+  ]
+
+  if (length(empty_reference_columns) > 0L) {
+    cli::cli_abort(c(
+      "Rule file {.file {rule_file_id}} contains empty column references.",
+      "x" = "column references must be non-empty in {.val column_source} and {.val column_target}"
+    ))
+  }
+
   missing_columns <- setdiff(
-    unique(c(rules_dt$column_source, rules_dt$column_target)),
+    reference_columns[!is.na(reference_columns)],
     colnames(dataset_dt)
   )
 

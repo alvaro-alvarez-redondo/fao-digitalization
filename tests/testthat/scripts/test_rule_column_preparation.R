@@ -88,3 +88,25 @@ testthat::test_that("validate_canonical_rules fails when normalization is skippe
     regexp = "Rule columns are not present in dataset"
   )
 })
+
+testthat::test_that("validate_canonical_rules fails clearly for empty column references", {
+  dataset_dt <- data.table::data.table(country_name = c("Argentina"), unit_value = c("kg"))
+
+  rules_dt <- data.table::data.table(
+    column_source = "",
+    value_source_raw = "Argentina",
+    column_target = "unit_value",
+    value_target_raw = "kg",
+    value_target_clean = "kilogram"
+  )
+
+  testthat::expect_error(
+    validate_canonical_rules(
+      rules_dt = rules_dt,
+      dataset_dt = dataset_dt,
+      rule_file_id = "clean_rules.csv",
+      stage_name = "clean"
+    ),
+    regexp = "contains empty column references"
+  )
+})
