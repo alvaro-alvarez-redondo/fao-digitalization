@@ -478,12 +478,14 @@ export_validation_audit_report <- function(
 
     if (nrow(findings_to_style) > 0) {
       findings_to_style[, source_row_index := as.integer(row_index)]
-      findings_to_style <- merge(
-        findings_to_style,
-        row_lookup_dt,
-        by = "source_row_index",
-        all.x = FALSE
+      # performance: replace merge() with vectorized match() lookups to avoid
+      # materializing a join table for large findings payloads.
+      row_match_index <- match(
+        findings_to_style$source_row_index,
+        row_lookup_dt$source_row_index
       )
+      findings_to_style[, excel_row := row_lookup_dt$excel_row[row_match_index]]
+      findings_to_style <- findings_to_style[!is.na(excel_row)]
       column_index_map <- setNames(seq_along(cols_to_show), cols_to_show)
       findings_to_style <- findings_to_style[audit_column %in% cols_to_show]
 

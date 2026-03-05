@@ -112,11 +112,11 @@ collect_layer_tables_for_export <- function(
     character(1)
   )
 
-  canonical_table_list <- split(detected_tables, canonical_names)
-
-  canonical_table_list <- lapply(canonical_table_list, function(candidate_tables) {
-    return(candidate_tables[[1L]])
-  })
+  # performance: keep first occurrence per canonical name using index masking
+  # to avoid split()+lapply() intermediate list materialization.
+  first_canonical_index <- !duplicated(canonical_names)
+  canonical_table_list <- detected_tables[first_canonical_index]
+  names(canonical_table_list) <- canonical_names[first_canonical_index]
 
   canonical_table_list <- canonical_table_list[
     !grepl("_post_processed$", names(canonical_table_list))
