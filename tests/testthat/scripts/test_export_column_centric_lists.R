@@ -200,7 +200,7 @@ testthat::test_that("write_column_lists_workbook writes raw, clean, harmonize wh
   testthat::expect_false("raw_clean_harmonize" %in% workbook_sheets)
 })
 
-testthat::test_that("clean/harmonize comparison ignores row and column order differences", {
+testthat::test_that("list table comparison ignores row and column order differences", {
   clean_dt <- data.table::data.table(
     value = c("x", "y", "z"),
     code = c("1", "2", "3")
@@ -210,29 +210,12 @@ testthat::test_that("clean/harmonize comparison ignores row and column order dif
     value = c("z", "x", "y")
   )
 
-  is_identical <- are_clean_harmonize_tables_identical(
-    clean_values_dt = clean_dt,
-    harmonize_values_dt = harmonize_dt
-  )
-
-  testthat::expect_true(is_identical)
-})
-
-testthat::test_that("legacy clean/harmonize comparator matches canonical comparator", {
-  clean_dt <- data.table::data.table(value = c("x", "y"), code = c("1", "2"))
-  harmonize_dt <- data.table::data.table(code = c("2", "1"), value = c("y", "x"))
-
-  legacy_result <- are_clean_harmonize_tables_identical(
-    clean_values_dt = clean_dt,
-    harmonize_values_dt = harmonize_dt
-  )
-
-  canonical_result <- are_list_tables_identical(
+  is_identical <- are_list_tables_identical(
     left_dt = clean_dt,
     right_dt = harmonize_dt
   )
 
-  testthat::expect_identical(legacy_result, canonical_result)
+  testthat::expect_true(is_identical)
 })
 
 testthat::test_that("normalize_for_comparison drops year column", {

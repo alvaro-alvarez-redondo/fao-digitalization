@@ -11,19 +11,19 @@ build_temp_test_paths <- function(root_name) {
   return(root_dir)
 }
 
-legacy_is_file_like_path <- function(path_value) {
+reference_is_file_like_path <- function(path_value) {
   path_file_name <- fs::path_file(path_value)
   path_extension <- fs::path_ext(path_file_name)
 
   return(nzchar(path_extension))
 }
 
-legacy_resolve_directories <- function(paths) {
+reference_resolve_directories <- function(paths) {
   all_paths <- unlist(paths, recursive = TRUE, use.names = FALSE)
 
   all_directories <- all_paths |>
     purrr::map_chr(\(path_value) {
-      if (legacy_is_file_like_path(path_value)) {
+      if (reference_is_file_like_path(path_value)) {
         return(fs::path_dir(path_value))
       }
 
@@ -150,8 +150,8 @@ testthat::test_that("create_required_directories excludes audit root tree when c
   testthat::expect_false(any(startsWith(created_directories, file.path(base_dir, "audit"))))
 })
 
-testthat::test_that("create_required_directories matches legacy resolver for valid path inputs", {
-  base_dir <- build_temp_test_paths("fao_directory_contracts_legacy_parity")
+testthat::test_that("create_required_directories matches reference resolver for valid path inputs", {
+  base_dir <- build_temp_test_paths("fao_directory_contracts_reference_parity")
   paths <- list(
     exports = list(
       workbook = file.path(base_dir, "reports", "SUMMARY.XLSX"),
@@ -163,14 +163,14 @@ testthat::test_that("create_required_directories matches legacy resolver for val
     )
   )
 
-  expected_directories <- legacy_resolve_directories(paths)
+  expected_directories <- reference_resolve_directories(paths)
   created_directories <- create_required_directories(paths)
 
   testthat::expect_identical(created_directories, expected_directories)
 })
 
-testthat::test_that("create_required_directories preserves legacy audit exclusion behavior", {
-  base_dir <- build_temp_test_paths("fao_directory_contracts_legacy_audit_parity")
+testthat::test_that("create_required_directories preserves reference audit exclusion behavior", {
+  base_dir <- build_temp_test_paths("fao_directory_contracts_reference_audit_parity")
   paths <- list(
     data = list(
       imports = list(
@@ -185,7 +185,7 @@ testthat::test_that("create_required_directories preserves legacy audit exclusio
     )
   )
 
-  expected_directories <- legacy_resolve_directories(paths)
+  expected_directories <- reference_resolve_directories(paths)
   created_directories <- create_required_directories(paths)
 
   testthat::expect_identical(created_directories, expected_directories)

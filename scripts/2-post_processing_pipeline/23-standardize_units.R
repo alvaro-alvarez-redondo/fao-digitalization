@@ -44,9 +44,8 @@ validate_rule_schema <- function(rule_dt, required_columns, rule_label) {
 }
 
 #' @title Normalize conversion rule columns
-#' @description Renames legacy conversion rule columns to cohesive internal names
-#' (`source_unit`, `target_unit`, `multiplier`, `addend`) while preserving
-#' backward compatibility for input files using legacy headers.
+#' @description Renames supported alias conversion rule columns to cohesive
+#' internal names (`source_unit`, `target_unit`, `multiplier`, `addend`).
 #' @param conversion_dt conversion rules data.table/data.frame.
 #' @return data.table with normalized internal column names.
 #' @importFrom checkmate assert_data_frame
@@ -64,19 +63,19 @@ normalize_conversion_rule_columns <- function(conversion_dt) {
     offset = "addend"
   )
 
-  legacy_names <- names(rename_mapping)
-  available_legacy <- legacy_names[
-    legacy_names %in% names(normalized_conversion_dt)
+  alias_source_names <- names(rename_mapping)
+  available_alias_sources <- alias_source_names[
+    alias_source_names %in% names(normalized_conversion_dt)
   ]
 
-  if (length(available_legacy) > 0L) {
-    target_names <- unname(rename_mapping[available_legacy])
+  if (length(available_alias_sources) > 0L) {
+    target_names <- unname(rename_mapping[available_alias_sources])
     rename_mask <- !target_names %in% names(normalized_conversion_dt)
 
     if (any(rename_mask)) {
       data.table::setnames(
         normalized_conversion_dt,
-        old = available_legacy[rename_mask],
+        old = available_alias_sources[rename_mask],
         new = target_names[rename_mask]
       )
     }
@@ -543,15 +542,3 @@ run_standardize_units_layer_batch <- function(
 
   return(normalized_dt)
 }
-
-# backward-compatible aliases
-run_number_standardization_layer_batch <- run_standardize_units_layer_batch
-run_number_standarization_layer_batch <- run_standardize_units_layer_batch
-run_number_harmonization_layer_batch <- run_standardize_units_layer_batch
-load_standardize_units_rules <- load_units_standardization_rules
-load_numeric_standardization_rules <- load_units_standardization_rules
-load_numeric_standarization_rules <- load_units_standardization_rules
-load_numeric_harmonization_rules <- load_units_standardization_rules
-apply_number_standardization_mapping <- apply_units_standardization_mapping
-apply_number_standarization_mapping <- apply_units_standardization_mapping
-apply_number_harmonization_mapping <- apply_units_standardization_mapping

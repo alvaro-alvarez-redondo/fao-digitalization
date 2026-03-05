@@ -1,6 +1,5 @@
 options(
-  fao.run_post_processing_pipeline.auto = FALSE,
-  fao.run_clean_harmonize_pipeline.auto = FALSE
+  fao.run_post_processing_pipeline.auto = FALSE
 )
 
 source(here::here("scripts", "0-general_pipeline", "02-helpers.R"), echo = FALSE)

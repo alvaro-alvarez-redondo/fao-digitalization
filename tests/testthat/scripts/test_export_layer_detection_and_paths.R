@@ -43,7 +43,7 @@ testthat::test_that("build export paths follow required naming conventions", {
 })
 
 
-testthat::test_that("collect_layer_tables_for_export canonicalizes legacy names and drops post_processed", {
+testthat::test_that("collect_layer_tables_for_export canonicalizes alias names and drops post_processed", {
   env <- new.env(parent = emptyenv())
   env$fao_data_raw <- data.frame(a = 1:2)
   env$fao_data_clean <- data.frame(a = 1:2)

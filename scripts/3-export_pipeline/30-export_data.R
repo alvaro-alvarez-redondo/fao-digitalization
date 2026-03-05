@@ -29,7 +29,7 @@ build_processed_export_path <- function(config, object_name) {
 
 
 #' @title Canonicalize export object names
-#' @description Normalizes legacy/alias layer object names to canonical layer
+#' @description Normalizes alias layer object names to canonical layer
 #' names used for deterministic export filenames.
 #' @param object_name Character scalar object name.
 #' @return Character scalar canonical object name.
