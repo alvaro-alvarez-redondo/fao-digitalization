@@ -215,8 +215,25 @@ are_list_tables_identical <- function(
   return(identical(normalized_left, normalized_right))
 }
 
-# backward-compatible alias
-are_clean_harmonize_tables_identical <- are_list_tables_identical
+#' @title Compare clean and harmonize list tables deterministically
+#' @description Backward-compatible wrapper for legacy symbol and argument
+#' names. Delegates to `are_list_tables_identical()`.
+#' @param clean_values_dt Data table for clean layer values.
+#' @param harmonize_values_dt Data table for harmonize layer values.
+#' @return Logical scalar.
+#' @importFrom checkmate assert_data_table
+are_clean_harmonize_tables_identical <- function(
+  clean_values_dt,
+  harmonize_values_dt
+) {
+  checkmate::assert_data_table(clean_values_dt)
+  checkmate::assert_data_table(harmonize_values_dt)
+
+  return(are_list_tables_identical(
+    left_dt = clean_values_dt,
+    right_dt = harmonize_values_dt
+  ))
+}
 
 #' @title Resolve deterministic sheet payloads for one column
 #' @description Applies hierarchical equality logic across raw, clean, and
