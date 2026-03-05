@@ -24,7 +24,6 @@ get_pipeline_constants <- function() {
       general = "fao.run_general_pipeline.auto",
       import = "fao.run_import_pipeline.auto",
       post_processing = "fao.run_post_processing_pipeline.auto",
-      post_processing_legacy = "fao.run_clean_harmonize_pipeline.auto",
       export = "fao.run_export_pipeline.auto"
     ),
     script_names = list(
@@ -430,6 +429,37 @@ delete_directory_if_exists <- function(
   return(invisible(TRUE))
 }
 
+#' @title detect whether a path should be treated as a file path
+#' @description classifies a path string as file-like only when the final path
+#' segment has a non-empty extension and is not a dot-prefixed hidden segment.
+#' this avoids accidentally converting hidden directory names (for example,
+#' `.cache`) into parent directories while keeping deterministic behavior for
+#' regular file paths. classification is pure string/path parsing and does not
+#' perform filesystem existence checks.
+#' @param path_value character scalar path value.
+#' @return logical scalar. `TRUE` when the path is file-like.
+#' @importFrom checkmate assert_string
+#' @importFrom fs path_file path_ext
+#' @examples
+#' is_file_like_path(file.path("reports", "summary.xlsx"))
+is_file_like_path <- function(path_value) {
+  checkmate::assert_string(path_value, min.chars = 1)
+
+  path_file_name <- fs::path_file(path_value)
+  path_extension <- fs::path_ext(path_file_name)
+
+  if (!nzchar(path_extension)) {
+    return(FALSE)
+  }
+
+  if (startsWith(path_file_name, ".")) {
+    return(FALSE)
+  }
+
+  return(TRUE)
+}
+
+
 #' @title create required directories
 #' @description validates a nested list of paths, flattens it to a character
 #' vector, normalizes file paths to their parent directories, excludes audit
@@ -441,11 +471,12 @@ delete_directory_if_exists <- function(
 #' @return invisible character vector of directories passed to
 #' `fs::dir_create()`.
 #' @importFrom checkmate assert_list assert_character
-#' @importFrom fs dir_create path_file path_dir path_norm
+#' @importFrom fs dir_create path_dir path_norm
 #' @importFrom purrr map_chr
 #' @examples
 #' temp_paths <- list(a = file.path(tempdir(), "a"), b = file.path(tempdir(), "b"))
 #' create_required_directories(temp_paths)
+
 create_required_directories <- function(paths) {
   checkmate::assert_list(paths, min.len = 1)
 
@@ -456,9 +487,7 @@ create_required_directories <- function(paths) {
 
   all_directories <- all_paths |>
     purrr::map_chr(\(path_value) {
-      path_file_name <- fs::path_file(path_value)
-
-      if (grepl("\\.[a-z0-9]+$", path_file_name)) {
+      if (is_file_like_path(path_value)) {
         return(fs::path_dir(path_value))
       }
 

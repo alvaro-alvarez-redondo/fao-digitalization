@@ -1,6 +1,5 @@
 options(
   fao.run_post_processing_pipeline.auto = FALSE,
-  fao.run_clean_harmonize_pipeline.auto = FALSE,
   fao.run_pipeline.auto = FALSE
 )
 
@@ -42,8 +41,8 @@ testthat::test_that("assign_environment_values errors on unnamed values", {
   )
 })
 
-testthat::test_that("validate_conversion_rules accepts normalized legacy schema", {
-  legacy_rules <- data.table::data.table(
+testthat::test_that("validate_conversion_rules accepts normalized alias schema", {
+  alias_rules <- data.table::data.table(
     product = c("wheat", "rice"),
     from_unit = c("kg", "kg"),
     to_unit = c("g", "g"),
@@ -51,7 +50,7 @@ testthat::test_that("validate_conversion_rules accepts normalized legacy schema"
     offset = c("0", "0")
   )
 
-  normalized_rules <- normalize_conversion_rule_columns(legacy_rules)
+  normalized_rules <- normalize_conversion_rule_columns(alias_rules)
 
   testthat::expect_invisible(validate_conversion_rules(normalized_rules))
 })
@@ -139,21 +138,6 @@ testthat::test_that("apply_standardize_rules errors for non-numeric value payloa
       product_column = "product"
     ),
     "non-numeric"
-  )
-})
-
-testthat::test_that("backward-compatible standardization aliases remain bound", {
-  testthat::expect_identical(
-    apply_number_standardization_mapping,
-    apply_units_standardization_mapping
-  )
-  testthat::expect_identical(
-    run_number_standardization_layer_batch,
-    run_standardize_units_layer_batch
-  )
-  testthat::expect_identical(
-    load_numeric_standardization_rules,
-    load_units_standardization_rules
   )
 })
 

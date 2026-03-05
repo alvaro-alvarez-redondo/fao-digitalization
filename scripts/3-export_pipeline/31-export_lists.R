@@ -192,9 +192,6 @@ normalize_for_comparison <- function(data_dt) {
   return(normalized_dt)
 }
 
-# backward-compatible alias
-normalize_table_for_comparison <- normalize_for_comparison
-
 #' @title Compare two list tables deterministically
 #' @description Returns `TRUE` when two tables are strictly equal after
 #' deterministic normalization.
@@ -214,9 +211,6 @@ are_list_tables_identical <- function(
 
   return(identical(normalized_left, normalized_right))
 }
-
-# backward-compatible alias
-are_clean_harmonize_tables_identical <- are_list_tables_identical
 
 #' @title Resolve deterministic sheet payloads for one column
 #' @description Applies hierarchical equality logic across raw, clean, and

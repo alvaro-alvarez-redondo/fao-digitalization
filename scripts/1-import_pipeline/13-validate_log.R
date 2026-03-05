@@ -11,7 +11,7 @@
 #' @return named list with `errors` as a character vector and `data` as a data
 #' table with normalized mandatory columns.
 #' @importFrom checkmate assert_data_frame assert_list assert_character
-#' @importFrom data.table as.data.table copy melt
+#' @importFrom data.table as.data.table copy
 #' @examples
 #' dt_example <- data.frame(
 #'   product = "a",
@@ -31,6 +31,8 @@ validate_mandatory_fields_dt <- function(dt, config) {
     min.len = 1
   )
 
+  # performance: perform a single coercion/copy and avoid `melt()` expansion
+  # for mandatory checks, which can inflate memory for large tables.
   dt_work <- data.table::copy(data.table::as.data.table(dt))
   mandatory_cols <- config$column_required
 
@@ -44,30 +46,41 @@ validate_mandatory_fields_dt <- function(dt, config) {
     dt_work[, document := "unknown_document"]
   }
 
-  dt_eval <- data.table::copy(dt_work)
-  dt_eval[, row_id := .I]
+  row_count <- nrow(dt_work)
+  errors <- character(0)
 
-  missing_long <- data.table::melt(
-    dt_eval,
-    id.vars = c("row_id", "document"),
-    measure.vars = mandatory_cols,
-    variable.name = "column_name",
-    value.name = "column_value",
-    variable.factor = FALSE
-  )[is.na(column_value) | column_value == ""]
+  if (row_count > 0L) {
+    row_ids <- seq_len(row_count)
 
-  errors <- if (nrow(missing_long) > 0) {
-    unique(paste0(
-      "missing mandatory value in document '",
-      missing_long$document,
-      "', row_id '",
-      missing_long$row_id,
-      "', column '",
-      missing_long$column_name,
-      "'"
-    ))
-  } else {
-    character(0)
+    missing_error_chunks <- lapply(mandatory_cols, function(column_name) {
+      column_values <- dt_work[[column_name]]
+      missing_mask <- is.na(column_values) | column_values == ""
+
+      if (!any(missing_mask)) {
+        return(character(0))
+      }
+
+      missing_rows <- row_ids[missing_mask]
+      missing_documents <- dt_work$document[missing_mask]
+
+      # performance: build messages per-column without constructing a melted
+      # long table, preserving deterministic row order.
+      return(paste0(
+        "missing mandatory value in document '",
+        missing_documents,
+        "', row_id '",
+        missing_rows,
+        "', column '",
+        column_name,
+        "'"
+      ))
+    })
+
+    errors <- unlist(missing_error_chunks, use.names = FALSE)
+
+    if (length(errors) > 0L) {
+      errors <- unique(errors)
+    }
   }
 
   return(list(errors = errors, data = dt_work))

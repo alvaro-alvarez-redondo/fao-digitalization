@@ -200,7 +200,7 @@ testthat::test_that("write_column_lists_workbook writes raw, clean, harmonize wh
   testthat::expect_false("raw_clean_harmonize" %in% workbook_sheets)
 })
 
-testthat::test_that("clean/harmonize comparison ignores row and column order differences", {
+testthat::test_that("list table comparison ignores row and column order differences", {
   clean_dt <- data.table::data.table(
     value = c("x", "y", "z"),
     code = c("1", "2", "3")
@@ -210,9 +210,9 @@ testthat::test_that("clean/harmonize comparison ignores row and column order dif
     value = c("z", "x", "y")
   )
 
-  is_identical <- are_clean_harmonize_tables_identical(
-    clean_values_dt = clean_dt,
-    harmonize_values_dt = harmonize_dt
+  is_identical <- are_list_tables_identical(
+    left_dt = clean_dt,
+    right_dt = harmonize_dt
   )
 
   testthat::expect_true(is_identical)
