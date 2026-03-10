@@ -123,7 +123,11 @@ run_import_pipeline <- function(config) {
     )
   })
 
-  save_pipeline_checkpoint("import_pipeline", result, config)
+  save_pipeline_checkpoint(
+    result = result,
+    checkpoint_name = "import_pipeline",
+    config = config
+  )
 
   return(result)
 }
