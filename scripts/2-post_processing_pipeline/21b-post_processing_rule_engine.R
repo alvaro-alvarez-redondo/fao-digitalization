@@ -526,14 +526,14 @@ apply_conditional_rule_group <- function(
     source_value_raw = get(source_value_column),
     column_target,
     value_target_raw,
-    value_target_result_placeholder = encode_target_rule_value(get(target_value_column)),
+    value_target_result_encoded = encode_target_rule_value(get(target_value_column)),
     source_key = encode_rule_match_key(value_source_raw),
     target_key = encode_rule_match_key(value_target_raw)
   )][
     ,
     `:=`(
       value_source_result = as.character(source_value_raw),
-      value_target_result = decode_target_rule_value(value_target_result_placeholder)
+      value_target_result = decode_target_rule_value(value_target_result_encoded)
     )
   ])
 
@@ -576,7 +576,7 @@ apply_conditional_rule_group <- function(
     source_key,
     target_key,
     value_source_result,
-    value_target_result_placeholder
+    value_target_result_encoded
   )]
 
   audit_dt <- normalized_rules[
@@ -585,7 +585,7 @@ apply_conditional_rule_group <- function(
       source_key,
       target_key,
       value_source_result,
-      value_target_result_placeholder
+      value_target_result_encoded
     )
   ][
     ,
