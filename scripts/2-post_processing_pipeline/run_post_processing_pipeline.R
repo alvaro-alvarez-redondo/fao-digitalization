@@ -49,6 +49,7 @@ source_post_processing_scripts <- function(
   script_names <- c(
     "20-data_audit.R",
     "21-post_processing_utilities.R",
+    "21b-post_processing_rule_engine.R",
     "22-clean_harmonize_data.R",
     "23-standardize_units.R",
     "24-post_processing_diagnostics.R"
@@ -189,7 +190,7 @@ run_post_processing_pipeline_batch <- function(
 
     execution_timestamp_utc <- format(
       Sys.time(),
-      "%Y-%m-%dT%H:%M:%SZ",
+      get_pipeline_constants()$timestamp_format_utc,
       tz = "UTC"
     )
 

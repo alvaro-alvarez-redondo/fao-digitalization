@@ -19,6 +19,9 @@ options(
 get_pipeline_constants <- function() {
   return(list(
     dataset_default_name = "fao_data_raw",
+    timestamp_format_utc = "%Y-%m-%dT%H:%M:%SZ",
+    na_placeholder = "..NA_INTERNAL..",
+    na_match_key = "..NA_MATCH_KEY..",
     auto_run_options = list(
       pipeline = "fao.run_pipeline.auto",
       general = "fao.run_general_pipeline.auto",
