@@ -44,12 +44,11 @@ normalize_string <- function(string) {
     any.missing = TRUE
   ))
 
-  normalized_string <- string |>
-    as.character() |>
-    stringr::str_to_lower() |>
-    stringi::stri_trans_general("latin-ascii") |>
-    stringr::str_replace_all("[^a-z0-9 ]", " ") |>
-    stringr::str_squish()
+  normalized_string <- as.character(string)
+  normalized_string <- tolower(normalized_string)
+  normalized_string <- stringi::stri_trans_general(normalized_string, "latin-ascii")
+  normalized_string <- gsub("[^a-z0-9 ]", " ", normalized_string)
+  normalized_string <- trimws(gsub("\\s+", " ", normalized_string))
 
   return(normalized_string)
 }

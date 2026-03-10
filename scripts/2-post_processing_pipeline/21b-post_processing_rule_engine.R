@@ -539,6 +539,8 @@ apply_conditional_rule_group <- function(
 
   normalized_rules[trimws(value_source_result) == "", value_source_result := NA_character_]
 
+  data.table::setindex(normalized_rules, source_key, target_key)
+
   source_values_pre_update <- dataset_dt[[source_column]]
   target_values_pre_update <- dataset_dt[[target_column]]
 

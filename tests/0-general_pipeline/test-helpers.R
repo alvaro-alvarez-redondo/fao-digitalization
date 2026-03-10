@@ -1,0 +1,305 @@
+# tests/0-general_pipeline/test-helpers.R
+# unit tests for scripts/0-general_pipeline/02-helpers.R
+
+source(here::here("tests", "test_helper.R"), echo = FALSE)
+
+
+# --- normalize_string --------------------------------------------------------
+
+testthat::test_that("normalize_string converts to lowercase ascii", {
+  testthat::expect_identical(normalize_string("Hello World"), "hello world")
+  testthat::expect_identical(normalize_string("UPPER"), "upper")
+})
+
+testthat::test_that("normalize_string removes non-alphanumeric characters", {
+  testthat::expect_identical(normalize_string("a-b_c!d"), "a b c d")
+  testthat::expect_identical(normalize_string("test@#$123"), "test 123")
+})
+
+testthat::test_that("normalize_string squishes whitespace", {
+  testthat::expect_identical(normalize_string("a   b  c"), "a b c")
+  testthat::expect_identical(normalize_string("  leading  "), "leading")
+})
+
+testthat::test_that("normalize_string handles accented characters", {
+  result <- normalize_string("café résumé")
+  testthat::expect_true(grepl("^[a-z0-9 ]+$", result))
+})
+
+testthat::test_that("normalize_string preserves NA values", {
+  result <- normalize_string(c("hello", NA_character_))
+  testthat::expect_true(is.na(result[2]))
+})
+
+
+# --- normalize_filename ------------------------------------------------------
+
+testthat::test_that("normalize_filename replaces spaces with underscores", {
+  testthat::expect_identical(normalize_filename("food balance sheet"), "food_balance_sheet")
+})
+
+testthat::test_that("normalize_filename replaces empty/NA with unknown", {
+  testthat::expect_identical(normalize_filename(""), "unknown")
+  testthat::expect_identical(normalize_filename(NA_character_), "unknown")
+})
+
+
+# --- coerce_numeric_safe ----------------------------------------------------
+
+testthat::test_that("coerce_numeric_safe converts numeric strings correctly", {
+  result <- coerce_numeric_safe(c("1", " 2.5 ", "3"))
+  testthat::expect_equal(result, c(1, 2.5, 3))
+})
+
+testthat::test_that("coerce_numeric_safe handles empty and NA values", {
+  result <- coerce_numeric_safe(c("", NA_character_, "4"))
+  testthat::expect_true(is.na(result[1]))
+  testthat::expect_true(is.na(result[2]))
+  testthat::expect_equal(result[3], 4)
+})
+
+testthat::test_that("coerce_numeric_safe returns NA for non-numeric", {
+  result <- coerce_numeric_safe(c("abc", "1"))
+  testthat::expect_true(is.na(result[1]))
+  testthat::expect_equal(result[2], 1)
+})
+
+
+# --- extract_yearbook --------------------------------------------------------
+
+testthat::test_that("extract_yearbook returns combined tokens", {
+  parts <- c("fao", "yb", "2020", "2021", "file.xlsx")
+  result <- extract_yearbook(parts)
+
+  testthat::expect_identical(result, "yb_2020_2021")
+})
+
+testthat::test_that("extract_yearbook returns NA for short input", {
+  parts <- c("fao", "yb")
+  result <- extract_yearbook(parts)
+
+  testthat::expect_true(is.na(result))
+})
+
+
+# --- extract_product ---------------------------------------------------------
+
+testthat::test_that("extract_product extracts tokens from position 7 onward", {
+  parts <- c("a", "b", "c", "d", "e", "f", "rice", "grain.xlsx")
+  result <- extract_product(parts)
+
+  testthat::expect_identical(result, "rice_grain")
+})
+
+testthat::test_that("extract_product returns NA for short input", {
+  parts <- c("a", "b", "c")
+  result <- extract_product(parts)
+
+  testthat::expect_true(is.na(result))
+})
+
+
+# --- ensure_data_table -------------------------------------------------------
+
+testthat::test_that("ensure_data_table converts data.frame to data.table", {
+  df <- data.frame(a = 1:3)
+  result <- ensure_data_table(df)
+
+  testthat::expect_true(data.table::is.data.table(result))
+})
+
+testthat::test_that("ensure_data_table preserves existing data.table", {
+  dt <- data.table::data.table(a = 1:3)
+  result <- ensure_data_table(dt)
+
+  testthat::expect_true(data.table::is.data.table(result))
+})
+
+
+# --- validate_export_import --------------------------------------------------
+
+testthat::test_that("validate_export_import accepts valid input", {
+  df <- data.frame(a = 1:3)
+  result <- validate_export_import(df, "test_export")
+
+  testthat::expect_true(data.table::is.data.table(result))
+})
+
+testthat::test_that("validate_export_import errors on empty data", {
+  testthat::expect_error(
+    validate_export_import(data.frame(), "test_export")
+  )
+})
+
+
+# --- get_config_string -------------------------------------------------------
+
+testthat::test_that("get_config_string retrieves nested config value", {
+  config <- list(paths = list(data = list(exports = list(processed = "/tmp"))))
+  result <- get_config_string(config, c("paths", "data", "exports", "processed"), "field")
+
+  testthat::expect_identical(result, "/tmp")
+})
+
+testthat::test_that("get_config_string errors on missing path", {
+  config <- list(paths = list())
+
+  testthat::expect_error(
+    get_config_string(config, c("paths", "nonexistent"), "field")
+  )
+})
+
+
+# --- assign_environment_values -----------------------------------------------
+
+testthat::test_that("assign_environment_values assigns named values", {
+  env <- new.env(parent = emptyenv())
+  result <- assign_environment_values(
+    values = list(alpha = 1L, beta = "b"),
+    env = env
+  )
+
+  testthat::expect_true(isTRUE(invisible(result)))
+  testthat::expect_identical(env$alpha, 1L)
+  testthat::expect_identical(env$beta, "b")
+})
+
+testthat::test_that("assign_environment_values handles empty lists and overwrites", {
+  env <- new.env(parent = emptyenv())
+  env$alpha <- 100L
+
+  assign_environment_values(values = list(), env = env)
+  assign_environment_values(values = list(alpha = 5L), env = env)
+
+  testthat::expect_identical(env$alpha, 5L)
+})
+
+testthat::test_that("assign_environment_values errors on unnamed values", {
+  env <- new.env(parent = emptyenv())
+
+  testthat::expect_error(
+    assign_environment_values(values = list(1L, 2L), env = env),
+    "named"
+  )
+})
+
+
+# --- checkpoint functions ----------------------------------------------------
+
+testthat::test_that("save_pipeline_checkpoint returns NULL when disabled", {
+  withr::local_options(fao.checkpointing.enabled = FALSE)
+
+  config <- list(paths = list(data = list(root = tempdir())))
+  result <- save_pipeline_checkpoint(
+    result = list(a = 1),
+    checkpoint_name = "test_checkpoint",
+    config = config
+  )
+
+  testthat::expect_null(result)
+})
+
+testthat::test_that("load_pipeline_checkpoint returns NULL when disabled", {
+  withr::local_options(fao.checkpointing.enabled = FALSE)
+
+  config <- list(paths = list(data = list(root = tempdir())))
+  result <- load_pipeline_checkpoint(
+    checkpoint_name = "test_checkpoint",
+    config = config
+  )
+
+  testthat::expect_null(result)
+})
+
+testthat::test_that("checkpoint round-trips data when enabled", {
+  withr::local_options(fao.checkpointing.enabled = TRUE)
+
+  config <- list(paths = list(data = list(root = tempdir())))
+  test_data <- list(value = 42, name = "test")
+
+  checkpoint_dir <- fs::path(here::here(), "data", ".checkpoints")
+  withr::defer(
+    if (fs::dir_exists(checkpoint_dir)) fs::dir_delete(checkpoint_dir)
+  )
+
+  save_path <- save_pipeline_checkpoint(
+    result = test_data,
+    checkpoint_name = "round_trip_test",
+    config = config
+  )
+
+  testthat::expect_true(is.character(save_path))
+  testthat::expect_true(file.exists(save_path))
+
+  loaded <- load_pipeline_checkpoint(
+    checkpoint_name = "round_trip_test",
+    config = config
+  )
+
+  testthat::expect_identical(loaded, test_data)
+})
+
+testthat::test_that("load_pipeline_checkpoint returns NULL for missing checkpoint", {
+  withr::local_options(fao.checkpointing.enabled = TRUE)
+
+  config <- list(paths = list(data = list(root = tempdir())))
+  result <- load_pipeline_checkpoint(
+    checkpoint_name = "nonexistent_checkpoint",
+    config = config
+  )
+
+  testthat::expect_null(result)
+})
+
+testthat::test_that("clear_pipeline_checkpoints removes directory", {
+  withr::local_options(fao.checkpointing.enabled = TRUE)
+
+  config <- list(paths = list(data = list(root = tempdir())))
+  checkpoint_dir <- fs::path(here::here(), "data", ".checkpoints")
+
+  save_pipeline_checkpoint(
+    result = list(value = 42),
+    checkpoint_name = "clear_test",
+    config = config
+  )
+
+  testthat::expect_true(fs::dir_exists(checkpoint_dir))
+
+  clear_pipeline_checkpoints(config)
+
+  testthat::expect_false(fs::dir_exists(checkpoint_dir))
+})
+
+
+# --- map_with_progress -------------------------------------------------------
+
+testthat::test_that("map_with_progress maps without progress when disabled", {
+  result <- map_with_progress(
+    1:3,
+    \(x) x * 2,
+    enable_progress = FALSE
+  )
+
+  testthat::expect_identical(result, list(2L, 4L, 6L))
+})
+
+testthat::test_that("map_with_progress handles empty input", {
+  result <- map_with_progress(
+    list(),
+    \(x) x,
+    enable_progress = FALSE
+  )
+
+  testthat::expect_identical(result, list())
+})
+
+
+# --- generate_export_path ----------------------------------------------------
+
+testthat::test_that("generate_export_path builds correct paths", {
+  config <- build_test_config()
+
+  processed_path <- generate_export_path(config, "food balance", "processed", use_here = FALSE)
+
+  testthat::expect_match(basename(processed_path), "food_balance\\.xlsx$")
+})
