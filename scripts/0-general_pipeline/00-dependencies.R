@@ -10,6 +10,8 @@ required_packages <- c(
   "data.table",
   "dplyr",
   "fs",
+  "future",
+  "future.apply",
   "here",
   "openxlsx",
   "progressr",
@@ -21,7 +23,8 @@ required_packages <- c(
   "stringr",
   "tibble",
   "tidyr",
-  "tidyselect"
+  "tidyselect",
+  "profvis"
 )
 
 #' @title abort on failed checkmate checks

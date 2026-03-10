@@ -16,9 +16,20 @@ options(
 #' @examples
 #' constants <- get_pipeline_constants()
 #' names(constants)
+.pipeline_constants_cache <- NULL
+
 get_pipeline_constants <- function() {
-  return(list(
+  # Cache is safe for parallel contexts: future workers start fresh R sessions
+  # with independent global environments, so no cross-worker race conditions.
+  if (!is.null(.pipeline_constants_cache)) {
+    return(.pipeline_constants_cache)
+  }
+
+  constants <- list(
     dataset_default_name = "fao_data_raw",
+    timestamp_format_utc = "%Y-%m-%dT%H:%M:%SZ",
+    na_placeholder = "..NA_INTERNAL..",
+    na_match_key = "..NA_MATCH_KEY..",
     auto_run_options = list(
       pipeline = "fao.run_pipeline.auto",
       general = "fao.run_general_pipeline.auto",
@@ -51,7 +62,11 @@ get_pipeline_constants <- function() {
       assignment_helper = "assign_environment_values",
       assignment_helper_source = "scripts/0-general_pipeline/02-helpers.R"
     )
-  ))
+  )
+
+  .pipeline_constants_cache <<- constants
+
+  return(constants)
 }
 
 #' @title load pipeline config

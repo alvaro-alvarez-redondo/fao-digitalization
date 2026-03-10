@@ -26,6 +26,8 @@ run_pipeline <- function(
   show_view = interactive(),
   pipeline_root = here::here("scripts")
 ) {
+  pipeline_start_time <- proc.time()
+
   assert_pipeline_runtime_dependencies()
 
   checkmate::assert_flag(show_view)
@@ -50,6 +52,11 @@ run_pipeline <- function(
   purrr::walk(pipeline_files, run_pipeline_script)
 
   maybe_view_pipeline_output(show_view = show_view)
+
+  elapsed_seconds <- (proc.time() - pipeline_start_time)[["elapsed"]]
+  cli::cli_alert_success(
+    "Pipeline completed in {.strong {format_elapsed_time(elapsed_seconds)}}"
+  )
 
   return(invisible(TRUE))
 }

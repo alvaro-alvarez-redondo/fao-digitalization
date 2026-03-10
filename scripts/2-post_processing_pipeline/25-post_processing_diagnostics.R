@@ -131,6 +131,77 @@ assert_post_processing_preflight <- function(preflight_result) {
   return(invisible(TRUE))
 }
 
+#' @title Summarize stage rules from audit table
+#' @description Aggregates audit records by rule file and column pairs to produce
+#' a deterministic rule summary for a single post-processing stage.
+#' @param audit_dt Audit data.table from a post-processing stage.
+#' @param stage_name Character scalar stage label for the summary.
+#' @return `data.table` with one row per unique rule/column combination.
+#' @importFrom data.table as.data.table data.table
+summarize_stage_rules <- function(audit_dt, stage_name) {
+  stage_audit_dt <- data.table::as.data.table(audit_dt)
+
+  required_columns <- c(
+    "rule_file_identifier",
+    "column_source",
+    "value_source_raw",
+    "column_target",
+    "value_target_raw",
+    "value_target_clean",
+    "affected_rows"
+  )
+
+  missing_columns <- setdiff(required_columns, names(stage_audit_dt))
+  if (length(missing_columns) > 0L) {
+    stage_audit_dt[, (missing_columns) := NA_character_]
+  }
+
+  stage_audit_dt[,
+    affected_rows := suppressWarnings(as.integer(affected_rows))
+  ]
+  stage_audit_dt[is.na(affected_rows), affected_rows := 0L]
+
+  if (nrow(stage_audit_dt) == 0L) {
+    return(data.table::data.table(
+      execution_stage = character(),
+      rule_file_identifier = character(),
+      column_source = character(),
+      value_source_raw = character(),
+      column_target = character(),
+      value_target_raw = character(),
+      value_target_clean = character(),
+      affected_rows = integer()
+    ))
+  }
+
+  return(stage_audit_dt[,
+    .(affected_rows = as.integer(sum(affected_rows))),
+    by = .(
+      rule_file_identifier,
+      column_source,
+      value_source_raw,
+      column_target,
+      value_target_raw,
+      value_target_clean
+    )
+  ][
+    order(rule_file_identifier, column_source, column_target)
+  ][,
+    execution_stage := stage_name
+  ][,
+    .(
+      execution_stage,
+      rule_file_identifier,
+      column_source,
+      value_source_raw,
+      column_target,
+      value_target_raw,
+      value_target_clean,
+      affected_rows
+    )
+  ])
+}
+
 #' @title Build post-processing rule summaries
 #' @description Creates stage-specific rule summaries for clean and harmonize
 #' audit tables.
@@ -149,70 +220,6 @@ build_post_processing_diagnostics <- function(
   checkmate::assert_data_frame(clean_audit_dt, min.rows = 0)
   checkmate::assert_data_frame(harmonize_audit_dt, min.rows = 0)
   checkmate::assert_list(standardize_diagnostics)
-
-  summarize_stage_rules <- function(audit_dt, stage_name) {
-    stage_audit_dt <- data.table::as.data.table(audit_dt)
-
-    required_columns <- c(
-      "rule_file_identifier",
-      "column_source",
-      "value_source_raw",
-      "column_target",
-      "value_target_raw",
-      "value_target_clean",
-      "affected_rows"
-    )
-
-    missing_columns <- setdiff(required_columns, names(stage_audit_dt))
-    if (length(missing_columns) > 0L) {
-      stage_audit_dt[, (missing_columns) := NA_character_]
-    }
-
-    stage_audit_dt[,
-      affected_rows := suppressWarnings(as.integer(affected_rows))
-    ]
-    stage_audit_dt[is.na(affected_rows), affected_rows := 0L]
-
-    if (nrow(stage_audit_dt) == 0L) {
-      return(data.table::data.table(
-        execution_stage = character(),
-        rule_file_identifier = character(),
-        column_source = character(),
-        value_source_raw = character(),
-        column_target = character(),
-        value_target_raw = character(),
-        value_target_clean = character(),
-        affected_rows = integer()
-      ))
-    }
-
-    return(stage_audit_dt[,
-      .(affected_rows = as.integer(sum(affected_rows))),
-      by = .(
-        rule_file_identifier,
-        column_source,
-        value_source_raw,
-        column_target,
-        value_target_raw,
-        value_target_clean
-      )
-    ][
-      order(rule_file_identifier, column_source, column_target)
-    ][,
-      execution_stage := stage_name
-    ][,
-      .(
-        execution_stage,
-        rule_file_identifier,
-        column_source,
-        value_source_raw,
-        column_target,
-        value_target_raw,
-        value_target_clean,
-        affected_rows
-      )
-    ])
-  }
 
   clean_rule_summary <- summarize_stage_rules(clean_audit_dt, "clean")
   harmonize_rule_summary <- summarize_stage_rules(

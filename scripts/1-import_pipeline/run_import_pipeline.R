@@ -42,6 +42,11 @@ run_import_pipeline <- function(config) {
   checkmate::assert_string(config$paths$data$imports$raw, min.chars = 1)
   checkmate::assert_directory_exists(config$paths$data$imports$raw)
 
+  cached_result <- load_pipeline_checkpoint("import_pipeline", config)
+  if (!is.null(cached_result)) {
+    return(cached_result)
+  }
+
   file_list_dt <- discover_files(config$paths$data$imports$raw)
 
   if (nrow(file_list_dt) == 0) {
@@ -50,7 +55,7 @@ run_import_pipeline <- function(config) {
 
   total_steps <- (2 * nrow(file_list_dt)) + 4
 
-  return(progressr::with_progress({
+  result <- progressr::with_progress({
     progress <- progressr::progressor(steps = total_steps)
 
     progress("Import Pipeline Progress: reading source files")
@@ -107,7 +112,7 @@ run_import_pipeline <- function(config) {
     checkmate::assert_data_frame(consolidated_result$data, min.rows = 0)
     checkmate::assert_character(consolidated_result$warnings, any.missing = FALSE)
 
-    return(list(
+    list(
       data = consolidated_result$data,
       wide_raw = transformed$wide_raw,
       diagnostics = list(
@@ -115,8 +120,16 @@ run_import_pipeline <- function(config) {
         validation_errors = validation_errors,
         warnings = consolidated_result$warnings
       )
-    ))
-  }))
+    )
+  })
+
+  save_pipeline_checkpoint(
+    result = result,
+    checkpoint_name = "import_pipeline",
+    config = config
+  )
+
+  return(result)
 }
 
 #' @title run import pipeline automatically

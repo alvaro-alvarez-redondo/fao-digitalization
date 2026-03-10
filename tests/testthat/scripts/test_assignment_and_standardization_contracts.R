@@ -4,8 +4,14 @@ options(
   fao.run_pipeline.auto = FALSE
 )
 
-source(here::here("scripts", "0-general_pipeline", "02-helpers.R"), echo = FALSE)
-source(here::here("scripts", "2-post_processing_pipeline", "23-standardize_units.R"), echo = FALSE)
+source(
+  here::here("scripts", "0-general_pipeline", "02-helpers.R"),
+  echo = FALSE
+)
+source(
+  here::here("scripts", "2-post_processing_pipeline", "24-standardize_units.R"),
+  echo = FALSE
+)
 source(here::here("scripts", "run_pipeline.R"), echo = FALSE)
 
 testthat::test_that("assign_environment_values assigns named values deterministically", {
@@ -26,7 +32,10 @@ testthat::test_that("assign_environment_values handles empty lists and overwrite
   env$alpha <- 100L
 
   empty_result <- assign_environment_values(values = list(), env = env)
-  overwrite_result <- assign_environment_values(values = list(alpha = 5L), env = env)
+  overwrite_result <- assign_environment_values(
+    values = list(alpha = 5L),
+    env = env
+  )
 
   testthat::expect_true(isTRUE(invisible(empty_result)))
   testthat::expect_true(isTRUE(invisible(overwrite_result)))

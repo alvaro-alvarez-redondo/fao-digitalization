@@ -28,9 +28,9 @@ Execution is orchestrated by `scripts/run_pipeline.R`, which sources stage runne
 install.packages("renv")
 renv::init(bare = TRUE)
 renv::install(c(
-  "checkmate", "cli", "data.table", "dplyr", "fs", "here", "openxlsx",
-  "progressr", "purrr", "readr", "readxl", "stringi", "stringr",
-  "testthat", "withr"
+  "checkmate", "cli", "data.table", "dplyr", "fs", "future", "future.apply",
+  "here", "openxlsx", "progressr", "purrr", "readr", "readxl", "stringi",
+  "stringr", "testthat", "withr"
 ))
 renv::snapshot()
 ```
@@ -93,7 +93,7 @@ Contract helpers:
   - `02-helpers.R`: shared utility functions
   - `run_general_pipeline.R`: stage bootstrap
 - `scripts/1-import_pipeline/`: file IO, reading, transforms, validation, import runner
-- `scripts/2-post_processing_pipeline/`: audit, clean, standardize units, harmonize, diagnostics, post-processing runner
+- `scripts/2-post_processing_pipeline/`: audit, post-processing utilities, rule engine, clean, standardize units, harmonize, diagnostics, post-processing runner
 - `scripts/3-export_pipeline/`: processed-data and unique-list exporters, export runner
 - `scripts/run_pipeline.R`: global orchestrator
 - `tests/testthat/scripts/`: deterministic `testthat` suites
@@ -109,9 +109,48 @@ Contract helpers:
 - Function-level roxygen documentation in script files
 - Deterministic stage ordering and deterministic output contracts
 
-## 9. Performance Notes (if benchmarks exist)
+## 9. Performance & Scalability
 
-No committed benchmark artifacts are present. Current optimizations are implemented in code paths (for example, keyed `data.table` joins and minimized repeated normalization in unit-standardization functions).
+The pipeline includes several performance optimizations for large-scale processing (1000+ files):
+
+### Parallel Processing
+
+File reading, transformation, and list export leverage `future.apply::future_lapply()` for parallel execution when a `future` backend is configured. By default, the pipeline runs sequentially (`future::sequential`).
+
+Enable parallel processing:
+
+```r
+future::plan(future::multisession, workers = 4)
+source(here::here("scripts", "run_pipeline.R"), local = TRUE)
+```
+
+When parallel backends are active, these stages run in parallel:
+- **Import**: `read_pipeline_files()` reads Excel files concurrently
+- **Transform**: `process_files()` transforms file data concurrently
+- **Export**: `export_lists()` writes column workbooks concurrently
+
+### Checkpointing
+
+For long-running pipelines, optional RDS checkpointing provides crash recovery:
+
+```r
+options(fao.checkpointing.enabled = TRUE)
+```
+
+When enabled:
+- Import results are saved to `data/.checkpoints/import_pipeline.rds`
+- Subsequent runs skip import if a valid checkpoint exists
+- Clear checkpoints: `clear_pipeline_checkpoints(config)`
+
+### Constants Caching
+
+`get_pipeline_constants()` caches its result after the first call, avoiding repeated list construction in hot paths throughout the pipeline.
+
+### Memory Efficiency
+
+- `data.table` inputs skip redundant copy+conversion in standardization rules
+- Rule engine uses pre-allocated vectors instead of list-growing patterns
+- `base::lapply()` replaces `purrr::map()` in performance-critical loops
 
 ## 10. Reproducibility & Determinism
 

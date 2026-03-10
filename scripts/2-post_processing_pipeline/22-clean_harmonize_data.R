@@ -58,7 +58,11 @@ run_rule_stage_layer_batch <- function(
     stage_name = validated_stage_name
   )
 
-  execution_timestamp_utc <- format(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC")
+  execution_timestamp_utc <- format(
+    Sys.time(),
+    get_pipeline_constants()$timestamp_format_utc,
+    tz = "UTC"
+  )
 
   initial_state <- list(
     data = data.table::copy(data.table::as.data.table(dataset_dt)),

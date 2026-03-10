@@ -309,7 +309,11 @@ apply_standardize_rules <- function(
   checkmate::assert_string(value_column, min.chars = 1)
   checkmate::assert_string(product_column, min.chars = 1)
 
-  normalized_dt <- data.table::copy(data.table::as.data.table(mapped_dt))
+  if (data.table::is.data.table(mapped_dt)) {
+    normalized_dt <- data.table::copy(mapped_dt)
+  } else {
+    normalized_dt <- data.table::as.data.table(mapped_dt)
+  }
 
   if (!unit_column %in% names(normalized_dt)) {
     cli::cli_abort("unit column {.val {unit_column}} is missing")
