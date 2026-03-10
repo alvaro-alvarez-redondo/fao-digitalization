@@ -172,13 +172,15 @@ ensure_rule_referenced_columns <- function(dataset_dt, rules_dt) {
 #' @param rule_values Atomic vector of rule values to check.
 #' @param field_name Character scalar field label for error messages.
 #' @param rule_file_id Character scalar rule file identifier for error context.
+#' @param column_name Character scalar column name for error messages.
 #' @return Invisibly returns `TRUE`.
 #' @importFrom cli cli_abort
 check_type_compatibility <- function(
   dataset_vector,
   rule_values,
   field_name,
-  rule_file_id
+  rule_file_id,
+  column_name = "unknown"
 ) {
   non_missing_values <- rule_values[!is.na(rule_values)]
 
@@ -194,7 +196,7 @@ check_type_compatibility <- function(
         "x" = paste0(
           field_name,
           " cannot be safely cast to numeric for column ",
-          deparse(substitute(dataset_vector))
+          column_name
         )
       ))
     }
@@ -208,7 +210,7 @@ check_type_compatibility <- function(
         "x" = paste0(
           field_name,
           " cannot be safely cast to integer for column ",
-          deparse(substitute(dataset_vector))
+          column_name
         )
       ))
     }
@@ -222,7 +224,7 @@ check_type_compatibility <- function(
         "x" = paste0(
           field_name,
           " cannot be safely cast to Date for column ",
-          deparse(substitute(dataset_vector))
+          column_name
         )
       ))
     }
@@ -347,7 +349,8 @@ validate_canonical_rules <- function(rules_dt, dataset_dt, rule_file_id, stage_n
       dataset_dt[[column_source[1]]],
       value_source_raw,
       "value_source_raw",
-      rule_file_id
+      rule_file_id,
+      column_name = column_source[1]
     ),
     by = column_source
   ]
@@ -357,7 +360,8 @@ validate_canonical_rules <- function(rules_dt, dataset_dt, rule_file_id, stage_n
       dataset_dt[[column_target[1]]],
       value_target_raw,
       "value_target_raw",
-      rule_file_id
+      rule_file_id,
+      column_name = column_target[1]
     ),
     by = column_target
   ]
@@ -370,7 +374,8 @@ validate_canonical_rules <- function(rules_dt, dataset_dt, rule_file_id, stage_n
         dataset_dt[[column_source[1]]],
         get(source_value_column),
         source_value_column,
-        rule_file_id
+        rule_file_id,
+        column_name = column_source[1]
       ),
       by = column_source
     ]

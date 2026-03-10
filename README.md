@@ -93,7 +93,7 @@ Contract helpers:
   - `02-helpers.R`: shared utility functions
   - `run_general_pipeline.R`: stage bootstrap
 - `scripts/1-import_pipeline/`: file IO, reading, transforms, validation, import runner
-- `scripts/2-post_processing_pipeline/`: audit, clean, standardize units, harmonize, diagnostics, post-processing runner
+- `scripts/2-post_processing_pipeline/`: audit, post-processing utilities, rule engine, clean, standardize units, harmonize, diagnostics, post-processing runner
 - `scripts/3-export_pipeline/`: processed-data and unique-list exporters, export runner
 - `scripts/run_pipeline.R`: global orchestrator
 - `tests/testthat/scripts/`: deterministic `testthat` suites
