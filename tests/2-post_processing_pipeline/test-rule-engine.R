@@ -1,9 +1,23 @@
 # tests/2-post_processing_pipeline/test-rule-engine.R
-# unit tests for scripts/2-post_processing_pipeline/21b-post_processing_rule_engine.R
+# unit tests for scripts/2-post_processing_pipeline/23-post_processing_rule_engine.R
 
 source(here::here("tests", "test_helper.R"), echo = FALSE)
-source(here::here("scripts", "2-post_processing_pipeline", "21-post_processing_utilities.R"), echo = FALSE)
-source(here::here("scripts", "2-post_processing_pipeline", "21b-post_processing_rule_engine.R"), echo = FALSE)
+source(
+  here::here(
+    "scripts",
+    "2-post_processing_pipeline",
+    "21-post_processing_utilities.R"
+  ),
+  echo = FALSE
+)
+source(
+  here::here(
+    "scripts",
+    "2-post_processing_pipeline",
+    "23-post_processing_rule_engine.R"
+  ),
+  echo = FALSE
+)
 
 
 # --- coerce_rule_schema ------------------------------------------------------
@@ -25,8 +39,8 @@ testthat::test_that("coerce_rule_schema normalizes stage-prefixed columns", {
   )
 
   testthat::expect_true(data.table::is.data.table(result))
-  testthat::expect_true("column_source"      %in% names(result))
-  testthat::expect_true("value_target_clean"  %in% names(result))
+  testthat::expect_true("column_source" %in% names(result))
+  testthat::expect_true("value_target_clean" %in% names(result))
   testthat::expect_equal(result$value_target_clean[[1]], "kilogram")
 })
 
@@ -237,7 +251,7 @@ testthat::test_that("apply_conditional_rule_group applies clean rules", {
   )
 
   testthat::expect_true(is.list(result))
-  testthat::expect_true("data"  %in% names(result))
+  testthat::expect_true("data" %in% names(result))
   testthat::expect_true("audit" %in% names(result))
   testthat::expect_equal(result$data$unit[[1]], "kilogram")
   testthat::expect_equal(result$data$unit[[2]], "kg")

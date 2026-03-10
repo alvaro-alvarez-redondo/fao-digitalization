@@ -3,7 +3,10 @@
 # harmonize stages with structured audit persistence.
 
 if (!exists("get_pipeline_constants", mode = "function", inherits = TRUE)) {
-  source(here::here("scripts", "0-general_pipeline", "01-setup.R"), echo = FALSE)
+  source(
+    here::here("scripts", "0-general_pipeline", "01-setup.R"),
+    echo = FALSE
+  )
 }
 
 
@@ -49,10 +52,10 @@ source_post_processing_scripts <- function(
   script_names <- c(
     "20-data_audit.R",
     "21-post_processing_utilities.R",
-    "21b-post_processing_rule_engine.R",
+    "23-post_processing_rule_engine.R",
     "22-clean_harmonize_data.R",
-    "23-standardize_units.R",
-    "24-post_processing_diagnostics.R"
+    "24-standardize_units.R",
+    "25-post_processing_diagnostics.R"
   )
 
   purrr::walk(script_names, function(script_name) {
@@ -169,7 +172,9 @@ run_post_processing_pipeline_batch <- function(
       config = config
     )
 
-    progress("Post-Processing Pipeline Progress: initializing audit directories")
+    progress(
+      "Post-Processing Pipeline Progress: initializing audit directories"
+    )
     audit_paths <- initialize_post_processing_audit_root(config)
 
     progress("Post-Processing Pipeline Progress: generating rule templates")
@@ -262,7 +267,11 @@ run_clean_harmonize_pipeline_batch <- run_post_processing_pipeline_batch
 #' @param dataset_name Character scalar dataset identifier.
 #' @return Cleaned dataset returned by `run_cleaning_layer_batch`.
 #' @importFrom checkmate assert_data_frame assert_list assert_string
-run_clean_data <- function(dataset_dt, config, dataset_name = get_pipeline_constants()$dataset_default_name) {
+run_clean_data <- function(
+  dataset_dt,
+  config,
+  dataset_name = get_pipeline_constants()$dataset_default_name
+) {
   checkmate::assert_data_frame(dataset_dt, min.rows = 0)
   checkmate::assert_list(config, min.len = 1)
   checkmate::assert_string(dataset_name, min.chars = 1)
@@ -372,7 +381,10 @@ run_post_processing_pipeline_auto <- function(auto_run, env = .GlobalEnv) {
     return(invisible(NULL))
   }
 
-  raw_value <- get_required_object_or_null(pipeline_constants$object_names$raw, env)
+  raw_value <- get_required_object_or_null(
+    pipeline_constants$object_names$raw,
+    env
+  )
   config_value <- get_required_object_or_null("config", env)
 
   if (is.null(raw_value) || is.null(config_value)) {
@@ -415,6 +427,9 @@ run_clean_harmonize_pipeline_auto <- run_post_processing_pipeline_auto
 run_post_processing_pipeline_auto(
   auto_run = isTRUE(getOption(
     get_pipeline_constants()$auto_run_options$post_processing,
-    getOption(get_pipeline_constants()$auto_run_options$post_processing_legacy, TRUE)
+    getOption(
+      get_pipeline_constants()$auto_run_options$post_processing_legacy,
+      TRUE
+    )
   ))
 )

@@ -1,8 +1,11 @@
 # tests/2-post_processing_pipeline/test-standardize-units.R
-# unit tests for scripts/2-post_processing_pipeline/23-standardize_units.R
+# unit tests for scripts/2-post_processing_pipeline/24-standardize_units.R
 
 source(here::here("tests", "test_helper.R"), echo = FALSE)
-source(here::here("scripts", "2-post_processing_pipeline", "23-standardize_units.R"), echo = FALSE)
+source(
+  here::here("scripts", "2-post_processing_pipeline", "24-standardize_units.R"),
+  echo = FALSE
+)
 
 
 # --- validate_rule_schema ----------------------------------------------------
@@ -58,8 +61,8 @@ testthat::test_that("normalize_conversion_rule_columns renames legacy columns", 
 
   testthat::expect_true("source_unit" %in% names(result))
   testthat::expect_true("target_unit" %in% names(result))
-  testthat::expect_true("multiplier"  %in% names(result))
-  testthat::expect_true("addend"      %in% names(result))
+  testthat::expect_true("multiplier" %in% names(result))
+  testthat::expect_true("addend" %in% names(result))
 })
 
 testthat::test_that("normalize_conversion_rule_columns preserves modern column names", {
@@ -74,7 +77,7 @@ testthat::test_that("normalize_conversion_rule_columns preserves modern column n
   result <- normalize_conversion_rule_columns(modern_dt)
 
   testthat::expect_true("source_unit" %in% names(result))
-  testthat::expect_true("multiplier"  %in% names(result))
+  testthat::expect_true("multiplier" %in% names(result))
 })
 
 
@@ -143,9 +146,9 @@ testthat::test_that("prepare_standardize_rules materializes numeric columns and 
   result <- prepare_standardize_rules(raw_dt)
 
   testthat::expect_true("multiplier_num" %in% names(result))
-  testthat::expect_true("addend_num"     %in% names(result))
-  testthat::expect_true("product_key"    %in% names(result))
-  testthat::expect_true("unit_key"       %in% names(result))
+  testthat::expect_true("addend_num" %in% names(result))
+  testthat::expect_true("product_key" %in% names(result))
+  testthat::expect_true("unit_key" %in% names(result))
 })
 
 testthat::test_that("prepare_standardize_rules handles empty input", {

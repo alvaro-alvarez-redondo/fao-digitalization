@@ -1,21 +1,59 @@
 # tests/2-post_processing_pipeline/test-diagnostics.R
-# unit tests for scripts/2-post_processing_pipeline/24-post_processing_diagnostics.R
+# unit tests for scripts/2-post_processing_pipeline/25-post_processing_diagnostics.R
 
 source(here::here("tests", "test_helper.R"), echo = FALSE)
-source(here::here("scripts", "2-post_processing_pipeline", "21-post_processing_utilities.R"), echo = FALSE)
-source(here::here("scripts", "2-post_processing_pipeline", "21b-post_processing_rule_engine.R"), echo = FALSE)
-source(here::here("scripts", "2-post_processing_pipeline", "24-post_processing_diagnostics.R"), echo = FALSE)
+source(
+  here::here(
+    "scripts",
+    "2-post_processing_pipeline",
+    "21-post_processing_utilities.R"
+  ),
+  echo = FALSE
+)
+source(
+  here::here(
+    "scripts",
+    "2-post_processing_pipeline",
+    "23-post_processing_rule_engine.R"
+  ),
+  echo = FALSE
+)
+source(
+  here::here(
+    "scripts",
+    "2-post_processing_pipeline",
+    "25-post_processing_diagnostics.R"
+  ),
+  echo = FALSE
+)
 
 
 # --- collect_post_processing_preflight ---------------------------------------
 
 testthat::test_that("preflight flags invalid file naming patterns", {
   config <- build_test_config()
-  dir.create(file.path(config$paths$data$audit$audit_root_dir, "templates"), recursive = TRUE, showWarnings = FALSE)
-  dir.create(file.path(config$paths$data$audit$audit_root_dir, "post_processing_diagnostics"), recursive = TRUE, showWarnings = FALSE)
+  dir.create(
+    file.path(config$paths$data$audit$audit_root_dir, "templates"),
+    recursive = TRUE,
+    showWarnings = FALSE
+  )
+  dir.create(
+    file.path(
+      config$paths$data$audit$audit_root_dir,
+      "post_processing_diagnostics"
+    ),
+    recursive = TRUE,
+    showWarnings = FALSE
+  )
 
-  file.create(file.path(config$paths$data$imports$cleaning, "bad_clean_name.xlsx"))
-  file.create(file.path(config$paths$data$imports$harmonization, "bad_harmonize_name.xlsx"))
+  file.create(file.path(
+    config$paths$data$imports$cleaning,
+    "bad_clean_name.xlsx"
+  ))
+  file.create(file.path(
+    config$paths$data$imports$harmonization,
+    "bad_harmonize_name.xlsx"
+  ))
 
   result <- collect_post_processing_preflight(
     config = config,
@@ -25,16 +63,34 @@ testthat::test_that("preflight flags invalid file naming patterns", {
   testthat::expect_false(result$checks$cleaning_pattern_ok)
   testthat::expect_false(result$checks$harmonize_pattern_ok)
   testthat::expect_true(any(grepl("clean stage", result$issues, fixed = TRUE)))
-  testthat::expect_true(any(grepl("harmonize stage", result$issues, fixed = TRUE)))
+  testthat::expect_true(any(grepl(
+    "harmonize stage",
+    result$issues,
+    fixed = TRUE
+  )))
 })
 
 testthat::test_that("preflight detects column convention mismatch", {
   config <- build_test_config()
-  dir.create(file.path(config$paths$data$audit$audit_root_dir, "templates"), recursive = TRUE, showWarnings = FALSE)
-  dir.create(file.path(config$paths$data$audit$audit_root_dir, "post_processing_diagnostics"), recursive = TRUE, showWarnings = FALSE)
+  dir.create(
+    file.path(config$paths$data$audit$audit_root_dir, "templates"),
+    recursive = TRUE,
+    showWarnings = FALSE
+  )
+  dir.create(
+    file.path(
+      config$paths$data$audit$audit_root_dir,
+      "post_processing_diagnostics"
+    ),
+    recursive = TRUE,
+    showWarnings = FALSE
+  )
 
   file.create(file.path(config$paths$data$imports$cleaning, "clean_rules.xlsx"))
-  file.create(file.path(config$paths$data$imports$harmonization, "harmonize_rules.xlsx"))
+  file.create(file.path(
+    config$paths$data$imports$harmonization,
+    "harmonize_rules.xlsx"
+  ))
 
   result <- collect_post_processing_preflight(
     config = config,
@@ -42,7 +98,11 @@ testthat::test_that("preflight detects column convention mismatch", {
   )
 
   testthat::expect_false(result$passed)
-  testthat::expect_true(any(grepl("missing expected columns", result$issues, fixed = TRUE)))
+  testthat::expect_true(any(grepl(
+    "missing expected columns",
+    result$issues,
+    fixed = TRUE
+  )))
 })
 
 testthat::test_that("assert_post_processing_preflight aborts with stage details", {

@@ -2,18 +2,53 @@
 # integration tests for scripts/2-post_processing_pipeline/22-clean_harmonize_data.R
 
 source(here::here("tests", "test_helper.R"), echo = FALSE)
-source(here::here("scripts", "2-post_processing_pipeline", "21-post_processing_utilities.R"), echo = FALSE)
-source(here::here("scripts", "2-post_processing_pipeline", "21b-post_processing_rule_engine.R"), echo = FALSE)
-source(here::here("scripts", "2-post_processing_pipeline", "22-clean_harmonize_data.R"), echo = FALSE)
+source(
+  here::here(
+    "scripts",
+    "2-post_processing_pipeline",
+    "21-post_processing_utilities.R"
+  ),
+  echo = FALSE
+)
+source(
+  here::here(
+    "scripts",
+    "2-post_processing_pipeline",
+    "23-post_processing_rule_engine.R"
+  ),
+  echo = FALSE
+)
+source(
+  here::here(
+    "scripts",
+    "2-post_processing_pipeline",
+    "22-clean_harmonize_data.R"
+  ),
+  echo = FALSE
+)
 
 
 # helpers for creating rule files
-create_clean_rule_file <- function(config, rules_df, filename = "clean_rules_test.csv") {
-  readr::write_csv(rules_df, file.path(config$paths$data$imports$cleaning, filename))
+create_clean_rule_file <- function(
+  config,
+  rules_df,
+  filename = "clean_rules_test.csv"
+) {
+  readr::write_csv(
+    rules_df,
+    file.path(config$paths$data$imports$cleaning, filename)
+  )
 }
 
-create_harmonize_rule_file <- function(config, rules_df, filename = "harmonize_rules_test.csv") {
-  readr::write_csv(rules_df, file.path(config$paths$data$imports$harmonization, filename))
+create_harmonize_rule_file <- function(
+  config,
+  rules_df,
+  filename = "harmonize_rules_test.csv"
+) {
+  readr::write_csv(
+    rules_df,
+    file.path(config$paths$data$imports$harmonization, filename)
+  )
 }
 
 
@@ -116,8 +151,16 @@ testthat::test_that("clean and harmonize pipeline applies both stages sequential
     stringsAsFactors = FALSE
   )
 
-  cleaned <- run_cleaning_layer_batch(dataset_dt = input_dt, config = config, dataset_name = "demo")
-  harmonized <- run_harmonize_layer_batch(dataset_dt = cleaned, config = config, dataset_name = "demo")
+  cleaned <- run_cleaning_layer_batch(
+    dataset_dt = input_dt,
+    config = config,
+    dataset_name = "demo"
+  )
+  harmonized <- run_harmonize_layer_batch(
+    dataset_dt = cleaned,
+    config = config,
+    dataset_name = "demo"
+  )
 
   testthat::expect_equal(harmonized$unit[[1]], "kilogram")
   testthat::expect_equal(harmonized$variable[[1]], "Production")
@@ -145,7 +188,11 @@ testthat::test_that("clean layer auto-creates missing rule-referenced columns", 
     stringsAsFactors = FALSE
   )
 
-  result <- run_cleaning_layer_batch(dataset_dt = input_dt, config = config, dataset_name = "demo")
+  result <- run_cleaning_layer_batch(
+    dataset_dt = input_dt,
+    config = config,
+    dataset_name = "demo"
+  )
 
   testthat::expect_true("source_missing" %in% names(result))
   testthat::expect_true("target_missing" %in% names(result))
@@ -175,7 +222,11 @@ testthat::test_that("clean stage applies optional source rewrites", {
     stringsAsFactors = FALSE
   )
 
-  result <- run_cleaning_layer_batch(dataset_dt = input_dt, config = config, dataset_name = "demo")
+  result <- run_cleaning_layer_batch(
+    dataset_dt = input_dt,
+    config = config,
+    dataset_name = "demo"
+  )
 
   testthat::expect_equal(result$product[[1]], "Wheat cleaned")
   testthat::expect_equal(result$product[[2]], "Rice")
@@ -205,7 +256,11 @@ testthat::test_that("clean stage blank source rewrite assigns NA on matched rows
     stringsAsFactors = FALSE
   )
 
-  result <- run_cleaning_layer_batch(dataset_dt = input_dt, config = config, dataset_name = "demo")
+  result <- run_cleaning_layer_batch(
+    dataset_dt = input_dt,
+    config = config,
+    dataset_name = "demo"
+  )
 
   testthat::expect_true(is.na(result$continent[[1]]))
   testthat::expect_equal(result$continent[[2]], "europe")
@@ -234,7 +289,11 @@ testthat::test_that("when source and target columns are identical target rewrite
     stringsAsFactors = FALSE
   )
 
-  result <- run_cleaning_layer_batch(dataset_dt = input_dt, config = config, dataset_name = "demo")
+  result <- run_cleaning_layer_batch(
+    dataset_dt = input_dt,
+    config = config,
+    dataset_name = "demo"
+  )
 
   testthat::expect_equal(result$product[[1]], "Wheat target")
   testthat::expect_equal(result$product[[2]], "Rice")
@@ -263,7 +322,11 @@ testthat::test_that("harmonize stage applies optional source rewrites", {
     stringsAsFactors = FALSE
   )
 
-  result <- run_harmonize_layer_batch(dataset_dt = input_dt, config = config, dataset_name = "demo")
+  result <- run_harmonize_layer_batch(
+    dataset_dt = input_dt,
+    config = config,
+    dataset_name = "demo"
+  )
 
   testthat::expect_equal(result$variable[[1]], "Production")
   testthat::expect_equal(result$variable[[2]], "Import")
@@ -282,7 +345,11 @@ testthat::test_that("run_cleaning_layer_batch returns unchanged data with no rul
     stringsAsFactors = FALSE
   )
 
-  result <- run_cleaning_layer_batch(dataset_dt = input_dt, config = config, dataset_name = "demo")
+  result <- run_cleaning_layer_batch(
+    dataset_dt = input_dt,
+    config = config,
+    dataset_name = "demo"
+  )
 
   testthat::expect_equal(result$product[[1]], "Wheat")
   testthat::expect_equal(result$unit[[1]], "kg")

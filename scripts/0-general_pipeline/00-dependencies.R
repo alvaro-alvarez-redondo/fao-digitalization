@@ -23,7 +23,8 @@ required_packages <- c(
   "stringr",
   "tibble",
   "tidyr",
-  "tidyselect"
+  "tidyselect",
+  "profvis"
 )
 
 #' @title abort on failed checkmate checks

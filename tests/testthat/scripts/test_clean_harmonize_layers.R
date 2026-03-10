@@ -3,17 +3,46 @@ options(
   fao.run_clean_harmonize_pipeline.auto = FALSE
 )
 
-source(here::here("scripts", "0-general_pipeline", "02-helpers.R"), echo = FALSE)
-source(here::here("scripts", "2-post_processing_pipeline", "21-post_processing_utilities.R"), echo = FALSE)
-source(here::here("scripts", "2-post_processing_pipeline", "21b-post_processing_rule_engine.R"), echo = FALSE)
-source(here::here("scripts", "2-post_processing_pipeline", "22-clean_harmonize_data.R"), echo = FALSE)
+source(
+  here::here("scripts", "0-general_pipeline", "02-helpers.R"),
+  echo = FALSE
+)
+source(
+  here::here(
+    "scripts",
+    "2-post_processing_pipeline",
+    "21-post_processing_utilities.R"
+  ),
+  echo = FALSE
+)
+source(
+  here::here(
+    "scripts",
+    "2-post_processing_pipeline",
+    "23-post_processing_rule_engine.R"
+  ),
+  echo = FALSE
+)
+source(
+  here::here(
+    "scripts",
+    "2-post_processing_pipeline",
+    "22-clean_harmonize_data.R"
+  ),
+  echo = FALSE
+)
 
 testthat::test_that("clean and harmonize layers apply deterministic rule payloads", {
   root_dir <- tempfile("fao-clean-harmonize-")
   dir.create(root_dir, recursive = TRUE)
 
   clean_dir <- file.path(root_dir, "data", "1-import", "11-clean_imports")
-  harmonize_dir <- file.path(root_dir, "data", "1-import", "13-harmonize_imports")
+  harmonize_dir <- file.path(
+    root_dir,
+    "data",
+    "1-import",
+    "13-harmonize_imports"
+  )
   dir.create(clean_dir, recursive = TRUE)
   dir.create(harmonize_dir, recursive = TRUE)
 
@@ -36,7 +65,10 @@ testthat::test_that("clean and harmonize layers apply deterministic rule payload
   )
 
   readr::write_csv(clean_rules, file.path(clean_dir, "clean_rules_product.csv"))
-  readr::write_csv(harmonize_rules, file.path(harmonize_dir, "harmonize_rules_variable.csv"))
+  readr::write_csv(
+    harmonize_rules,
+    file.path(harmonize_dir, "harmonize_rules_variable.csv")
+  )
 
   config <- list(
     paths = list(
@@ -107,7 +139,8 @@ testthat::test_that("stage-prefixed schemas are accepted by coerce_rule_schema",
       "column_target",
       "value_target_raw",
       "value_target_clean"
-    ) %in% colnames(canonical_dt)
+    ) %in%
+      colnames(canonical_dt)
   ))
 
   testthat::expect_equal(canonical_dt$value_target_clean[[1]], "kilogram")
@@ -121,7 +154,12 @@ testthat::test_that("clean layer auto-creates missing rule-referenced columns", 
   dir.create(root_dir, recursive = TRUE)
 
   clean_dir <- file.path(root_dir, "data", "1-import", "11-clean_imports")
-  harmonize_dir <- file.path(root_dir, "data", "1-import", "13-harmonize_imports")
+  harmonize_dir <- file.path(
+    root_dir,
+    "data",
+    "1-import",
+    "13-harmonize_imports"
+  )
   dir.create(clean_dir, recursive = TRUE)
   dir.create(harmonize_dir, recursive = TRUE)
 
@@ -134,7 +172,10 @@ testthat::test_that("clean layer auto-creates missing rule-referenced columns", 
     stringsAsFactors = FALSE
   )
 
-  readr::write_csv(clean_rules, file.path(clean_dir, "clean_rules_missing_columns.csv"))
+  readr::write_csv(
+    clean_rules,
+    file.path(clean_dir, "clean_rules_missing_columns.csv")
+  )
 
   config <- list(
     paths = list(
@@ -172,7 +213,12 @@ testthat::test_that("clean stage applies optional source rewrites", {
   dir.create(root_dir, recursive = TRUE)
 
   clean_dir <- file.path(root_dir, "data", "1-import", "11-clean_imports")
-  harmonize_dir <- file.path(root_dir, "data", "1-import", "13-harmonize_imports")
+  harmonize_dir <- file.path(
+    root_dir,
+    "data",
+    "1-import",
+    "13-harmonize_imports"
+  )
   dir.create(clean_dir, recursive = TRUE)
   dir.create(harmonize_dir, recursive = TRUE)
 
@@ -186,7 +232,10 @@ testthat::test_that("clean stage applies optional source rewrites", {
     stringsAsFactors = FALSE
   )
 
-  readr::write_csv(clean_rules, file.path(clean_dir, "clean_rules_source_rewrite.csv"))
+  readr::write_csv(
+    clean_rules,
+    file.path(clean_dir, "clean_rules_source_rewrite.csv")
+  )
 
   config <- list(
     paths = list(
@@ -222,7 +271,12 @@ testthat::test_that("when source and target columns are identical target rewrite
   dir.create(root_dir, recursive = TRUE)
 
   clean_dir <- file.path(root_dir, "data", "1-import", "11-clean_imports")
-  harmonize_dir <- file.path(root_dir, "data", "1-import", "13-harmonize_imports")
+  harmonize_dir <- file.path(
+    root_dir,
+    "data",
+    "1-import",
+    "13-harmonize_imports"
+  )
   dir.create(clean_dir, recursive = TRUE)
   dir.create(harmonize_dir, recursive = TRUE)
 
@@ -236,7 +290,10 @@ testthat::test_that("when source and target columns are identical target rewrite
     stringsAsFactors = FALSE
   )
 
-  readr::write_csv(clean_rules, file.path(clean_dir, "clean_rules_same_column.csv"))
+  readr::write_csv(
+    clean_rules,
+    file.path(clean_dir, "clean_rules_same_column.csv")
+  )
 
   config <- list(
     paths = list(
@@ -270,7 +327,12 @@ testthat::test_that("harmonize stage applies optional source rewrites", {
   dir.create(root_dir, recursive = TRUE)
 
   clean_dir <- file.path(root_dir, "data", "1-import", "11-clean_imports")
-  harmonize_dir <- file.path(root_dir, "data", "1-import", "13-harmonize_imports")
+  harmonize_dir <- file.path(
+    root_dir,
+    "data",
+    "1-import",
+    "13-harmonize_imports"
+  )
   dir.create(clean_dir, recursive = TRUE)
   dir.create(harmonize_dir, recursive = TRUE)
 
@@ -284,7 +346,10 @@ testthat::test_that("harmonize stage applies optional source rewrites", {
     stringsAsFactors = FALSE
   )
 
-  readr::write_csv(harmonize_rules, file.path(harmonize_dir, "harmonize_rules_source_rewrite.csv"))
+  readr::write_csv(
+    harmonize_rules,
+    file.path(harmonize_dir, "harmonize_rules_source_rewrite.csv")
+  )
 
   config <- list(
     paths = list(
@@ -320,7 +385,12 @@ testthat::test_that("clean stage blank source rewrite assigns NA on matched rows
   dir.create(root_dir, recursive = TRUE)
 
   clean_dir <- file.path(root_dir, "data", "1-import", "11-clean_imports")
-  harmonize_dir <- file.path(root_dir, "data", "1-import", "13-harmonize_imports")
+  harmonize_dir <- file.path(
+    root_dir,
+    "data",
+    "1-import",
+    "13-harmonize_imports"
+  )
   dir.create(clean_dir, recursive = TRUE)
   dir.create(harmonize_dir, recursive = TRUE)
 
@@ -334,7 +404,10 @@ testthat::test_that("clean stage blank source rewrite assigns NA on matched rows
     stringsAsFactors = FALSE
   )
 
-  readr::write_csv(clean_rules, file.path(clean_dir, "clean_rules_blank_source.csv"))
+  readr::write_csv(
+    clean_rules,
+    file.path(clean_dir, "clean_rules_blank_source.csv")
+  )
 
   config <- list(
     paths = list(
