@@ -317,8 +317,9 @@ read_file_sheets <- function(file_path, config) {
 
 #' @title read pipeline files
 #' @description iterate through discovered file metadata and read each file using
-#' `read_file_sheets`, returning a list of per-file data tables and a flattened
-#' error vector.
+#' `read_file_sheets`. when `future` parallel backends are configured, files are
+#' read in parallel using `future.apply::future_lapply()` for improved throughput
+#' on large file sets (1000+ files).
 #' @param file_list_dt data frame or data table with a `file_path` character
 #' column. can be empty.
 #' @param config named list containing `column_required` as a non-empty character
@@ -329,7 +330,7 @@ read_file_sheets <- function(file_path, config) {
 #' @return named list with `read_data_list` as a list of `data.table` objects and
 #' `errors` as a character vector.
 #' @importFrom checkmate check_character check_data_frame check_list check_names check_function
-#' @importFrom purrr map
+#' @importFrom future.apply future_lapply
 #' @examples
 #' file_list_example <- data.frame(file_path = character())
 #' config_example <- list(column_required = c("country", "year"))
@@ -361,25 +362,47 @@ read_pipeline_files <- function(file_list_dt, config, progressor = NULL) {
     return(list(read_data_list = list(), errors = character(0)))
   }
 
-  read_results <- purrr::map(
-    file_list_dt$file_path,
-    \(file_path) {
-      if (!is.null(progressor)) {
-        progressor(sprintf("Import Pipeline Progress: reading %s", fs::path_file(file_path)))
+  file_paths <- file_list_dt$file_path
+
+  use_parallel <- !inherits(future::plan(), "sequential") &&
+    length(file_paths) > 1L
+
+  if (use_parallel) {
+    read_results <- future.apply::future_lapply(
+      file_paths,
+      function(file_path) {
+        safe_execute_read(
+          operation = \() read_file_sheets(file_path, config),
+          context_message = "failed to read pipeline file",
+          file_path = file_path
+        )
+      },
+      future.seed = NULL
+    )
+  } else {
+    read_results <- lapply(
+      file_paths,
+      function(file_path) {
+        if (!is.null(progressor)) {
+          progressor(sprintf(
+            "Import Pipeline Progress: reading %s",
+            fs::path_file(file_path)
+          ))
+        }
+
+        safe_execute_read(
+          operation = \() read_file_sheets(file_path, config),
+          context_message = "failed to read pipeline file",
+          file_path = file_path
+        )
       }
+    )
+  }
 
-      return(safe_execute_read(
-        operation = \() read_file_sheets(file_path, config),
-        context_message = "failed to read pipeline file",
-        file_path = file_path
-      ))
-    }
-  )
+  normalized_results <- lapply(read_results, normalize_pipeline_read_result)
 
-  normalized_results <- purrr::map(read_results, normalize_pipeline_read_result)
-
-  read_data_list <- purrr::map(normalized_results, "data")
-  errors_list <- purrr::map(normalized_results, "errors")
+  read_data_list <- lapply(normalized_results, `[[`, "data")
+  errors_list <- lapply(normalized_results, `[[`, "errors")
 
   return(list(
     read_data_list = read_data_list,

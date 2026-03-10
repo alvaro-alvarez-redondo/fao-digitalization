@@ -356,7 +356,8 @@ write_column_lists_workbook <- function(
 #' @description Exports one workbook per column. Each workbook contains fixed
 #' deterministic layer sheet outputs: always `raw`, plus either a merged
 #' `clean_harmonize` sheet or separate `clean` and `harmonize` sheets.
-#' The `value` column workbook is excluded from list exports.
+#' The `value` column workbook is excluded from list exports. When a `future`
+#' parallel backend is configured, workbooks are written in parallel.
 #' @param config Named configuration list.
 #' @param data_objects Optional named list of data.frame/data.table objects.
 #' @param overwrite Logical scalar overwrite flag.
@@ -364,7 +365,7 @@ write_column_lists_workbook <- function(
 #' `NULL`.
 #' @return Named character vector of workbook paths keyed by column name.
 #' @importFrom checkmate assert_list assert_flag assert_environment
-#' @importFrom purrr map
+#' @importFrom future.apply future_lapply
 #' @importFrom cli cli_abort
 export_lists <- function(
   config,
@@ -399,17 +400,38 @@ export_lists <- function(
     !union_columns %in% c("value", "year", "yearbook")
   ]
 
-  output_paths <- setNames(
-    lapply(export_columns, function(column_name) {
-      write_column_lists_workbook(
-        column_name = column_name,
-        unique_cache = unique_cache,
-        config = config,
-        overwrite = overwrite
-      )
-    }),
-    export_columns
-  )
+  use_parallel <- !inherits(future::plan(), "sequential") &&
+    length(export_columns) > 1L
+
+  if (use_parallel) {
+    output_paths <- setNames(
+      future.apply::future_lapply(
+        export_columns,
+        function(column_name) {
+          write_column_lists_workbook(
+            column_name = column_name,
+            unique_cache = unique_cache,
+            config = config,
+            overwrite = overwrite
+          )
+        },
+        future.seed = NULL
+      ),
+      export_columns
+    )
+  } else {
+    output_paths <- setNames(
+      lapply(export_columns, function(column_name) {
+        write_column_lists_workbook(
+          column_name = column_name,
+          unique_cache = unique_cache,
+          config = config,
+          overwrite = overwrite
+        )
+      }),
+      export_columns
+    )
+  }
 
   return(unlist(output_paths, use.names = TRUE))
 }

@@ -639,28 +639,26 @@ apply_rule_payload <- function(
     return(list(data = dataset_dt, audit = data.table::data.table()))
   }
 
-  state <- purrr::reduce(
-    .x = grouped_dictionary,
-    .init = list(data = dataset_dt, audit = list()),
-    .f = function(current_state, group_rules) {
-      group_result <- apply_conditional_rule_group(
-        dataset_dt = current_state$data,
-        group_rules = group_rules,
-        stage_name = validated_stage_name,
-        dataset_name = dataset_name,
-        rule_file_id = rule_file_id,
-        execution_timestamp_utc = execution_timestamp_utc
-      )
+  num_groups <- length(grouped_dictionary)
+  audit_tables <- vector("list", num_groups)
+  current_data <- dataset_dt
 
-      current_state$data <- group_result$data
-      current_state$audit[[length(current_state$audit) + 1L]] <- group_result$audit
+  for (group_index in seq_len(num_groups)) {
+    group_result <- apply_conditional_rule_group(
+      dataset_dt = current_data,
+      group_rules = grouped_dictionary[[group_index]],
+      stage_name = validated_stage_name,
+      dataset_name = dataset_name,
+      rule_file_id = rule_file_id,
+      execution_timestamp_utc = execution_timestamp_utc
+    )
 
-      return(current_state)
-    }
-  )
+    current_data <- group_result$data
+    audit_tables[[group_index]] <- group_result$audit
+  }
 
-  combined_audit <- data.table::rbindlist(state$audit, use.names = TRUE, fill = TRUE)
+  combined_audit <- data.table::rbindlist(audit_tables, use.names = TRUE, fill = TRUE)
 
-  return(list(data = state$data, audit = combined_audit))
+  return(list(data = current_data, audit = combined_audit))
 }
 

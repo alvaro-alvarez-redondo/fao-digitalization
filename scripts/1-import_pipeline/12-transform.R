@@ -374,8 +374,9 @@ transform_single_file <- function(file_row, df_wide, config) {
 
 #' @title process files
 #' @description iterate over discovered files and corresponding read datasets,
-#' apply `transform_single_file`, and collect non-null results with a progress
-#' indicator.
+#' apply `transform_single_file`, and collect non-null results. when a `future`
+#' parallel backend is configured, transformations run in parallel using
+#' `future.apply::future_lapply()`.
 #' @param file_list_dt data frame or data table describing files.
 #' @param read_data_list list of data frames or data tables aligned to file rows.
 #' @param config named list with transform configuration.
@@ -385,6 +386,7 @@ transform_single_file <- function(file_row, df_wide, config) {
 #' @return list of transformed per-file results.
 #' @importFrom checkmate check_data_frame check_list check_function
 #' @importFrom purrr compact detect_index
+#' @importFrom future.apply future_lapply
 #' @examples
 #' # process_files(file_list_dt_example, read_data_list_example, config_example)
 process_files <- function(file_list_dt, read_data_list, config, progressor = NULL) {
@@ -419,23 +421,42 @@ process_files <- function(file_list_dt, read_data_list, config, progressor = NUL
     ))
   }
 
-  results <- purrr::map(
-    seq_len(expected_items),
-    \(index) {
-      file_row <- file_list_dt[index, ]
-      df_wide <- read_data_list[[index]]
+  use_parallel <- !inherits(future::plan(), "sequential") &&
+    expected_items > 1L
 
-      if (!is.null(progressor)) {
-        progressor(sprintf(
-          "Import Pipeline Progress: transforming %s",
-          file_row$file_name
-        ))
+  indices <- seq_len(expected_items)
+
+  if (use_parallel) {
+    results <- future.apply::future_lapply(
+      indices,
+      function(index) {
+        file_row <- file_list_dt[index, ]
+        df_wide <- read_data_list[[index]]
+
+        transform_single_file(file_row, df_wide, config)
+      },
+      future.seed = NULL
+    )
+  } else {
+    results <- lapply(
+      indices,
+      function(index) {
+        file_row <- file_list_dt[index, ]
+        df_wide <- read_data_list[[index]]
+
+        if (!is.null(progressor)) {
+          progressor(sprintf(
+            "Import Pipeline Progress: transforming %s",
+            file_row$file_name
+          ))
+        }
+
+        transform_single_file(file_row, df_wide, config)
       }
+    )
+  }
 
-      return(transform_single_file(file_row, df_wide, config))
-    }
-  ) |>
-    purrr::compact()
+  results <- purrr::compact(results)
 
   return(results)
 }
