@@ -2,6 +2,38 @@
 # description: provides helper functions for validation, string normalization,
 # export path generation, and data.table coercion used across the pipeline
 
+
+#' @title Format elapsed time as a human-readable string
+#' @description Converts elapsed seconds into a concise label suitable for CLI
+#'   messages. Returns seconds, minutes+seconds, or hours+minutes depending on
+#'   the magnitude.
+#' @param elapsed_seconds Numeric scalar of non-negative elapsed seconds.
+#' @return Character scalar formatted elapsed time.
+#' @importFrom checkmate assert_number
+#' @examples
+#' format_elapsed_time(0.5)
+#' format_elapsed_time(75)
+#' format_elapsed_time(3661)
+format_elapsed_time <- function(elapsed_seconds) {
+  checkmate::assert_number(elapsed_seconds, lower = 0, finite = TRUE)
+
+  if (elapsed_seconds < 60) {
+    return(sprintf("%.1fs", elapsed_seconds))
+  }
+
+  total_seconds <- as.integer(round(elapsed_seconds))
+  hours   <- total_seconds %/% 3600L
+  minutes <- (total_seconds %% 3600L) %/% 60L
+  seconds <- total_seconds %% 60L
+
+  if (hours > 0L) {
+    return(sprintf("%dh %dm", hours, minutes))
+  }
+
+  return(sprintf("%dm %ds", minutes, seconds))
+}
+
+
 #' @title assert checkmate validation results with cli errors
 #' @description validates the output of a `checkmate::check_*` call, requiring a
 #' `true` logical scalar or a non-empty error string. when validation fails, the

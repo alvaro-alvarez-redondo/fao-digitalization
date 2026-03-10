@@ -303,3 +303,30 @@ testthat::test_that("generate_export_path builds correct paths", {
 
   testthat::expect_match(basename(processed_path), "food_balance\\.xlsx$")
 })
+
+
+# --- format_elapsed_time ----------------------------------------------------
+
+testthat::test_that("format_elapsed_time formats sub-minute durations as seconds", {
+  testthat::expect_identical(format_elapsed_time(0), "0.0s")
+  testthat::expect_identical(format_elapsed_time(0.5), "0.5s")
+  testthat::expect_identical(format_elapsed_time(59.9), "59.9s")
+})
+
+testthat::test_that("format_elapsed_time formats minutes and seconds", {
+  testthat::expect_identical(format_elapsed_time(60), "1m 0s")
+  testthat::expect_identical(format_elapsed_time(90), "1m 30s")
+  testthat::expect_identical(format_elapsed_time(125), "2m 5s")
+})
+
+testthat::test_that("format_elapsed_time formats hours and minutes", {
+  testthat::expect_identical(format_elapsed_time(3600), "1h 0m")
+  testthat::expect_identical(format_elapsed_time(3661), "1h 1m")
+  testthat::expect_identical(format_elapsed_time(7200), "2h 0m")
+})
+
+testthat::test_that("format_elapsed_time rejects invalid input", {
+  testthat::expect_error(format_elapsed_time(-1))
+  testthat::expect_error(format_elapsed_time("10"))
+  testthat::expect_error(format_elapsed_time(Inf))
+})
