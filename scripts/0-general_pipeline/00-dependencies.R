@@ -24,7 +24,8 @@ required_packages <- c(
   "tibble",
   "tidyr",
   "tidyselect",
-  "profvis"
+  "profvis",
+  "writexl"
 )
 
 #' @title abort on failed checkmate checks

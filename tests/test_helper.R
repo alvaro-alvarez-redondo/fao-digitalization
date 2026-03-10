@@ -85,8 +85,7 @@ build_test_config <- function(root_dir = NULL) {
     export_config = list(
       data_suffix = ".xlsx",
       list_suffix = "_list.xlsx",
-      layer_suffixes = c("_raw", "_cleaned", "_normalized", "_harmonized",
-                         "_clean", "_standardize", "_harmonize"),
+      layer_suffixes = c("_raw", "_cleaned", "_normalized", "_harmonized"),
       styles = list(
         error_highlight = list(fontColour = "#9C0006", bgFill = "#FFC7CE")
       )
