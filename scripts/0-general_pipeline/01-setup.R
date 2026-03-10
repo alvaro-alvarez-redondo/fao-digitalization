@@ -19,6 +19,8 @@ options(
 .pipeline_constants_cache <- NULL
 
 get_pipeline_constants <- function() {
+  # Cache is safe for parallel contexts: future workers start fresh R sessions
+  # with independent global environments, so no cross-worker race conditions.
   if (!is.null(.pipeline_constants_cache)) {
     return(.pipeline_constants_cache)
   }

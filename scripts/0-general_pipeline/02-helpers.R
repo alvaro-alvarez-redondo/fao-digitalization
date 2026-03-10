@@ -475,6 +475,8 @@ save_pipeline_checkpoint <- function(result, checkpoint_name, config) {
   fs::dir_create(checkpoint_dir, recurse = TRUE)
 
   checkpoint_path <- fs::path(checkpoint_dir, paste0(checkpoint_name, ".rds"))
+  # compress = FALSE prioritizes speed over disk space, appropriate for
+  # checkpoint files that are temporary and frequently overwritten.
   saveRDS(result, file = checkpoint_path, compress = FALSE)
 
   cli::cli_alert_info("Checkpoint saved: {.file {checkpoint_path}}")

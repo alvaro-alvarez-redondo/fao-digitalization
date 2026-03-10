@@ -401,8 +401,8 @@ read_pipeline_files <- function(file_list_dt, config, progressor = NULL) {
 
   normalized_results <- lapply(read_results, normalize_pipeline_read_result)
 
-  read_data_list <- lapply(normalized_results, `[[`, "data")
-  errors_list <- lapply(normalized_results, `[[`, "errors")
+  read_data_list <- lapply(normalized_results, function(x) x$data)
+  errors_list <- lapply(normalized_results, function(x) x$errors)
 
   return(list(
     read_data_list = read_data_list,

@@ -52,7 +52,6 @@ testthat::test_that("load_pipeline_checkpoint returns NULL when checkpointing is
 
 testthat::test_that("save and load checkpoint round-trips data when enabled", {
   withr::local_options(fao.checkpointing.enabled = TRUE)
-  withr::local_envvar(HERE_HERE = tempdir())
 
   config <- list(paths = list(data = list(root = tempdir())))
   test_data <- list(value = 42, name = "test")
