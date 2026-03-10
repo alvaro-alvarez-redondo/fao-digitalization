@@ -24,8 +24,8 @@ source(here::here("scripts", "0-general_pipeline", "02-helpers.R"), echo = FALSE
 
 #' Build a temporary test directory and return its path.
 #' The directory is created and will be cleaned up when the test finishes.
-build_temp_dir <- function(prefix = "fao-test-") {
-  dir_path <- tempfile(prefix)
+build_temp_dir <- function(pattern = "fao-test-") {
+  dir_path <- tempfile(pattern)
   dir.create(dir_path, recursive = TRUE)
   return(dir_path)
 }
