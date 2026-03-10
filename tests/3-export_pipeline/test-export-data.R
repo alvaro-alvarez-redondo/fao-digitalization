@@ -52,16 +52,6 @@ testthat::test_that("collect_layer_tables_for_export accepts explicit data_objec
 })
 
 
-# --- canonicalize_layer_object_name ------------------------------------------
-
-testthat::test_that("canonicalize_layer_object_name preserves strict names unchanged", {
-  testthat::expect_identical(canonicalize_layer_object_name("data_raw"), "data_raw")
-  testthat::expect_identical(canonicalize_layer_object_name("data_cleaned"), "data_cleaned")
-  testthat::expect_identical(canonicalize_layer_object_name("data_normalized"), "data_normalized")
-  testthat::expect_identical(canonicalize_layer_object_name("data_harmonized"), "data_harmonized")
-})
-
-
 # --- build_processed_export_path ---------------------------------------------
 
 testthat::test_that("build_processed_export_path generates correct naming", {
@@ -75,7 +65,7 @@ testthat::test_that("build_processed_export_path generates correct naming", {
 
 # --- write_processed_table_fast ----------------------------------------------
 
-testthat::test_that("write_processed_table_fast writes valid xlsx", {
+testthat::test_that("write_processed_table_fast writes valid xlsx with correct content", {
   root_dir <- build_temp_dir("fao-write-table-")
   file_path <- file.path(root_dir, "output.xlsx")
 
@@ -88,9 +78,11 @@ testthat::test_that("write_processed_table_fast writes valid xlsx", {
 
   testthat::expect_true(file.exists(file_path))
 
-  # verify the file can be read back
+  # verify the file can be read back with correct content
   read_back <- readxl::read_excel(file_path)
   testthat::expect_equal(nrow(read_back), 2L)
+  testthat::expect_equal(colnames(read_back), c("country", "value"))
+  testthat::expect_equal(read_back$country, c("Japan", "France"))
 })
 
 testthat::test_that("write_processed_table_fast respects overwrite flag", {

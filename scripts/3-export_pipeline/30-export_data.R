@@ -29,18 +29,6 @@ build_processed_export_path <- function(config, object_name) {
 }
 
 
-#' @title Canonicalize export object names
-#' @description Normalizes legacy/alias layer object names to canonical layer
-#' names used for deterministic export filenames.
-#' @param object_name Character scalar object name.
-#' @return Character scalar canonical object name.
-#' @importFrom checkmate assert_string
-canonicalize_layer_object_name <- function(object_name) {
-  checkmate::assert_string(object_name, min.chars = 1)
-
-  return(object_name)
-}
-
 #' @title Detect available layer tables for export
 #' @description Discovers available data.frame/data.table objects that end with
 #' configured layer suffixes.
@@ -101,26 +89,14 @@ collect_layer_tables_for_export <- function(
 
   detected_tables <- detected_tables[sort(names(detected_tables))]
 
-  canonical_names <- vapply(
-    names(detected_tables),
-    canonicalize_layer_object_name,
-    character(1)
-  )
-
-  canonical_table_list <- split(detected_tables, canonical_names)
-
-  canonical_table_list <- lapply(canonical_table_list, function(candidate_tables) {
-    return(candidate_tables[[1L]])
-  })
-
-  canonical_table_list <- canonical_table_list[
-    !grepl("_post_processed$", names(canonical_table_list))
+  detected_tables <- detected_tables[
+    !grepl("_post_processed$", names(detected_tables))
   ]
 
-  ordered_names <- sort(names(canonical_table_list))
-  canonical_table_list <- canonical_table_list[ordered_names]
+  ordered_names <- sort(names(detected_tables))
+  detected_tables <- detected_tables[ordered_names]
 
-  return(purrr::map(canonical_table_list, data.table::as.data.table))
+  return(purrr::map(detected_tables, data.table::as.data.table))
 }
 
 #' @title Write one data table to Excel (high-performance)
