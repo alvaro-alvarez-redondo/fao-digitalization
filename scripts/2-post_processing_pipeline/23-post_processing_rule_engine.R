@@ -18,7 +18,7 @@ coerce_rule_schema <- function(rule_dt, stage_name, rule_file_id) {
   canonical_columns <- get_canonical_rule_columns(validated_stage_name)
   stage_prefix <- paste0("^", validated_stage_name, "_")
 
-  canonical_dt <- data.table::as.data.table(rule_dt)
+  canonical_dt <- ensure_data_table(rule_dt)
   available_columns <- colnames(canonical_dt)
 
   normalized_columns <- sub(stage_prefix, "", available_columns)
@@ -94,7 +94,7 @@ normalize_rule_values_for_validation <- function(
     colnames(rules_dt)
   )
 
-  rules_for_validation <- data.table::copy(data.table::as.data.table(rules_dt))
+  rules_for_validation <- copy_as_data_table(rules_dt)
 
   if (length(allowed_na_columns) > 0L) {
     rules_for_validation[
@@ -400,7 +400,7 @@ build_conditional_rule_dictionary <- function(rules_dt, stage_name) {
 
   target_value_column <- get_stage_target_value_column(validated_stage_name)
 
-  ordered_rules <- data.table::as.data.table(rules_dt)[order(
+  ordered_rules <- ensure_data_table(rules_dt)[order(
     column_source,
     column_target,
     value_source_raw,
@@ -516,7 +516,7 @@ apply_conditional_rule_group <- function(
   target_value_column <- get_stage_target_value_column(validated_stage_name)
   source_value_column <- get_stage_source_value_column(validated_stage_name)
 
-  group_dt <- data.table::as.data.table(group_rules)
+  group_dt <- ensure_data_table(group_rules)
   source_column <- group_dt$column_source[[1]]
   target_column <- group_dt$column_target[[1]]
 

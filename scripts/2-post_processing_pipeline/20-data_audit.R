@@ -410,7 +410,7 @@ export_validation_audit_report <- function(
 
   load_audit_config(config)
 
-  export_dt <- data.table::as.data.table(data.table::copy(audit_dt))
+  export_dt <- copy_as_data_table(audit_dt)
 
   # skip workbook creation when there are no rows and no findings
   if (
@@ -480,7 +480,7 @@ export_validation_audit_report <- function(
     style_config <- config$export_config$styles$error_highlight
     highlight_style <- do.call(openxlsx::createStyle, style_config)
 
-    findings_to_style <- data.table::as.data.table(effective_findings_dt)
+    findings_to_style <- ensure_data_table(effective_findings_dt)
     findings_to_style <- findings_to_style[
       !is.na(row_index) & nzchar(audit_column)
     ]
@@ -644,7 +644,7 @@ audit_data_output <- function(dataset_dt, config) {
   audit_dt <- dataset_dt[invalid_index, , drop = FALSE]
 
   # remap findings row_index to local subset positions
-  findings_dt <- data.table::as.data.table(audit_result$findings)
+  findings_dt <- ensure_data_table(audit_result$findings)
 
   if (nrow(findings_dt) > 0) {
     findings_dt[, row_index := match(row_index, invalid_index)]
@@ -669,7 +669,7 @@ audit_data_output <- function(dataset_dt, config) {
     )
   }
 
-  audited_dt <- data.table::as.data.table(dataset_dt)
+  audited_dt <- ensure_data_table(dataset_dt)
 
   if ("value" %in% names(audited_dt)) {
     audited_dt[,

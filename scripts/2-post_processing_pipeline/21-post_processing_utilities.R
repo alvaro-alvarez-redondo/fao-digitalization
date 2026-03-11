@@ -230,11 +230,11 @@ read_rule_table <- function(file_path) {
     tolower()
 
   if (identical(file_extension, "csv")) {
-    return(readr::read_csv(file_path, show_col_types = FALSE) |> data.table::as.data.table())
+    return(readr::read_csv(file_path, show_col_types = FALSE) |> ensure_data_table())
   }
 
   if (file_extension %in% c("xlsx", "xls")) {
-    return(readxl::read_excel(file_path) |> data.table::as.data.table())
+    return(readxl::read_excel(file_path) |> ensure_data_table())
   }
 
   cli::cli_abort("Unsupported rule extension for {.file {file_path}}.")
@@ -302,7 +302,7 @@ build_layer_diagnostics <- function(layer_name, rows_in, rows_out, audit_dt) {
   checkmate::assert_int(rows_out, lower = 0)
   checkmate::assert_data_frame(audit_dt, min.rows = 0)
 
-  audit_table <- data.table::as.data.table(audit_dt)
+  audit_table <- ensure_data_table(audit_dt)
   matched_count <- if (nrow(audit_table) == 0) 0L else as.integer(sum(audit_table$affected_rows))
 
   diagnostics <- list(

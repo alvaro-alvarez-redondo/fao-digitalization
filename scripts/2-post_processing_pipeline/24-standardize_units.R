@@ -53,9 +53,9 @@ validate_rule_schema <- function(rule_dt, required_columns, rule_label) {
 normalize_conversion_rule_columns <- function(conversion_dt) {
   checkmate::assert_data_frame(conversion_dt, min.rows = 0)
 
-  normalized_conversion_dt <- data.table::copy(data.table::as.data.table(
+  normalized_conversion_dt <- copy_as_data_table(
     conversion_dt
-  ))
+  )
 
   rename_mapping <- c(
     from_unit = "source_unit",
@@ -310,11 +310,7 @@ apply_standardize_rules <- function(
   checkmate::assert_string(value_column, min.chars = 1)
   checkmate::assert_string(product_column, min.chars = 1)
 
-  if (data.table::is.data.table(mapped_dt)) {
-    normalized_dt <- data.table::copy(mapped_dt)
-  } else {
-    normalized_dt <- data.table::as.data.table(mapped_dt)
-  }
+  normalized_dt <- copy_as_data_table(mapped_dt)
 
   if (!unit_column %in% names(normalized_dt)) {
     cli::cli_abort("unit column {.val {unit_column}} is missing")

@@ -154,6 +154,54 @@ testthat::test_that("ensure_data_table preserves existing data.table", {
   testthat::expect_true(data.table::is.data.table(result))
 })
 
+testthat::test_that("ensure_data_table converts in place via setDT", {
+  df <- data.frame(a = 1:3, b = c("x", "y", "z"))
+  result <- ensure_data_table(df)
+
+  testthat::expect_true(data.table::is.data.table(result))
+  testthat::expect_identical(result$a, 1:3)
+  testthat::expect_identical(result$b, c("x", "y", "z"))
+})
+
+testthat::test_that("ensure_data_table returns identity for data.table input", {
+  dt <- data.table::data.table(a = 1:3)
+  result <- ensure_data_table(dt)
+
+  testthat::expect_identical(data.table::address(result), data.table::address(dt))
+})
+
+
+# --- copy_as_data_table ------------------------------------------------------
+
+testthat::test_that("copy_as_data_table returns data.table from data.frame", {
+  df <- data.frame(a = 1:3)
+  result <- copy_as_data_table(df)
+
+  testthat::expect_true(data.table::is.data.table(result))
+  testthat::expect_identical(result$a, 1:3)
+})
+
+testthat::test_that("copy_as_data_table returns deep copy of data.table", {
+  dt <- data.table::data.table(a = 1:3)
+  result <- copy_as_data_table(dt)
+
+  testthat::expect_true(data.table::is.data.table(result))
+  testthat::expect_identical(result$a, 1:3)
+  testthat::expect_false(
+    identical(data.table::address(result), data.table::address(dt))
+  )
+})
+
+testthat::test_that("copy_as_data_table isolates from by-reference mutation", {
+  dt <- data.table::data.table(a = 1:3)
+  result <- copy_as_data_table(dt)
+
+  result[, b := 10L]
+
+  testthat::expect_true("b" %in% names(result))
+  testthat::expect_false("b" %in% names(dt))
+})
+
 
 # --- validate_export_import --------------------------------------------------
 

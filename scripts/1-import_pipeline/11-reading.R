@@ -127,7 +127,7 @@ normalize_pipeline_read_result <- function(read_result) {
   assert_read_result_contract(read_result$result)
 
   return(list(
-    data = data.table::as.data.table(read_result$result$data),
+    data = ensure_data_table(read_result$result$data),
     errors = c(read_result$errors, read_result$result$errors)
   ))
 }
@@ -151,7 +151,7 @@ compute_non_empty_base_rows <- function(read_dt, base_cols) {
     min.len = 1
   ))
 
-  base_subset_dt <- data.table::as.data.table(read_dt)[, ..base_cols]
+  base_subset_dt <- ensure_data_table(read_dt)[, ..base_cols]
   non_empty_matrix <- !is.na(base_subset_dt) & trimws(as.matrix(base_subset_dt)) != ""
 
   keep_row <- rowSums(non_empty_matrix) > 0L
@@ -215,7 +215,7 @@ read_excel_sheet <- function(file_path, sheet_name, config) {
     return(create_empty_read_result(safe_read_result$errors))
   }
 
-  read_dt <- data.table::as.data.table(safe_read_result$result)
+  read_dt <- ensure_data_table(safe_read_result$result)
 
   missing_base <- setdiff(base_cols, colnames(read_dt))
 

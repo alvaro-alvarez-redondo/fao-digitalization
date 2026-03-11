@@ -139,7 +139,7 @@ assert_post_processing_preflight <- function(preflight_result) {
 #' @return `data.table` with one row per unique rule/column combination.
 #' @importFrom data.table as.data.table data.table
 summarize_stage_rules <- function(audit_dt, stage_name) {
-  stage_audit_dt <- data.table::as.data.table(audit_dt)
+  stage_audit_dt <- ensure_data_table(audit_dt)
 
   required_columns <- c(
     "rule_file_identifier",
@@ -282,8 +282,8 @@ persist_post_processing_audit <- function(
 
   writexl::write_xlsx(
     list(
-      clean = data.table::as.data.table(diagnostics$clean_rule_summary),
-      harmonize = data.table::as.data.table(diagnostics$harmonize_rule_summary)
+      clean = ensure_data_table(diagnostics$clean_rule_summary),
+      harmonize = ensure_data_table(diagnostics$harmonize_rule_summary)
     ),
     path = output_paths[["rule_summary"]]
   )

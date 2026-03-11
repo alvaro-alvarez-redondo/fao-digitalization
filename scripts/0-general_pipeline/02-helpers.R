@@ -205,23 +205,47 @@ extract_product <- function(parts) {
 }
 
 #' @title ensure data.frame input is a data.table
-#' @description validates a data.frame-compatible input and returns a
-#' `data.table`, preserving existing `data.table` inputs unchanged.
+#' @description validates a data.frame-compatible input and converts it to a
+#' `data.table` in place using `data.table::setDT()`, avoiding a full memory
+#' copy. existing `data.table` inputs are returned unchanged.
 #' @param df data.frame or data.table with zero or more rows. validated with
 #' `checkmate::check_data_frame(min.rows = 0)`.
 #' @return data.table object.
 #' @importFrom checkmate check_data_frame
-#' @importFrom data.table as.data.table is.data.table
+#' @importFrom data.table is.data.table setDT
 #' @examples
 #' ensure_data_table(data.frame(x = 1:3))
 ensure_data_table <- function(df) {
   assert_or_abort(checkmate::check_data_frame(df, min.rows = 0))
 
   if (!data.table::is.data.table(df)) {
-    return(data.table::as.data.table(df))
+    data.table::setDT(df)
   }
 
   return(df)
+}
+
+#' @title create an independent data.table copy
+#' @description returns a deep copy of the input as a data.table. when the
+#' input is already a data.table, only `data.table::copy()` is called. when
+#' the input is a plain data.frame, `data.table::as.data.table()` already
+#' allocates a fresh object, making the additional `copy()` unnecessary.
+#' replaces the `copy(as.data.table(x))` double-allocation pattern.
+#' @param df data.frame or data.table with zero or more rows.
+#' @return a new data.table that can be modified by reference without affecting
+#' the original.
+#' @importFrom checkmate check_data_frame
+#' @importFrom data.table as.data.table copy is.data.table
+#' @examples
+#' copy_as_data_table(data.frame(x = 1:3))
+copy_as_data_table <- function(df) {
+  assert_or_abort(checkmate::check_data_frame(df, min.rows = 0))
+
+  if (data.table::is.data.table(df)) {
+    return(data.table::copy(df))
+  }
+
+  return(data.table::as.data.table(df))
 }
 
 #' @title validate export-ready import data

@@ -138,7 +138,7 @@ build_layer_tables_by_sheet <- function(layer_tables) {
       return(data.table::data.table())
     }
 
-    return(data.table::as.data.table(layer_tables[[selected_object]]))
+    return(ensure_data_table(layer_tables[[selected_object]]))
   })
 
   names(layer_by_sheet) <- layer_order

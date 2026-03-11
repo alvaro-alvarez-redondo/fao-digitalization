@@ -31,7 +31,7 @@ validate_mandatory_fields_dt <- function(dt, config) {
     min.len = 1
   )
 
-  dt_work <- data.table::copy(data.table::as.data.table(dt))
+  dt_work <- copy_as_data_table(dt)
   mandatory_cols <- config$column_required
 
   missing_mandatory_cols <- setdiff(mandatory_cols, colnames(dt_work))
@@ -99,7 +99,7 @@ detect_duplicates_dt <- function(dt) {
     what = "names(dt)"
   )
 
-  dt_work <- data.table::as.data.table(dt)
+  dt_work <- ensure_data_table(dt)
 
   dup_counts <- dt_work[,
     .(duplicate_count = .N),
