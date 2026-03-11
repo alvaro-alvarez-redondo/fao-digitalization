@@ -124,7 +124,8 @@ write_processed_table_fast <- function(data_dt, output_path, overwrite = TRUE) {
 
 #' @title Export processed layer tables
 #' @description Detects all layer tables for traceability, then exports only the
-#' harmonized layer into `data/3-export/processed_data` using the
+#' layers listed in `config$export_config$export_layers` (default:
+#' `"harmonized"`) into `data/3-export/processed_data` using the
 #' high-performance writer.
 #' @param config Named configuration list.
 #' @param data_objects Optional named list of data.frame/data.table objects.
@@ -132,7 +133,7 @@ write_processed_table_fast <- function(data_dt, output_path, overwrite = TRUE) {
 #' @param env Environment for automatic object detection when `data_objects` is
 #' `NULL`.
 #' @return Named character vector of processed export paths.
-#' @importFrom checkmate assert_list assert_flag assert_environment
+#' @importFrom checkmate assert_list assert_flag assert_environment assert_character
 #' @importFrom purrr imap_chr
 export_processed_data <- function(
   config,
@@ -149,17 +150,24 @@ export_processed_data <- function(
     env = env
   )
 
-  harmonized_tables <- layer_tables[grepl("_harmonized$", names(layer_tables))]
+  export_layers <- config$export_config$export_layers
+  if (is.null(export_layers)) {
+    export_layers <- c("harmonized")
+  }
+  checkmate::assert_character(export_layers, min.len = 1, any.missing = FALSE)
 
-  if (length(harmonized_tables) == 0L) {
+  export_pattern <- paste0("_(", paste(export_layers, collapse = "|"), ")$")
+  export_tables <- layer_tables[grepl(export_pattern, names(layer_tables))]
+
+  if (length(export_tables) == 0L) {
     cli::cli_abort(c(
-      "no harmonized layer tables found for export.",
+      "no exportable layer tables found.",
       "i" = "detected layers: {.val {names(layer_tables)}}",
-      "x" = "only objects ending in {.val _harmonized} are exported to disk."
+      "x" = "config$export_config$export_layers is set to: {.val {export_layers}}"
     ))
   }
 
-  processed_paths <- purrr::imap_chr(harmonized_tables, function(data_dt, object_name) {
+  processed_paths <- purrr::imap_chr(export_tables, function(data_dt, object_name) {
     output_path <- build_processed_export_path(config = config, object_name = object_name)
 
     write_processed_table_fast(

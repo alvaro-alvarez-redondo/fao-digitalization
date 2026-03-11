@@ -101,7 +101,7 @@ testthat::test_that("write_processed_table_fast respects overwrite flag", {
 
 # --- export_processed_data --------------------------------------------------
 
-testthat::test_that("export_processed_data writes workbooks only for harmonized layer", {
+testthat::test_that("export_processed_data writes workbooks only for harmonized layer by default", {
   config <- build_test_config()
 
   data_objects <- list(
@@ -129,10 +129,44 @@ testthat::test_that("export_processed_data writes workbooks only for harmonized 
   testthat::expect_true(is.character(paths))
   testthat::expect_equal(length(paths), 1L)
   testthat::expect_true(all(file.exists(paths)))
-  testthat::expect_true(grepl("harmonized", names(paths)))
+  testthat::expect_true("test_harmonized" %in% names(paths))
 })
 
-testthat::test_that("export_processed_data errors when no harmonized layer present", {
+testthat::test_that("export_processed_data exports all layers when config overrides export_layers", {
+  config <- build_test_config()
+  config$export_config$export_layers <- c("raw", "cleaned", "harmonized")
+
+  data_objects <- list(
+    test_raw = data.table::data.table(
+      country = c("a", "b"),
+      value = c("1", "2")
+    ),
+    test_cleaned = data.table::data.table(
+      country = c("a", "b"),
+      value = c("1", "2")
+    ),
+    test_harmonized = data.table::data.table(
+      country = c("a", "b"),
+      value = c("1", "2")
+    )
+  )
+
+  paths <- export_processed_data(
+    config = config,
+    data_objects = data_objects,
+    overwrite = TRUE,
+    env = new.env(parent = emptyenv())
+  )
+
+  testthat::expect_true(is.character(paths))
+  testthat::expect_equal(length(paths), 3L)
+  testthat::expect_true(all(file.exists(paths)))
+  testthat::expect_true(any(grepl("raw", names(paths))))
+  testthat::expect_true(any(grepl("cleaned", names(paths))))
+  testthat::expect_true(any(grepl("harmonized", names(paths))))
+})
+
+testthat::test_that("export_processed_data errors when no matching layers for export_layers", {
   config <- build_test_config()
 
   data_objects <- list(
