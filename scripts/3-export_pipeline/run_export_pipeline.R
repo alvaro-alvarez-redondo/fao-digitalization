@@ -49,6 +49,23 @@ run_export_pipeline <- function(
     env = env
   )
 
+  # pre-flight: create all export directories once so that no downstream
+  # function inside a loop needs to call ensure_directories_exist / fs::dir_create
+  processed_dir <- get_config_string(
+    config = config,
+    path = c("paths", "data", "exports", "processed"),
+    field_name = "config$paths$data$exports$processed"
+  )
+  lists_dir <- get_config_string(
+    config = config,
+    path = c("paths", "data", "exports", "lists"),
+    field_name = "config$paths$data$exports$lists"
+  )
+  ensure_directories_exist(
+    c(here::here(processed_dir), here::here(lists_dir)),
+    recurse = TRUE
+  )
+
   progressr::handlers(progressr::handler_txtprogressbar(
     style = 3,
     width = 40,

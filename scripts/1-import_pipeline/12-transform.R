@@ -81,7 +81,14 @@ convert_year_columns <- function(df, config) {
   year_cols <- identify_year_columns(df, config)
 
   if (length(year_cols) > 0) {
-    df[, (year_cols) := lapply(.SD, as.character), .SDcols = year_cols]
+    non_char_cols <- year_cols[
+      !vapply(year_cols, function(col) is.character(df[[col]]), logical(1))
+    ]
+    if (length(non_char_cols) > 0) {
+      for (col in non_char_cols) {
+        data.table::set(df, j = col, value = as.character(df[[col]]))
+      }
+    }
   }
 
   return(df)
@@ -196,14 +203,14 @@ resolve_product_name <- function(file_row, config) {
     !is.null(config$messages$show_missing_product_metadata_warning) &&
     isTRUE(config$messages$show_missing_product_metadata_warning)
 
-  product_name <- as.character(file_row$product[[1]])
+  product_name <- as.character(file_row[["product"]][[1]])
   product_name <- trimws(product_name)
 
   if (is.na(product_name) || product_name == "") {
     if (show_missing_product_metadata_warning) {
       cli::cli_warn(c(
         "missing product metadata detected; using fallback value 'unknown'",
-        "i" = "file: {file_row$file_name[[1]]}"
+        "i" = "file: {file_row[['file_name']][[1]]}"
       ))
     }
 
@@ -282,8 +289,8 @@ transform_single_file <- function(file_row, df_wide, config) {
 
   transformed <- transform_file_dt(
     df = df_wide,
-    file_name = file_row$file_name,
-    yearbook = file_row$yearbook,
+    file_name = file_row[["file_name"]],
+    yearbook = file_row[["yearbook"]],
     product_name = product_name,
     config = config
   )
@@ -347,11 +354,17 @@ process_files <- function(file_list_dt, read_data_list, config, progressor = NUL
 
   indices <- seq_len(expected_items)
 
+  # pre-split file_list_dt into a list of single-row data.tables once
+  # to avoid repeated row-slicing (which triggers implicit coercion
+  # via as.data.frame.character/numeric/POSIXct in hot loops)
+  file_list_dt <- ensure_data_table(file_list_dt)
+  file_rows_list <- lapply(indices, function(i) file_list_dt[i])
+
   if (use_parallel) {
     results <- future.apply::future_lapply(
       indices,
       function(index) {
-        file_row <- file_list_dt[index, ]
+        file_row <- file_rows_list[[index]]
         df_wide <- read_data_list[[index]]
 
         transform_single_file(file_row, df_wide, config)
@@ -362,13 +375,13 @@ process_files <- function(file_list_dt, read_data_list, config, progressor = NUL
     results <- lapply(
       indices,
       function(index) {
-        file_row <- file_list_dt[index, ]
+        file_row <- file_rows_list[[index]]
         df_wide <- read_data_list[[index]]
 
         if (!is.null(progressor)) {
           progressor(sprintf(
             "Import Pipeline Progress: transforming %s",
-            file_row$file_name
+            file_row[["file_name"]]
           ))
         }
 
