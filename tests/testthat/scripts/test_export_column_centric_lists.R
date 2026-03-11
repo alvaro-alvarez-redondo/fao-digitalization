@@ -96,7 +96,7 @@ testthat::test_that("export_lists excludes standardized sheet and value/year wor
   testthat::expect_false("value" %in% names(output_paths))
   testthat::expect_false("year" %in% names(output_paths))
 
-  workbook_sheets <- openxlsx::getSheetNames(output_paths[["country"]])
+  workbook_sheets <- readxl::excel_sheets(output_paths[["country"]])
   testthat::expect_false("standardize" %in% workbook_sheets)
 })
 
@@ -126,7 +126,7 @@ testthat::test_that("write_column_lists_workbook writes raw_clean_harmonize for 
     overwrite = TRUE
   )
 
-  workbook_sheets <- openxlsx::getSheetNames(workbook_path)
+  workbook_sheets <- readxl::excel_sheets(workbook_path)
 
   testthat::expect_setequal(workbook_sheets, c("raw_clean_harmonize"))
   testthat::expect_false("raw" %in% workbook_sheets)
@@ -161,7 +161,7 @@ testthat::test_that("write_column_lists_workbook writes raw + clean_harmonize wh
     overwrite = TRUE
   )
 
-  workbook_sheets <- openxlsx::getSheetNames(workbook_path)
+  workbook_sheets <- readxl::excel_sheets(workbook_path)
 
   testthat::expect_setequal(workbook_sheets, c("raw", "clean_harmonize"))
   testthat::expect_false("clean" %in% workbook_sheets)
@@ -194,7 +194,7 @@ testthat::test_that("write_column_lists_workbook writes raw, clean, harmonize wh
     overwrite = TRUE
   )
 
-  workbook_sheets <- openxlsx::getSheetNames(workbook_path)
+  workbook_sheets <- readxl::excel_sheets(workbook_path)
 
   testthat::expect_setequal(workbook_sheets, c("raw", "clean", "harmonize"))
   testthat::expect_false("raw_clean_harmonize" %in% workbook_sheets)
