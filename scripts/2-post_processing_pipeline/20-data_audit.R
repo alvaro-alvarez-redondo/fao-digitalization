@@ -412,6 +412,11 @@ export_validation_audit_report <- function(
 
   export_dt <- data.table::as.data.table(data.table::copy(audit_dt))
 
+  # skip workbook creation when there are no rows and no findings
+  if (nrow(export_dt) == 0 && (is.null(findings_dt) || nrow(findings_dt) == 0)) {
+    return(invisible(NULL))
+  }
+
   # create source row index
   export_dt[,
     source_row_index := if ("row_index" %in% names(export_dt)) {
@@ -641,12 +646,20 @@ audit_data_output <- function(dataset_dt, config) {
     findings_dt[, row_index := match(row_index, invalid_index)]
   }
 
-  export_validation_audit_report(
-    audit_dt = audit_dt,
-    config = config,
-    findings_dt = findings_dt,
-    output_path = prepared_paths$audit_file_path
-  )
+  has_findings <- nrow(findings_dt) > 0
+
+  if (has_findings) {
+    export_validation_audit_report(
+      audit_dt = audit_dt,
+      config = config,
+      findings_dt = findings_dt,
+      output_path = prepared_paths$audit_file_path
+    )
+  } else {
+    cli::cli_alert_info(
+      "No audit findings detected — skipping Excel report generation."
+    )
+  }
 
   if (length(invalid_index) > 0) {
     mirror_raw_import_errors(
