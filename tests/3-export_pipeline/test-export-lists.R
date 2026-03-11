@@ -185,7 +185,7 @@ testthat::test_that("write_column_lists_workbook writes all-equal as raw_clean_h
     overwrite = TRUE
   )
 
-  sheets <- readxl::excel_sheets(path)
+  sheets <- openxlsx::getSheetNames(path)
   testthat::expect_setequal(sheets, "raw_clean_harmonize")
 })
 
@@ -205,7 +205,7 @@ testthat::test_that("write_column_lists_workbook writes raw + clean_harmonize", 
     overwrite = TRUE
   )
 
-  sheets <- readxl::excel_sheets(path)
+  sheets <- openxlsx::getSheetNames(path)
   testthat::expect_setequal(sheets, c("raw", "clean_harmonize"))
 })
 
@@ -225,7 +225,7 @@ testthat::test_that("write_column_lists_workbook writes all three sheets", {
     overwrite = TRUE
   )
 
-  sheets <- readxl::excel_sheets(path)
+  sheets <- openxlsx::getSheetNames(path)
   testthat::expect_setequal(sheets, c("raw", "clean", "harmonize"))
 })
 

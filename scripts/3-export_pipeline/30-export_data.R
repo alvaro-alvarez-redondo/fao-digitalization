@@ -96,7 +96,7 @@ collect_layer_tables_for_export <- function(
   ordered_names <- sort(names(detected_tables))
   detected_tables <- detected_tables[ordered_names]
 
-  return(purrr::map(detected_tables, ensure_data_table))
+  return(purrr::map(detected_tables, data.table::as.data.table))
 }
 
 #' @title Write one data table to Excel (high-performance)

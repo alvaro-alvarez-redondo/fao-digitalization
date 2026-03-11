@@ -65,7 +65,7 @@ run_rule_stage_layer_batch <- function(
   )
 
   initial_state <- list(
-    data = copy_as_data_table(dataset_dt),
+    data = data.table::copy(data.table::as.data.table(dataset_dt)),
     audit_tables = list()
   )
 

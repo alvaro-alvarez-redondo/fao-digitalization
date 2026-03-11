@@ -141,8 +141,6 @@ initialize_post_processing_audit_root <- function(config) {
 #' @param overwrite Logical scalar indicating whether existing template is replaced.
 #' @return Character scalar written template path.
 #' @importFrom checkmate assert_string assert_list assert_flag
-#' @importFrom writexl write_xlsx
-#' @importFrom cli cli_abort
 write_stage_rule_template <- function(stage_name, audit_paths, overwrite = TRUE) {
   validated_stage_name <- validate_post_processing_stage_name(stage_name)
   checkmate::assert_list(audit_paths, min.len = 1)
@@ -150,12 +148,10 @@ write_stage_rule_template <- function(stage_name, audit_paths, overwrite = TRUE)
   checkmate::assert_flag(overwrite)
 
   template_columns <- get_stage_rule_template_columns(validated_stage_name)
-  template_data <- data.table::data.table(
-    setNames(
-      replicate(length(template_columns), character(0), simplify = FALSE),
-      template_columns
-    )
-  )
+  template_data <- data.table::as.data.table(setNames(
+    replicate(length(template_columns), character(0), simplify = FALSE),
+    template_columns
+  ))
 
   guidance_data <- data.table::data.table(
     note = c(
@@ -170,16 +166,12 @@ write_stage_rule_template <- function(stage_name, audit_paths, overwrite = TRUE)
     paste0(validated_stage_name, "_rules_template.xlsx")
   )
 
-  if (!overwrite && file.exists(template_path)) {
-    cli::cli_abort(
-      "file already exists and overwrite is disabled: {.path {template_path}}"
-    )
-  }
-
-  writexl::write_xlsx(
-    list(rules_template = template_data, guidance = guidance_data),
-    path = template_path
-  )
+  workbook <- openxlsx::createWorkbook()
+  openxlsx::addWorksheet(workbook, "rules_template")
+  openxlsx::writeData(workbook, "rules_template", template_data)
+  openxlsx::addWorksheet(workbook, "guidance")
+  openxlsx::writeData(workbook, "guidance", guidance_data)
+  openxlsx::saveWorkbook(workbook, template_path, overwrite = overwrite)
 
   return(template_path)
 }
@@ -232,11 +224,11 @@ read_rule_table <- function(file_path) {
     tolower()
 
   if (identical(file_extension, "csv")) {
-    return(readr::read_csv(file_path, show_col_types = FALSE) |> data.table::setDT())
+    return(readr::read_csv(file_path, show_col_types = FALSE) |> data.table::as.data.table())
   }
 
   if (file_extension %in% c("xlsx", "xls")) {
-    return(readxl::read_excel(file_path) |> data.table::setDT())
+    return(readxl::read_excel(file_path) |> data.table::as.data.table())
   }
 
   cli::cli_abort("Unsupported rule extension for {.file {file_path}}.")
@@ -304,7 +296,7 @@ build_layer_diagnostics <- function(layer_name, rows_in, rows_out, audit_dt) {
   checkmate::assert_int(rows_out, lower = 0)
   checkmate::assert_data_frame(audit_dt, min.rows = 0)
 
-  audit_table <- ensure_data_table(audit_dt)
+  audit_table <- data.table::as.data.table(audit_dt)
   matched_count <- if (nrow(audit_table) == 0) 0L else as.integer(sum(audit_table$affected_rows))
 
   diagnostics <- list(

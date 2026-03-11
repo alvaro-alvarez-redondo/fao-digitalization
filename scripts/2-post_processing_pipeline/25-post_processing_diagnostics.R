@@ -139,7 +139,7 @@ assert_post_processing_preflight <- function(preflight_result) {
 #' @return `data.table` with one row per unique rule/column combination.
 #' @importFrom data.table as.data.table data.table
 summarize_stage_rules <- function(audit_dt, stage_name) {
-  stage_audit_dt <- ensure_data_table(audit_dt)
+  stage_audit_dt <- data.table::as.data.table(audit_dt)
 
   required_columns <- c(
     "rule_file_identifier",
@@ -247,7 +247,6 @@ build_post_processing_diagnostics <- function(
 #' @return Named character vector containing `rule_summary` workbook path.
 #' @importFrom checkmate assert_data_frame assert_string assert_list
 #' @importFrom fs path
-#' @importFrom writexl write_xlsx
 persist_post_processing_audit <- function(
   clean_audit_dt,
   harmonize_audit_dt,
@@ -280,12 +279,26 @@ persist_post_processing_audit <- function(
     )
   )
 
-  writexl::write_xlsx(
-    list(
-      clean = ensure_data_table(diagnostics$clean_rule_summary),
-      harmonize = ensure_data_table(diagnostics$harmonize_rule_summary)
-    ),
-    path = output_paths[["rule_summary"]]
+  workbook <- openxlsx::createWorkbook()
+
+  openxlsx::addWorksheet(workbook, "clean")
+  openxlsx::writeData(
+    workbook,
+    "clean",
+    data.table::as.data.table(diagnostics$clean_rule_summary)
+  )
+
+  openxlsx::addWorksheet(workbook, "harmonize")
+  openxlsx::writeData(
+    workbook,
+    "harmonize",
+    data.table::as.data.table(diagnostics$harmonize_rule_summary)
+  )
+
+  openxlsx::saveWorkbook(
+    workbook,
+    output_paths[["rule_summary"]],
+    overwrite = TRUE
   )
 
   return(output_paths)

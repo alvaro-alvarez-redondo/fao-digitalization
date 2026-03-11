@@ -53,9 +53,9 @@ validate_rule_schema <- function(rule_dt, required_columns, rule_label) {
 normalize_conversion_rule_columns <- function(conversion_dt) {
   checkmate::assert_data_frame(conversion_dt, min.rows = 0)
 
-  normalized_conversion_dt <- copy_as_data_table(
+  normalized_conversion_dt <- data.table::copy(data.table::as.data.table(
     conversion_dt
-  )
+  ))
 
   rename_mapping <- c(
     from_unit = "source_unit",
@@ -93,7 +93,7 @@ normalize_conversion_rule_columns <- function(conversion_dt) {
 #' @return Character scalar template file path.
 #' @importFrom checkmate assert_list assert_string assert_directory_exists
 #' @importFrom fs path
-#' @importFrom writexl write_xlsx
+#' @importFrom openxlsx createWorkbook addWorksheet writeData saveWorkbook
 #' @examples
 #' \dontrun{ensure_standardize_template_exists(config)}
 ensure_standardize_template_exists <- function(config) {
@@ -119,11 +119,10 @@ ensure_standardize_template_exists <- function(config) {
       addend = numeric(0)
     )
 
-    writexl::write_xlsx(
-      list(units_standardization = template_dt),
-      path = template_path,
-      col_names = TRUE
-    )
+    workbook <- openxlsx::createWorkbook()
+    openxlsx::addWorksheet(workbook, "units_standardization")
+    openxlsx::writeData(workbook, "units_standardization", template_dt)
+    openxlsx::saveWorkbook(workbook, template_path, overwrite = FALSE)
   }
 
   return(template_path)
@@ -238,12 +237,12 @@ validate_conversion_rules <- function(conversion_dt) {
   }
 
   source_pairs <- unique(data.table::data.table(
-    product_key = normalize_string_impl(conversion_dt$product),
-    unit_key = normalize_string_impl(conversion_dt$source_unit)
+    product_key = normalize_string(conversion_dt$product),
+    unit_key = normalize_string(conversion_dt$source_unit)
   ))
   target_pairs <- unique(data.table::data.table(
-    product_key = normalize_string_impl(conversion_dt$product),
-    unit_key = normalize_string_impl(conversion_dt$target_unit)
+    product_key = normalize_string(conversion_dt$product),
+    unit_key = normalize_string(conversion_dt$target_unit)
   ))
 
   data.table::setkey(source_pairs, product_key, unit_key)
@@ -279,8 +278,8 @@ prepare_standardize_rules <- function(raw_rules_dt) {
 
   prepared_rules_dt[, multiplier_num := as.numeric(multiplier)]
   prepared_rules_dt[, addend_num := as.numeric(addend)]
-  prepared_rules_dt[, product_key := normalize_string_impl(product)]
-  prepared_rules_dt[, unit_key := normalize_string_impl(source_unit)]
+  prepared_rules_dt[, product_key := normalize_string(product)]
+  prepared_rules_dt[, unit_key := normalize_string(source_unit)]
 
   data.table::setkey(prepared_rules_dt, product_key, unit_key)
 
@@ -310,7 +309,11 @@ apply_standardize_rules <- function(
   checkmate::assert_string(value_column, min.chars = 1)
   checkmate::assert_string(product_column, min.chars = 1)
 
-  normalized_dt <- copy_as_data_table(mapped_dt)
+  if (data.table::is.data.table(mapped_dt)) {
+    normalized_dt <- data.table::copy(mapped_dt)
+  } else {
+    normalized_dt <- data.table::as.data.table(mapped_dt)
+  }
 
   if (!unit_column %in% names(normalized_dt)) {
     cli::cli_abort("unit column {.val {unit_column}} is missing")
@@ -333,7 +336,7 @@ apply_standardize_rules <- function(
     )
   }
 
-  unit_keys <- normalize_string_impl(normalized_dt[[unit_column]])
+  unit_keys <- normalize_string(normalized_dt[[unit_column]])
 
   if (nrow(prepared_rules_dt) == 0L) {
     normalized_dt[, (value_column) := numeric_values]
@@ -345,7 +348,7 @@ apply_standardize_rules <- function(
     ))
   }
 
-  product_keys <- normalize_string_impl(normalized_dt[[product_column]])
+  product_keys <- normalize_string(normalized_dt[[product_column]])
 
   join_input <- data.table::data.table(
     product_key = product_keys,

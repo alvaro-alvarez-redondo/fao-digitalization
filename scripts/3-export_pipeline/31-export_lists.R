@@ -138,7 +138,7 @@ build_layer_tables_by_sheet <- function(layer_tables) {
       return(data.table::data.table())
     }
 
-    return(ensure_data_table(layer_tables[[selected_object]]))
+    return(data.table::as.data.table(layer_tables[[selected_object]]))
   })
 
   names(layer_by_sheet) <- layer_order
@@ -297,9 +297,9 @@ build_column_unique_cache <- function(layer_by_sheet, union_columns) {
 #' @param overwrite Logical scalar overwrite flag.
 #' @return Character scalar workbook path.
 #' @importFrom checkmate assert_string assert_list assert_flag
-#' @importFrom writexl write_xlsx
+#' @importFrom openxlsx createWorkbook addWorksheet writeData saveWorkbook
 #' @importFrom data.table data.table
-#' @importFrom cli cli_abort
+#' @importFrom purrr iwalk
 write_column_lists_workbook <- function(
   column_name,
   unique_cache,
@@ -316,11 +316,7 @@ write_column_lists_workbook <- function(
     column_name = column_name
   )
 
-  if (!overwrite && file.exists(workbook_path)) {
-    cli::cli_abort(
-      "file already exists and overwrite is disabled: {.path {workbook_path}}"
-    )
-  }
+  workbook <- openxlsx::createWorkbook()
 
   raw_values <- unique_cache$raw[[column_name]]
   clean_values <- unique_cache$clean[[column_name]]
@@ -346,7 +342,12 @@ write_column_lists_workbook <- function(
     harmonize_values_dt = harmonize_values_dt
   )
 
-  writexl::write_xlsx(sheet_payloads, path = workbook_path, col_names = FALSE)
+  purrr::iwalk(sheet_payloads, function(values_dt, sheet_name) {
+    openxlsx::addWorksheet(workbook, sheet_name)
+    openxlsx::writeData(workbook, sheet_name, values_dt, colNames = FALSE)
+  })
+
+  openxlsx::saveWorkbook(workbook, workbook_path, overwrite = overwrite)
 
   return(workbook_path)
 }
