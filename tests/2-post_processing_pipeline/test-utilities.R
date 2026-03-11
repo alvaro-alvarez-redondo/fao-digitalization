@@ -2,7 +2,14 @@
 # unit tests for scripts/2-post_processing_pipeline/21-post_processing_utilities.R
 
 source(here::here("tests", "test_helper.R"), echo = FALSE)
-source(here::here("scripts", "2-post_processing_pipeline", "21-post_processing_utilities.R"), echo = FALSE)
+source(
+  here::here(
+    "scripts",
+    "2-post_processing_pipeline",
+    "21-post_processing_utilities.R"
+  ),
+  echo = FALSE
+)
 
 
 # --- get_canonical_rule_columns ----------------------------------------------
@@ -38,8 +45,14 @@ testthat::test_that("get_post_processing_stage_names returns clean and harmonize
 # --- validate_post_processing_stage_name -------------------------------------
 
 testthat::test_that("validate_post_processing_stage_name accepts valid stages", {
-  testthat::expect_identical(validate_post_processing_stage_name("clean"), "clean")
-  testthat::expect_identical(validate_post_processing_stage_name("harmonize"), "harmonize")
+  testthat::expect_identical(
+    validate_post_processing_stage_name("clean"),
+    "clean"
+  )
+  testthat::expect_identical(
+    validate_post_processing_stage_name("harmonize"),
+    "harmonize"
+  )
 })
 
 testthat::test_that("validate_post_processing_stage_name rejects invalid stages", {
@@ -51,16 +64,28 @@ testthat::test_that("validate_post_processing_stage_name rejects invalid stages"
 # --- get_stage_target_value_column -------------------------------------------
 
 testthat::test_that("get_stage_target_value_column returns stage-specific column", {
-  testthat::expect_identical(get_stage_target_value_column("clean"), "value_target")
-  testthat::expect_identical(get_stage_target_value_column("harmonize"), "value_target")
+  testthat::expect_identical(
+    get_stage_target_value_column("clean"),
+    "value_target"
+  )
+  testthat::expect_identical(
+    get_stage_target_value_column("harmonize"),
+    "value_target"
+  )
 })
 
 
 # --- get_stage_source_value_column -------------------------------------------
 
 testthat::test_that("get_stage_source_value_column returns stage-specific column", {
-  testthat::expect_identical(get_stage_source_value_column("clean"), "value_source")
-  testthat::expect_identical(get_stage_source_value_column("harmonize"), "value_source")
+  testthat::expect_identical(
+    get_stage_source_value_column("clean"),
+    "value_source"
+  )
+  testthat::expect_identical(
+    get_stage_source_value_column("harmonize"),
+    "value_source"
+  )
 })
 
 
@@ -117,7 +142,10 @@ testthat::test_that("load_stage_rule_payloads discovers rule files for a stage",
     value_target = "kilogram",
     stringsAsFactors = FALSE
   )
-  readr::write_csv(rules, file.path(config$paths$data$imports$cleaning, "clean_rules_test.csv"))
+  readr::write_csv(
+    rules,
+    file.path(config$paths$data$imports$cleaning, "clean_rules_test.csv")
+  )
 
   result <- load_stage_rule_payloads(config = config, stage_name = "clean")
 
@@ -147,9 +175,12 @@ testthat::test_that("generate_post_processing_rule_templates writes templates", 
     overwrite = TRUE
   )
 
-  testthat::expect_true("rules_template" %in% names(template_paths))
+  testthat::expect_true("clean_harmonize_template" %in% names(template_paths))
   testthat::expect_true(all(file.exists(unname(template_paths))))
-  testthat::expect_match(basename(template_paths[["rules_template"]]), "^rules_template\\.xlsx$")
+  testthat::expect_match(
+    basename(template_paths[["clean_harmonize_template"]]),
+    "^clean_harmonize_template\\.xlsx$"
+  )
 })
 
 

@@ -43,7 +43,10 @@ get_post_processing_stage_names <- function() {
 #' @importFrom checkmate assert_string
 validate_post_processing_stage_name <- function(stage_name) {
   checkmate::assert_string(stage_name, min.chars = 1)
-  validated_stage_name <- match.arg(stage_name, choices = get_post_processing_stage_names())
+  validated_stage_name <- match.arg(
+    stage_name,
+    choices = get_post_processing_stage_names()
+  )
 
   return(validated_stage_name)
 }
@@ -86,7 +89,10 @@ get_stage_rule_template_columns <- function(stage_name) {
 #' @importFrom checkmate assert_list assert_string
 get_post_processing_audit_paths <- function(config) {
   checkmate::assert_list(config, min.len = 1)
-  checkmate::assert_string(config$paths$data$audit$audit_root_dir, min.chars = 1)
+  checkmate::assert_string(
+    config$paths$data$audit$audit_root_dir,
+    min.chars = 1
+  )
 
   audit_root_dir <- config$paths$data$audit$audit_root_dir
 
@@ -109,7 +115,10 @@ initialize_post_processing_audit_root <- function(config) {
   checkmate::assert_list(config, min.len = 1)
 
   audit_paths <- get_post_processing_audit_paths(config)
-  ensure_directories_exist(unlist(audit_paths, use.names = FALSE), recurse = TRUE)
+  ensure_directories_exist(
+    unlist(audit_paths, use.names = FALSE),
+    recurse = TRUE
+  )
 
   return(audit_paths)
 }
@@ -125,7 +134,11 @@ initialize_post_processing_audit_root <- function(config) {
 #' @return Character scalar written template path.
 #' @importFrom checkmate assert_string assert_list assert_flag
 #' @importFrom writexl write_xlsx
-write_stage_rule_template <- function(stage_name, audit_paths, overwrite = TRUE) {
+write_stage_rule_template <- function(
+  stage_name,
+  audit_paths,
+  overwrite = TRUE
+) {
   validated_stage_name <- validate_post_processing_stage_name(stage_name)
   checkmate::assert_list(audit_paths, min.len = 1)
   checkmate::assert_string(audit_paths$templates_dir, min.chars = 1)
@@ -147,11 +160,11 @@ write_stage_rule_template <- function(stage_name, audit_paths, overwrite = TRUE)
 
   template_path <- fs::path(
     audit_paths$templates_dir,
-    "rules_template.xlsx"
+    "clean_harmonize_template.xlsx"
   )
 
   writexl::write_xlsx(
-    list(rules_template = template_data, guidance = guidance_data),
+    list(clean_harmonize_template = template_data, guidance = guidance_data),
     path = template_path
   )
 
@@ -165,7 +178,7 @@ write_stage_rule_template <- function(stage_name, audit_paths, overwrite = TRUE)
 #' `harmonize_` filename prefix.
 #' @param config Named configuration list.
 #' @param overwrite Logical scalar indicating whether existing templates are replaced.
-#' @return Named character vector with `rules_template` path.
+#' @return Named character vector with `clean_harmonize_template` path.
 #' @importFrom checkmate assert_list assert_flag
 generate_post_processing_rule_templates <- function(config, overwrite = TRUE) {
   checkmate::assert_list(config, min.len = 1)
@@ -179,7 +192,7 @@ generate_post_processing_rule_templates <- function(config, overwrite = TRUE) {
     overwrite = overwrite
   )
 
-  return(c(rules_template = template_path))
+  return(c(clean_harmonize_template = template_path))
 }
 
 #' @title Read rule table from csv or excel
@@ -200,7 +213,10 @@ read_rule_table <- function(file_path) {
     tolower()
 
   if (identical(file_extension, "csv")) {
-    return(readr::read_csv(file_path, show_col_types = FALSE) |> data.table::as.data.table())
+    return(
+      readr::read_csv(file_path, show_col_types = FALSE) |>
+        data.table::as.data.table()
+    )
   }
 
   if (file_extension %in% c("xlsx", "xls")) {
@@ -273,7 +289,11 @@ build_layer_diagnostics <- function(layer_name, rows_in, rows_out, audit_dt) {
   checkmate::assert_data_frame(audit_dt, min.rows = 0)
 
   audit_table <- data.table::as.data.table(audit_dt)
-  matched_count <- if (nrow(audit_table) == 0) 0L else as.integer(sum(audit_table$affected_rows))
+  matched_count <- if (nrow(audit_table) == 0) {
+    0L
+  } else {
+    as.integer(sum(audit_table$affected_rows))
+  }
 
   diagnostics <- list(
     layer_name = layer_name,
