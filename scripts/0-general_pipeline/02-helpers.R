@@ -59,14 +59,15 @@ assert_or_abort <- function(check_result) {
 }
 
 #' @title fast internal string normalization
-#' @description converts a character vector to lowercase ascii, removes
+#' @description converts an atomic vector to lowercase ascii, removes
 #' non-alphanumeric characters except spaces, and squishes repeated spaces.
 #' skips input validation for performance in hot paths. callers must ensure
 #' the input is a valid atomic vector.
-#' @param x character vector to normalize.
+#' @param x atomic vector to normalize. coerced to character internally.
 #' @return character vector with normalized lowercase ascii text.
 #' @importFrom stringi stri_trans_general stri_replace_all_regex stri_trim_both
 normalize_string_impl <- function(x) {
+  x <- as.character(x)
   x <- tolower(x)
   x <- stringi::stri_trans_general(x, "latin-ascii")
   x <- stringi::stri_replace_all_regex(x, "[^a-z0-9 ]", " ")
@@ -91,7 +92,7 @@ normalize_string <- function(string) {
     any.missing = TRUE
   ))
 
-  return(normalize_string_impl(as.character(string)))
+  return(normalize_string_impl(string))
 }
 
 #' @title normalize file-friendly names
