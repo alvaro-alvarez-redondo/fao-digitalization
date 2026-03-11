@@ -14,15 +14,6 @@
 #' config_example <- list(column_order = c("country", "year", "value"))
 #' identify_year_columns(df_example, config_example)
 identify_year_columns <- function(df, config) {
-  assert_or_abort(checkmate::check_data_frame(df))
-  assert_or_abort(checkmate::check_list(config, any.missing = FALSE))
-
-  assert_or_abort(checkmate::check_character(
-    config$column_order,
-    any.missing = FALSE,
-    min.len = 1
-  ))
-
   candidate_cols <- setdiff(
     colnames(df),
     setdiff(config$column_order, c("year", "value"))
@@ -48,16 +39,6 @@ identify_year_columns <- function(df, config) {
 #' config_example <- list(column_required = c("product", "variable", "continent", "country"))
 #' normalize_key_fields(df_example, "crops", config_example)
 normalize_key_fields <- function(df, product_name, config) {
-  assert_or_abort(checkmate::check_data_frame(df))
-  assert_or_abort(checkmate::check_string(product_name, min.chars = 1))
-  assert_or_abort(checkmate::check_list(config, any.missing = FALSE))
-
-  assert_or_abort(checkmate::check_character(
-    config$column_required,
-    any.missing = FALSE,
-    min.len = 1
-  ))
-
   data_dt <- ensure_data_table(df)
   base_cols <- config$column_required
   missing_cols <- setdiff(base_cols, colnames(data_dt))
@@ -88,15 +69,6 @@ normalize_key_fields <- function(df, product_name, config) {
 #' config_example <- list(column_order = c("country", "year", "value"))
 #' convert_year_columns(df_example, config_example)
 convert_year_columns <- function(df, config) {
-  assert_or_abort(checkmate::check_data_frame(df))
-  assert_or_abort(checkmate::check_list(config, any.missing = FALSE))
-
-  assert_or_abort(checkmate::check_character(
-    config$column_order,
-    any.missing = FALSE,
-    min.len = 1
-  ))
-
   clean_names <- gsub("\\.0$", "", colnames(df))
 
   if (!identical(clean_names, colnames(df))) {
@@ -127,20 +99,6 @@ convert_year_columns <- function(df, config) {
 #' config_example <- list(column_id = "country", column_order = c("country", "year", "value"))
 #' reshape_to_long(df_example, config_example)
 reshape_to_long <- function(df, config) {
-  assert_or_abort(checkmate::check_data_frame(df))
-  assert_or_abort(checkmate::check_list(config, any.missing = FALSE))
-
-  assert_or_abort(checkmate::check_character(
-    config$column_id,
-    any.missing = FALSE,
-    min.len = 1
-  ))
-  assert_or_abort(checkmate::check_character(
-    config$column_order,
-    any.missing = FALSE,
-    min.len = 1
-  ))
-
   column_id <- config$column_id
   year_cols <- identify_year_columns(df, config)
 
@@ -175,14 +133,6 @@ reshape_to_long <- function(df, config) {
 #' config_example <- list(defaults = list(notes_value = NA_character_))
 #' add_metadata(df_example, "file.xlsx", "yearbook_a", config_example)
 add_metadata <- function(fao_data_long_raw, file_name, yearbook, config) {
-  assert_or_abort(checkmate::check_data_frame(fao_data_long_raw))
-  assert_or_abort(checkmate::check_string(file_name, min.chars = 1))
-  assert_or_abort(checkmate::check_string(yearbook, min.chars = 1))
-  assert_or_abort(checkmate::check_list(config, any.missing = FALSE))
-
-  assert_or_abort(checkmate::check_list(config$defaults, any.missing = FALSE))
-  assert_or_abort(checkmate::check_character(config$defaults$notes_value, len = 1))
-
   notes_value <- config$defaults$notes_value
   data_dt <- ensure_data_table(fao_data_long_raw)
 
@@ -239,13 +189,6 @@ transform_file_dt <- function(df, file_name, yearbook, product_name, config) {
 #' @examples
 #' # resolve_product_name(file_row_example, config_example)
 resolve_product_name <- function(file_row, config) {
-  assert_or_abort(checkmate::check_data_frame(
-    file_row,
-    min.rows = 1,
-    max.rows = 1
-  ))
-  assert_or_abort(checkmate::check_list(config, any.missing = FALSE))
-
   show_missing_product_metadata_warning <-
     !is.null(config$messages$show_missing_product_metadata_warning) &&
     isTRUE(config$messages$show_missing_product_metadata_warning)

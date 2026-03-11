@@ -23,14 +23,6 @@
 #' config_example <- list(column_required = c("product", "variable", "year", "value"))
 #' validate_mandatory_fields_dt(dt_example, config_example)
 validate_mandatory_fields_dt <- function(dt, config) {
-  checkmate::assert_data_frame(dt)
-  checkmate::assert_list(config, any.missing = FALSE)
-  checkmate::assert_character(
-    config$column_required,
-    any.missing = FALSE,
-    min.len = 1
-  )
-
   dt_work <- copy_as_data_table(dt)
   mandatory_cols <- config$column_required
 
@@ -92,13 +84,6 @@ validate_mandatory_fields_dt <- function(dt, config) {
 #' )
 #' detect_duplicates_dt(dt_example)
 detect_duplicates_dt <- function(dt) {
-  checkmate::assert_data_frame(dt)
-  checkmate::assert_names(
-    names(dt),
-    must.include = c("product", "variable", "year", "value", "document"),
-    what = "names(dt)"
-  )
-
   dt_work <- ensure_data_table(dt)
 
   dup_counts <- dt_work[,

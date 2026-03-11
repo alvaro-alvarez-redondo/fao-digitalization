@@ -15,10 +15,6 @@
 #' @examples
 #' build_read_error("failed to read", "file.xlsx", "sheet not found")
 build_read_error <- function(context_message, file_path, details) {
-  assert_or_abort(checkmate::check_string(context_message, min.chars = 1))
-  assert_or_abort(checkmate::check_string(file_path, min.chars = 1))
-  assert_or_abort(checkmate::check_string(details, min.chars = 1))
-
   return(cli::format_error(c(
     "{context_message} {.file {fs::path_file(file_path)}}.",
     "x" = details
@@ -65,8 +61,6 @@ safe_execute_read <- function(operation, context_message, file_path) {
 #' @examples
 #' create_empty_read_result(character())
 create_empty_read_result <- function(errors = character(0)) {
-  assert_or_abort(checkmate::check_character(errors, any.missing = FALSE))
-
   return(list(data = data.table::data.table(), errors = errors))
 }
 
@@ -78,8 +72,6 @@ create_empty_read_result <- function(errors = character(0)) {
 #' @examples
 #' has_read_errors(list(result = NULL, errors = "x"))
 has_read_errors <- function(read_result) {
-  assert_or_abort(checkmate::check_list(read_result, min.len = 1))
-
   return(!is.null(read_result$errors) && length(read_result$errors) > 0)
 }
 
@@ -144,14 +136,7 @@ normalize_pipeline_read_result <- function(read_result) {
 #' @examples
 #' compute_non_empty_base_rows(data.frame(country = c("a", "")), "country")
 compute_non_empty_base_rows <- function(read_dt, base_cols) {
-  assert_or_abort(checkmate::check_data_frame(read_dt, min.rows = 0))
-  assert_or_abort(checkmate::check_character(
-    base_cols,
-    any.missing = FALSE,
-    min.len = 1
-  ))
-
-  base_subset_dt <- ensure_data_table(read_dt)[, ..base_cols]
+  base_subset_dt <- read_dt[, ..base_cols]
   non_empty_matrix <- !is.na(base_subset_dt) & trimws(as.matrix(base_subset_dt)) != ""
 
   keep_row <- rowSums(non_empty_matrix) > 0L
