@@ -49,6 +49,7 @@ normalize_key_fields <- function(df, product_name, config) {
 
   data_dt[, product := normalize_string_impl(product_name)]
 
+  # normalize data-sourced text columns (product is set from file metadata above)
   norm_cols <- c("variable", "continent", "country")
   for (col in norm_cols) {
     data.table::set(data_dt, j = col, value = normalize_string_impl(data_dt[[col]]))

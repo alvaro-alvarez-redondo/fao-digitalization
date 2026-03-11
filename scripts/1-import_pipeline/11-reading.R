@@ -138,6 +138,10 @@ normalize_pipeline_read_result <- function(read_result) {
 compute_non_empty_base_rows <- function(read_dt, base_cols) {
   ensure_data_table(read_dt)
 
+  if (length(base_cols) == 0) {
+    return(logical(nrow(read_dt)))
+  }
+
   keep_row <- Reduce(`|`, lapply(base_cols, function(col) {
     v <- read_dt[[col]]
     !is.na(v) & trimws(v) != ""
