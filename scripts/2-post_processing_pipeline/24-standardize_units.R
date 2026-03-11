@@ -93,7 +93,7 @@ normalize_conversion_rule_columns <- function(conversion_dt) {
 #' @return Character scalar template file path.
 #' @importFrom checkmate assert_list assert_string assert_directory_exists
 #' @importFrom fs path
-#' @importFrom openxlsx createWorkbook addWorksheet writeData saveWorkbook
+#' @importFrom writexl write_xlsx
 #' @examples
 #' \dontrun{ensure_standardize_template_exists(config)}
 ensure_standardize_template_exists <- function(config) {
@@ -119,10 +119,10 @@ ensure_standardize_template_exists <- function(config) {
       addend = numeric(0)
     )
 
-    workbook <- openxlsx::createWorkbook()
-    openxlsx::addWorksheet(workbook, "units_standardization")
-    openxlsx::writeData(workbook, "units_standardization", template_dt)
-    openxlsx::saveWorkbook(workbook, template_path, overwrite = FALSE)
+    writexl::write_xlsx(
+      list(units_standardization = template_dt),
+      path = template_path
+    )
   }
 
   return(template_path)
