@@ -42,7 +42,8 @@ infer_layer_sheet_name <- function(object_name) {
 
 #' @title Build lists export path for one column
 #' @description Resolves lists directory and returns a deterministic column-based
-#' workbook path.
+#' workbook path. Callers must ensure the directory exists before writing
+#' (see `run_export_pipeline`).
 #' @param config Named configuration list.
 #' @param column_name Character scalar column name.
 #' @return Character scalar path ending with `_list.xlsx`.
@@ -59,7 +60,6 @@ build_column_lists_export_path <- function(config, column_name) {
   )
 
   lists_dir <- here::here(lists_dir)
-  ensure_directories_exist(lists_dir, recurse = TRUE)
 
   return(fs::path(
     lists_dir,

@@ -285,7 +285,8 @@ get_config_string <- function(config, path, field_name) {
 
 #' @title build normalized export path from pipeline config
 #' @description constructs an output path for `processed` or `lists` exports
-#' using folder and suffix metadata from the pipeline config.
+#' using folder and suffix metadata from the pipeline config. callers must
+#' ensure the output directory exists before writing (see `run_export_pipeline`).
 #' @param config named list with non-empty structure. validated with
 #' `checkmate::check_list(min.len = 1)`. must contain
 #' `paths$data$exports$processed`, `paths$data$exports$lists`,
@@ -352,8 +353,6 @@ generate_export_path <- function(
   } else {
     folder
   }
-
-  ensure_directories_exist(output_folder, recurse = TRUE)
 
   return(fs::path(output_folder, paste0(normalize_filename(base_name), suffix)))
 }

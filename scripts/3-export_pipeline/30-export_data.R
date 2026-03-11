@@ -126,7 +126,8 @@ write_processed_table_fast <- function(data_dt, output_path, overwrite = TRUE) {
 #' @description Detects all layer tables for traceability, then exports only the
 #' layers listed in `config$export_config$export_layers` (default:
 #' `"harmonized"`) into `data/3-export/processed_data` using the
-#' high-performance writer.
+#' high-performance writer. Callers must ensure the processed-data export
+#' directory exists before calling this function (see `run_export_pipeline`).
 #' @param config Named configuration list.
 #' @param data_objects Optional named list of data.frame/data.table objects.
 #' @param overwrite Logical scalar overwrite flag.
@@ -166,15 +167,6 @@ export_processed_data <- function(
       "x" = "config$export_config$export_layers is set to: {.val {export_layers}}"
     ))
   }
-
-  # validate the export directory once before the loop to avoid redundant
-  # fs::dir_create syscalls inside build_processed_export_path
-  processed_dir <- get_config_string(
-    config = config,
-    path = c("paths", "data", "exports", "processed"),
-    field_name = "config$paths$data$exports$processed"
-  )
-  ensure_directories_exist(here::here(processed_dir), recurse = TRUE)
 
   processed_paths <- purrr::imap_chr(export_tables, function(data_dt, object_name) {
     output_path <- build_processed_export_path(config = config, object_name = object_name)
