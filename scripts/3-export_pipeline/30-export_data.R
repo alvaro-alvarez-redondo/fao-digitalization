@@ -4,8 +4,9 @@
 # C-based writer.
 
 #' @title Build processed-data export path for an object
-#' @description Resolves the processed export directory from config, ensures the
-#' directory exists, and returns an object-name-based workbook path.
+#' @description Resolves the processed export directory from config and returns
+#' an object-name-based workbook path. Callers must ensure the directory exists
+#' before writing (see `export_processed_data`).
 #' @param config Named configuration list with
 #' `paths$data$exports$processed`.
 #' @param object_name Character scalar object name.
@@ -23,7 +24,6 @@ build_processed_export_path <- function(config, object_name) {
   )
 
   processed_dir <- here::here(processed_dir)
-  ensure_directories_exist(processed_dir, recurse = TRUE)
 
   return(fs::path(processed_dir, paste0(normalize_filename(object_name), ".xlsx")))
 }
@@ -166,6 +166,15 @@ export_processed_data <- function(
       "x" = "config$export_config$export_layers is set to: {.val {export_layers}}"
     ))
   }
+
+  # validate the export directory once before the loop to avoid redundant
+  # fs::dir_create syscalls inside build_processed_export_path
+  processed_dir <- get_config_string(
+    config = config,
+    path = c("paths", "data", "exports", "processed"),
+    field_name = "config$paths$data$exports$processed"
+  )
+  ensure_directories_exist(here::here(processed_dir), recurse = TRUE)
 
   processed_paths <- purrr::imap_chr(export_tables, function(data_dt, object_name) {
     output_path <- build_processed_export_path(config = config, object_name = object_name)

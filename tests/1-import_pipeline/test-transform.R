@@ -10,8 +10,15 @@ source(here::here("scripts", "1-import_pipeline", "12-transform.R"), echo = FALS
 # --- identify_year_columns ---------------------------------------------------
 
 testthat::test_that("identify_year_columns detects yyyy columns", {
-  col_names <- c("continent", "country", "2020", "2021", "value")
-  result <- identify_year_columns(col_names)
+  df <- data.table::data.table(
+    continent = "x",
+    country   = "y",
+    `2020`    = "1",
+    `2021`    = "2",
+    value     = "3"
+  )
+  config <- build_test_config()
+  result <- identify_year_columns(df, config)
 
   testthat::expect_true("2020" %in% result)
   testthat::expect_true("2021" %in% result)
@@ -19,15 +26,17 @@ testthat::test_that("identify_year_columns detects yyyy columns", {
 })
 
 testthat::test_that("identify_year_columns detects yyyy-yyyy range columns", {
-  col_names <- c("2020-2021", "country")
-  result <- identify_year_columns(col_names)
+  df <- data.table::data.table(`2020-2021` = "1", country = "x")
+  config <- build_test_config()
+  result <- identify_year_columns(df, config)
 
   testthat::expect_true("2020-2021" %in% result)
 })
 
 testthat::test_that("identify_year_columns returns empty for non-year columns", {
-  col_names <- c("continent", "country", "value")
-  result <- identify_year_columns(col_names)
+  df <- data.table::data.table(continent = "x", country = "y", value = "1")
+  config <- build_test_config()
+  result <- identify_year_columns(df, config)
 
   testthat::expect_equal(length(result), 0L)
 })
@@ -42,7 +51,7 @@ testthat::test_that("normalize_key_fields adds missing base columns as NA", {
   )
   config <- build_test_config()
 
-  result <- normalize_key_fields(dt, config)
+  result <- normalize_key_fields(dt, "wheat", config)
 
   testthat::expect_true(data.table::is.data.table(result))
   testthat::expect_true("continent" %in% names(result))
@@ -58,8 +67,9 @@ testthat::test_that("convert_year_columns sanitizes column names", {
     `2020`    = "100",
     `2021`    = "200"
   )
+  config <- build_test_config()
 
-  result <- convert_year_columns(dt)
+  result <- convert_year_columns(dt, config)
 
   testthat::expect_true(data.table::is.data.table(result))
   testthat::expect_true(all(names(result) == make.names(names(result), unique = TRUE) | grepl("^\\d{4}", names(result))))
@@ -80,8 +90,8 @@ testthat::test_that("reshape_to_long converts wide to long format", {
     `2021`    = c("300", "400")
   )
 
-  year_columns <- c("2020", "2021")
-  result <- reshape_to_long(dt, year_columns)
+  config <- build_test_config()
+  result <- reshape_to_long(dt, config)
 
   testthat::expect_true(data.table::is.data.table(result))
   testthat::expect_true("year"  %in% names(result))
@@ -100,14 +110,9 @@ testthat::test_that("add_metadata appends document, notes, yearbook columns", {
     value     = "100"
   )
 
-  file_row <- data.frame(
-    file_name = "fao_yb_2020_2021_a_b_wheat.xlsx",
-    yearbook  = "yb_2020_2021",
-    stringsAsFactors = FALSE
-  )
   config <- build_test_config()
 
-  result <- add_metadata(dt, file_row, config)
+  result <- add_metadata(dt, "fao_yb_2020_2021_a_b_wheat.xlsx", "yb_2020_2021", config)
 
   testthat::expect_true("document" %in% names(result))
   testthat::expect_true("yearbook" %in% names(result))
@@ -145,8 +150,10 @@ testthat::test_that("assert_transform_result_contract errors on missing keys", {
 
 # --- edge cases: empty input -------------------------------------------------
 
-testthat::test_that("identify_year_columns handles empty column vector", {
-  result <- identify_year_columns(character(0))
+testthat::test_that("identify_year_columns handles empty data frame", {
+  df <- data.table::data.table()
+  config <- build_test_config()
+  result <- identify_year_columns(df, config)
 
   testthat::expect_equal(length(result), 0L)
 })
