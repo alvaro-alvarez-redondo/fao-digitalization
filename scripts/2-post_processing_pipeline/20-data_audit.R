@@ -644,7 +644,7 @@ audit_data_output <- function(dataset_dt, config) {
   audit_dt <- dataset_dt[invalid_index, , drop = FALSE]
 
   # remap findings row_index to local subset positions
-  findings_dt <- ensure_data_table(audit_result$findings)
+  findings_dt <- copy_as_data_table(audit_result$findings)
 
   if (nrow(findings_dt) > 0) {
     findings_dt[, row_index := match(row_index, invalid_index)]

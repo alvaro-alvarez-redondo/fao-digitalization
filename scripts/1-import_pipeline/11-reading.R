@@ -127,7 +127,7 @@ normalize_pipeline_read_result <- function(read_result) {
   assert_read_result_contract(read_result$result)
 
   return(list(
-    data = ensure_data_table(read_result$result$data),
+    data = data.table::setDT(read_result$result$data),
     errors = c(read_result$errors, read_result$result$errors)
   ))
 }
@@ -215,7 +215,7 @@ read_excel_sheet <- function(file_path, sheet_name, config) {
     return(create_empty_read_result(safe_read_result$errors))
   }
 
-  read_dt <- ensure_data_table(safe_read_result$result)
+  read_dt <- data.table::setDT(safe_read_result$result)
 
   missing_base <- setdiff(base_cols, colnames(read_dt))
 

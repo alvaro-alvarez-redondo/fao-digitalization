@@ -230,11 +230,11 @@ read_rule_table <- function(file_path) {
     tolower()
 
   if (identical(file_extension, "csv")) {
-    return(readr::read_csv(file_path, show_col_types = FALSE) |> ensure_data_table())
+    return(readr::read_csv(file_path, show_col_types = FALSE) |> data.table::setDT())
   }
 
   if (file_extension %in% c("xlsx", "xls")) {
-    return(readxl::read_excel(file_path) |> ensure_data_table())
+    return(readxl::read_excel(file_path) |> data.table::setDT())
   }
 
   cli::cli_abort("Unsupported rule extension for {.file {file_path}}.")
