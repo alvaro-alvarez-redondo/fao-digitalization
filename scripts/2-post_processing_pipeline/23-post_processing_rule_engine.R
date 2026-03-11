@@ -4,7 +4,11 @@
 # application for the clean and harmonize post-processing stages.
 
 #' @title Coerce rule schema to canonical columns
-#' @description Enforces strict stage-specific canonical schema.
+#' @description Enforces strict unified canonical schema. Supports backward
+#' compatibility by renaming legacy stage-specific columns
+#' (`value_source_clean`, `value_source_harmonize`, `value_target_clean`,
+#' `value_target_harmonize`) to the unified names (`value_source`,
+#' `value_target`).
 #' @param rule_dt Rule table as data.frame/data.table.
 #' @param stage_name Character scalar execution stage label.
 #' @param rule_file_id Character scalar rule file identifier.
@@ -32,6 +36,23 @@ coerce_rule_schema <- function(rule_dt, stage_name, rule_file_id) {
   }
 
   data.table::setnames(canonical_dt, available_columns, normalized_columns)
+
+  # backward compatibility: rename legacy stage-specific column names
+  legacy_renames <- list(
+    value_source_clean = "value_source",
+    value_source_harmonize = "value_source",
+    value_target_clean = "value_target",
+    value_target_harmonize = "value_target"
+  )
+
+  current_columns <- colnames(canonical_dt)
+  for (old_name in names(legacy_renames)) {
+    new_name <- legacy_renames[[old_name]]
+    if (old_name %in% current_columns && !(new_name %in% current_columns)) {
+      data.table::setnames(canonical_dt, old_name, new_name)
+    }
+  }
+
   available_columns <- colnames(canonical_dt)
 
   source_result_column <- get_stage_source_value_column(validated_stage_name)
@@ -85,11 +106,9 @@ normalize_rule_values_for_validation <- function(
   allowed_na_columns <- intersect(
     c(
       "value_source_raw",
-      "value_source_clean",
-      "value_source_harmonize",
+      "value_source",
       "value_target_raw",
-      "value_target_clean",
-      "value_target_harmonize"
+      "value_target"
     ),
     colnames(rules_dt)
   )

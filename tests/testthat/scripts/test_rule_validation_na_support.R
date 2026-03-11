@@ -36,7 +36,7 @@ testthat::test_that("validate_canonical_rules allows NA in value columns for cle
     value_source_raw = c(NA_character_, "Rice"),
     column_target = c("unit", "unit"),
     value_target_raw = c(NA_character_, "kg"),
-    value_target_clean = c(NA_character_, "kilogram")
+    value_target = c(NA_character_, "kilogram")
   )
 
   testthat::expect_invisible(
@@ -60,7 +60,7 @@ testthat::test_that("validate_canonical_rules remains fail-fast for structural r
     value_source_raw = NA_character_,
     column_target = "unit",
     value_target_raw = "kg",
-    value_target_clean = "kilogram"
+    value_target = "kilogram"
   )
 
   testthat::expect_error(
@@ -85,7 +85,7 @@ testthat::test_that("apply_conditional_rule_group matches NA keys deterministica
     value_source_raw = NA_character_,
     column_target = "unit",
     value_target_raw = NA_character_,
-    value_target_clean = "unknown_unit"
+    value_target = "unknown_unit"
   )
 
   result <- apply_conditional_rule_group(
@@ -114,7 +114,7 @@ testthat::test_that("validate_canonical_rules allows NA in value columns for har
     value_source_raw = c(NA_character_, "Rice"),
     column_target = c("variable", "variable"),
     value_target_raw = c(NA_character_, "Prod"),
-    value_target_harmonize = c(NA_character_, "Production")
+    value_target = c(NA_character_, "Production")
   )
 
   testthat::expect_invisible(
@@ -139,7 +139,7 @@ testthat::test_that("empty target clean value is applied as NA_character_", {
     value_source_raw = "Wheat",
     column_target = "unit",
     value_target_raw = "kg",
-    value_target_clean = ""
+    value_target = ""
   )
 
   result <- apply_conditional_rule_group(

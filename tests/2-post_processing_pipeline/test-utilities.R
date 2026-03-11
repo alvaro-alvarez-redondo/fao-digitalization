@@ -15,13 +15,14 @@ testthat::test_that("get_canonical_rule_columns returns correct columns for clea
   testthat::expect_true("value_source_raw" %in% result)
   testthat::expect_true("column_target" %in% result)
   testthat::expect_true("value_target_raw" %in% result)
-  testthat::expect_true("value_target_clean" %in% result)
+  testthat::expect_true("value_target" %in% result)
 })
 
-testthat::test_that("get_canonical_rule_columns returns correct columns for harmonize stage", {
+testthat::test_that("get_canonical_rule_columns returns same columns for harmonize stage", {
   result <- get_canonical_rule_columns("harmonize")
 
-  testthat::expect_true("value_target_harmonize" %in% result)
+  testthat::expect_true("value_target" %in% result)
+  testthat::expect_identical(result, get_canonical_rule_columns("clean"))
 })
 
 
@@ -50,16 +51,16 @@ testthat::test_that("validate_post_processing_stage_name rejects invalid stages"
 # --- get_stage_target_value_column -------------------------------------------
 
 testthat::test_that("get_stage_target_value_column returns stage-specific column", {
-  testthat::expect_identical(get_stage_target_value_column("clean"), "value_target_clean")
-  testthat::expect_identical(get_stage_target_value_column("harmonize"), "value_target_harmonize")
+  testthat::expect_identical(get_stage_target_value_column("clean"), "value_target")
+  testthat::expect_identical(get_stage_target_value_column("harmonize"), "value_target")
 })
 
 
 # --- get_stage_source_value_column -------------------------------------------
 
 testthat::test_that("get_stage_source_value_column returns stage-specific column", {
-  testthat::expect_identical(get_stage_source_value_column("clean"), "value_source_clean")
-  testthat::expect_identical(get_stage_source_value_column("harmonize"), "value_source_harmonize")
+  testthat::expect_identical(get_stage_source_value_column("clean"), "value_source")
+  testthat::expect_identical(get_stage_source_value_column("harmonize"), "value_source")
 })
 
 
@@ -74,7 +75,7 @@ testthat::test_that("read_rule_table reads CSV rule files", {
     value_source_raw = "Wheat",
     column_target = "unit",
     value_target_raw = "kg",
-    value_target_clean = "kilogram",
+    value_target = "kilogram",
     stringsAsFactors = FALSE
   )
   readr::write_csv(rules, file_path)
@@ -113,7 +114,7 @@ testthat::test_that("load_stage_rule_payloads discovers rule files for a stage",
     value_source_raw = "Wheat",
     column_target = "unit",
     value_target_raw = "kg",
-    value_target_clean = "kilogram",
+    value_target = "kilogram",
     stringsAsFactors = FALSE
   )
   readr::write_csv(rules, file.path(config$paths$data$imports$cleaning, "clean_rules_test.csv"))
@@ -146,10 +147,9 @@ testthat::test_that("generate_post_processing_rule_templates writes templates", 
     overwrite = TRUE
   )
 
-  testthat::expect_setequal(names(template_paths), c("clean", "harmonize"))
+  testthat::expect_true("rules_template" %in% names(template_paths))
   testthat::expect_true(all(file.exists(unname(template_paths))))
-  testthat::expect_match(basename(template_paths[["clean"]]), "^clean_rules_template\\.xlsx$")
-  testthat::expect_match(basename(template_paths[["harmonize"]]), "^harmonize_rules_template\\.xlsx$")
+  testthat::expect_match(basename(template_paths[["rules_template"]]), "^rules_template\\.xlsx$")
 })
 
 

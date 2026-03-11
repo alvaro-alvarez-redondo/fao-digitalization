@@ -241,8 +241,7 @@ run_post_processing_pipeline_batch <- function(
         audit_root_dir = audit_paths$audit_root_dir,
         diagnostics_dir = audit_paths$diagnostics_dir,
         templates_dir = audit_paths$templates_dir,
-        clean_template_path = template_paths[["clean"]],
-        harmonize_template_path = template_paths[["harmonize"]],
+        rules_template_path = template_paths[["rules_template"]],
         data_audit_output_path = config$paths$data$audit$audit_file_path
       )
     )
