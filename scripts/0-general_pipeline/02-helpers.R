@@ -613,9 +613,10 @@ cached_unzip <- function(zip_path, exdir, overwrite = FALSE) {
   needs_extract <- overwrite || !fs::dir_exists(exdir)
 
   if (!needs_extract) {
-    zip_mtime <- file.info(zip_path)$mtime
-    exdir_mtime <- file.info(exdir)$mtime
-    needs_extract <- is.na(exdir_mtime) || zip_mtime > exdir_mtime
+    zip_info <- fs::file_info(zip_path)
+    exdir_info <- fs::file_info(exdir)
+    needs_extract <- is.na(exdir_info$modification_time) ||
+      zip_info$modification_time > exdir_info$modification_time
   }
 
   if (needs_extract) {
