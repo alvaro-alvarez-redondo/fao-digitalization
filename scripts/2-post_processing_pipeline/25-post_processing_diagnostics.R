@@ -247,6 +247,7 @@ build_post_processing_diagnostics <- function(
 #' @return Named character vector containing `rule_summary` workbook path.
 #' @importFrom checkmate assert_data_frame assert_string assert_list
 #' @importFrom fs path
+#' @importFrom writexl write_xlsx
 persist_post_processing_audit <- function(
   clean_audit_dt,
   harmonize_audit_dt,
@@ -279,26 +280,12 @@ persist_post_processing_audit <- function(
     )
   )
 
-  workbook <- openxlsx::createWorkbook()
-
-  openxlsx::addWorksheet(workbook, "clean")
-  openxlsx::writeData(
-    workbook,
-    "clean",
-    data.table::as.data.table(diagnostics$clean_rule_summary)
-  )
-
-  openxlsx::addWorksheet(workbook, "harmonize")
-  openxlsx::writeData(
-    workbook,
-    "harmonize",
-    data.table::as.data.table(diagnostics$harmonize_rule_summary)
-  )
-
-  openxlsx::saveWorkbook(
-    workbook,
-    output_paths[["rule_summary"]],
-    overwrite = TRUE
+  writexl::write_xlsx(
+    list(
+      clean = data.table::as.data.table(diagnostics$clean_rule_summary),
+      harmonize = data.table::as.data.table(diagnostics$harmonize_rule_summary)
+    ),
+    path = output_paths[["rule_summary"]]
   )
 
   return(output_paths)

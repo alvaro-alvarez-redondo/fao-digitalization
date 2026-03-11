@@ -297,9 +297,8 @@ build_column_unique_cache <- function(layer_by_sheet, union_columns) {
 #' @param overwrite Logical scalar overwrite flag.
 #' @return Character scalar workbook path.
 #' @importFrom checkmate assert_string assert_list assert_flag
-#' @importFrom openxlsx createWorkbook addWorksheet writeData saveWorkbook
+#' @importFrom writexl write_xlsx
 #' @importFrom data.table data.table
-#' @importFrom purrr iwalk
 write_column_lists_workbook <- function(
   column_name,
   unique_cache,
@@ -315,8 +314,6 @@ write_column_lists_workbook <- function(
     config = config,
     column_name = column_name
   )
-
-  workbook <- openxlsx::createWorkbook()
 
   raw_values <- unique_cache$raw[[column_name]]
   clean_values <- unique_cache$clean[[column_name]]
@@ -342,12 +339,7 @@ write_column_lists_workbook <- function(
     harmonize_values_dt = harmonize_values_dt
   )
 
-  purrr::iwalk(sheet_payloads, function(values_dt, sheet_name) {
-    openxlsx::addWorksheet(workbook, sheet_name)
-    openxlsx::writeData(workbook, sheet_name, values_dt, colNames = FALSE)
-  })
-
-  openxlsx::saveWorkbook(workbook, workbook_path, overwrite = overwrite)
+  writexl::write_xlsx(sheet_payloads, path = workbook_path, col_names = FALSE)
 
   return(workbook_path)
 }

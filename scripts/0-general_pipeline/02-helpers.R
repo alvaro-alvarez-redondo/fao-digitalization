@@ -35,27 +35,39 @@ format_elapsed_time <- function(elapsed_seconds) {
 
 
 #' @title assert checkmate validation results with cli errors
-#' @description validates the output of a `checkmate::check_*` call, requiring a
-#' `true` logical scalar or a non-empty error string. when validation fails, the
-#' function aborts with a structured cli error message.
-#' @param check_result logical true scalar or non-empty character scalar returned
-#' by a `checkmate::check_*` function.
-#' @return invisible logical true scalar when validation succeeds.
-#' @importFrom checkmate assert check_string check_true
+#' @description lightweight wrapper that checks the output of a
+#' `checkmate::check_*` call. when the check returns a character error message
+#' (i.e. validation failed), the function aborts with a structured cli error.
+#' passes through `TRUE` results with minimal overhead.
+#' @param check_result logical `TRUE` or character error string returned by a
+#' `checkmate::check_*` function.
+#' @return invisible `TRUE` when validation succeeds.
 #' @importFrom cli cli_abort
 #' @examples
 #' assert_or_abort(checkmate::check_string("ok"))
 assert_or_abort <- function(check_result) {
-  checkmate::assert(
-    checkmate::check_true(check_result),
-    checkmate::check_string(check_result, min.chars = 1)
-  )
-
   if (!isTRUE(check_result)) {
     cli::cli_abort(check_result)
   }
-
   return(invisible(TRUE))
+}
+
+#' @title fast internal string normalization
+#' @description converts an atomic vector to lowercase ascii, removes
+#' non-alphanumeric characters except spaces, and squishes repeated spaces.
+#' skips input validation for performance in hot paths. callers must ensure
+#' the input is a valid atomic vector.
+#' @param x atomic vector to normalize. coerced to character internally.
+#' @return character vector with normalized lowercase ascii text.
+#' @importFrom stringi stri_trans_general stri_replace_all_regex stri_trim_both
+normalize_string_impl <- function(x) {
+  x <- as.character(x)
+  x <- tolower(x)
+  x <- stringi::stri_trans_general(x, "latin-ascii")
+  x <- stringi::stri_replace_all_regex(x, "[^a-z0-9 ]", " ")
+  x <- stringi::stri_replace_all_regex(x, "\\s+", " ")
+  x <- stringi::stri_trim_both(x)
+  return(x)
 }
 
 #' @title normalize free text into lowercase ascii
@@ -65,8 +77,6 @@ assert_or_abort <- function(check_result) {
 #' validated with `checkmate::check_atomic(min.len = 1, any.missing = true)`.
 #' @return character vector with normalized lowercase ascii text.
 #' @importFrom checkmate check_atomic
-#' @importFrom stringr str_replace_all str_squish str_to_lower
-#' @importFrom stringi stri_trans_general
 #' @examples
 #' normalize_string("forest! data 2024")
 normalize_string <- function(string) {
@@ -76,13 +86,7 @@ normalize_string <- function(string) {
     any.missing = TRUE
   ))
 
-  normalized_string <- as.character(string)
-  normalized_string <- tolower(normalized_string)
-  normalized_string <- stringi::stri_trans_general(normalized_string, "latin-ascii")
-  normalized_string <- gsub("[^a-z0-9 ]", " ", normalized_string)
-  normalized_string <- trimws(gsub("\\s+", " ", normalized_string))
-
-  return(normalized_string)
+  return(normalize_string_impl(string))
 }
 
 #' @title normalize file-friendly names
@@ -195,23 +199,41 @@ extract_product <- function(parts) {
 }
 
 #' @title ensure data.frame input is a data.table
-#' @description validates a data.frame-compatible input and returns a
-#' `data.table`, preserving existing `data.table` inputs unchanged.
-#' @param df data.frame or data.table with zero or more rows. validated with
-#' `checkmate::check_data_frame(min.rows = 0)`.
+#' @description lightweight guard that converts a data.frame to a data.table
+#' in place using `data.table::setDT()`, avoiding a full memory copy.
+#' existing `data.table` inputs are returned immediately with no overhead.
+#' callers are responsible for upstream validation; this function performs
+#' only the minimal `is.data.table()` class check for speed.
+#' @param df data.frame or data.table with zero or more rows.
 #' @return data.table object.
-#' @importFrom checkmate check_data_frame
-#' @importFrom data.table as.data.table is.data.table
+#' @importFrom data.table is.data.table setDT
 #' @examples
 #' ensure_data_table(data.frame(x = 1:3))
 ensure_data_table <- function(df) {
-  assert_or_abort(checkmate::check_data_frame(df, min.rows = 0))
-
   if (!data.table::is.data.table(df)) {
-    return(data.table::as.data.table(df))
+    data.table::setDT(df)
   }
-
   return(df)
+}
+
+#' @title create an independent data.table copy
+#' @description returns a deep copy of the input as a data.table. when the
+#' input is already a data.table, only `data.table::copy()` is called. when
+#' the input is a plain data.frame, `data.table::as.data.table()` already
+#' allocates a fresh object, making the additional `copy()` unnecessary.
+#' replaces the `copy(as.data.table(x))` double-allocation pattern.
+#' callers are responsible for upstream validation.
+#' @param df data.frame or data.table with zero or more rows.
+#' @return a new data.table that can be modified by reference without affecting
+#' the original.
+#' @importFrom data.table as.data.table copy is.data.table
+#' @examples
+#' copy_as_data_table(data.frame(x = 1:3))
+copy_as_data_table <- function(df) {
+  if (data.table::is.data.table(df)) {
+    return(data.table::copy(df))
+  }
+  return(data.table::as.data.table(df))
 }
 
 #' @title validate export-ready import data
