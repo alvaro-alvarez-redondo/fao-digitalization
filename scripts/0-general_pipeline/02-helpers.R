@@ -58,6 +58,23 @@ assert_or_abort <- function(check_result) {
   return(invisible(TRUE))
 }
 
+#' @title fast internal string normalization
+#' @description converts a character vector to lowercase ascii, removes
+#' non-alphanumeric characters except spaces, and squishes repeated spaces.
+#' skips input validation for performance in hot paths. callers must ensure
+#' the input is a valid atomic vector.
+#' @param x character vector to normalize.
+#' @return character vector with normalized lowercase ascii text.
+#' @importFrom stringi stri_trans_general stri_replace_all_regex stri_trim_both
+normalize_string_impl <- function(x) {
+  x <- tolower(x)
+  x <- stringi::stri_trans_general(x, "latin-ascii")
+  x <- stringi::stri_replace_all_regex(x, "[^a-z0-9 ]", " ")
+  x <- stringi::stri_replace_all_regex(x, "\\s+", " ")
+  x <- stringi::stri_trim_both(x)
+  return(x)
+}
+
 #' @title normalize free text into lowercase ascii
 #' @description converts input text to lowercase ascii, removes non-alphanumeric
 #' characters except spaces, and squishes repeated spaces to one separator.
@@ -65,8 +82,6 @@ assert_or_abort <- function(check_result) {
 #' validated with `checkmate::check_atomic(min.len = 1, any.missing = true)`.
 #' @return character vector with normalized lowercase ascii text.
 #' @importFrom checkmate check_atomic
-#' @importFrom stringr str_replace_all str_squish str_to_lower
-#' @importFrom stringi stri_trans_general
 #' @examples
 #' normalize_string("forest! data 2024")
 normalize_string <- function(string) {
@@ -76,13 +91,7 @@ normalize_string <- function(string) {
     any.missing = TRUE
   ))
 
-  normalized_string <- as.character(string)
-  normalized_string <- tolower(normalized_string)
-  normalized_string <- stringi::stri_trans_general(normalized_string, "latin-ascii")
-  normalized_string <- gsub("[^a-z0-9 ]", " ", normalized_string)
-  normalized_string <- trimws(gsub("\\s+", " ", normalized_string))
-
-  return(normalized_string)
+  return(normalize_string_impl(as.character(string)))
 }
 
 #' @title normalize file-friendly names

@@ -4,6 +4,45 @@
 source(here::here("tests", "test_helper.R"), echo = FALSE)
 
 
+# --- normalize_string_impl ---------------------------------------------------
+
+testthat::test_that("normalize_string_impl converts to lowercase ascii", {
+  testthat::expect_identical(normalize_string_impl("Hello World"), "hello world")
+  testthat::expect_identical(normalize_string_impl("UPPER"), "upper")
+})
+
+testthat::test_that("normalize_string_impl removes non-alphanumeric characters", {
+  testthat::expect_identical(normalize_string_impl("a-b_c!d"), "a b c d")
+  testthat::expect_identical(normalize_string_impl("test@#$123"), "test 123")
+})
+
+testthat::test_that("normalize_string_impl squishes whitespace", {
+  testthat::expect_identical(normalize_string_impl("a   b  c"), "a b c")
+  testthat::expect_identical(normalize_string_impl("  leading  "), "leading")
+})
+
+testthat::test_that("normalize_string_impl handles accented characters", {
+  result <- normalize_string_impl("café résumé")
+  testthat::expect_true(grepl("^[a-z0-9 ]+$", result))
+})
+
+testthat::test_that("normalize_string_impl preserves NA values", {
+  result <- normalize_string_impl(c("hello", NA_character_))
+  testthat::expect_true(is.na(result[2]))
+})
+
+testthat::test_that("normalize_string_impl matches normalize_string output", {
+  test_inputs <- c(
+    "Hello World", "café résumé", "a-b_c!d", "  leading  ",
+    "UPPER", "test@#$123", "a   b  c"
+  )
+  testthat::expect_identical(
+    normalize_string_impl(test_inputs),
+    normalize_string(test_inputs)
+  )
+})
+
+
 # --- normalize_string --------------------------------------------------------
 
 testthat::test_that("normalize_string converts to lowercase ascii", {

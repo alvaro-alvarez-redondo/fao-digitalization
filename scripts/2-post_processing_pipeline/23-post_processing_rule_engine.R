@@ -481,7 +481,7 @@ encode_rule_match_key <- function(
     return(character(0))
   }
 
-  encoded_key <- normalize_string(values)
+  encoded_key <- normalize_string_impl(as.character(values))
   encoded_key[is.na(encoded_key)] <- na_key
 
   return(encoded_key)

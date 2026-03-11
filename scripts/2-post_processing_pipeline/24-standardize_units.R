@@ -238,12 +238,12 @@ validate_conversion_rules <- function(conversion_dt) {
   }
 
   source_pairs <- unique(data.table::data.table(
-    product_key = normalize_string(conversion_dt$product),
-    unit_key = normalize_string(conversion_dt$source_unit)
+    product_key = normalize_string_impl(as.character(conversion_dt$product)),
+    unit_key = normalize_string_impl(as.character(conversion_dt$source_unit))
   ))
   target_pairs <- unique(data.table::data.table(
-    product_key = normalize_string(conversion_dt$product),
-    unit_key = normalize_string(conversion_dt$target_unit)
+    product_key = normalize_string_impl(as.character(conversion_dt$product)),
+    unit_key = normalize_string_impl(as.character(conversion_dt$target_unit))
   ))
 
   data.table::setkey(source_pairs, product_key, unit_key)
@@ -279,8 +279,8 @@ prepare_standardize_rules <- function(raw_rules_dt) {
 
   prepared_rules_dt[, multiplier_num := as.numeric(multiplier)]
   prepared_rules_dt[, addend_num := as.numeric(addend)]
-  prepared_rules_dt[, product_key := normalize_string(product)]
-  prepared_rules_dt[, unit_key := normalize_string(source_unit)]
+  prepared_rules_dt[, product_key := normalize_string_impl(product)]
+  prepared_rules_dt[, unit_key := normalize_string_impl(source_unit)]
 
   data.table::setkey(prepared_rules_dt, product_key, unit_key)
 
@@ -337,7 +337,7 @@ apply_standardize_rules <- function(
     )
   }
 
-  unit_keys <- normalize_string(normalized_dt[[unit_column]])
+  unit_keys <- normalize_string_impl(as.character(normalized_dt[[unit_column]]))
 
   if (nrow(prepared_rules_dt) == 0L) {
     normalized_dt[, (value_column) := numeric_values]
@@ -349,7 +349,7 @@ apply_standardize_rules <- function(
     ))
   }
 
-  product_keys <- normalize_string(normalized_dt[[product_column]])
+  product_keys <- normalize_string_impl(as.character(normalized_dt[[product_column]]))
 
   join_input <- data.table::data.table(
     product_key = product_keys,

@@ -72,10 +72,10 @@ normalize_key_fields <- function(df, product_name, config) {
     data_dt[, (missing_cols) := NA_character_]
   }
 
-  data_dt[, product := normalize_string(product_name)]
-  data_dt[, variable := normalize_string(variable)]
-  data_dt[, continent := normalize_string(continent)]
-  data_dt[, country := normalize_string(country)]
+  data_dt[, product := normalize_string_impl(as.character(product_name))]
+  data_dt[, variable := normalize_string_impl(variable)]
+  data_dt[, continent := normalize_string_impl(continent)]
+  data_dt[, country := normalize_string_impl(country)]
 
   return(data_dt)
 }
