@@ -107,7 +107,8 @@ testthat::test_that("audit_data_output creates Excel when findings exist", {
     yearbook = c("yb_2024", "yb_2024")
   )
 
-  # create the raw directory with a dummy file for mirror logic
+  # create a dummy raw import file matching the document value in dataset_dt
+  # so that mirror_raw_import_errors can find and copy it
   fs::file_create(fs::path(config$paths$data$imports$raw, "a.xlsx"))
 
   audit_file_path <- config$paths$data$audit$audit_file_path
