@@ -413,7 +413,9 @@ export_validation_audit_report <- function(
   export_dt <- data.table::as.data.table(data.table::copy(audit_dt))
 
   # skip workbook creation when there are no rows and no findings
-  if (nrow(export_dt) == 0 && (is.null(findings_dt) || nrow(findings_dt) == 0)) {
+  if (
+    nrow(export_dt) == 0 && (is.null(findings_dt) || nrow(findings_dt) == 0)
+  ) {
     return(invisible(NULL))
   }
 
@@ -452,7 +454,9 @@ export_validation_audit_report <- function(
     openxlsx::writeData(
       workbook,
       "audit_report",
-      data.table::data.table(note = "No audit findings detected for this dataset.")
+      data.table::data.table(
+        note = "No audit findings detected for this dataset."
+      )
     )
   } else {
     openxlsx::writeData(workbook, "audit_report", export_dt[, ..cols_to_show])
@@ -654,10 +658,6 @@ audit_data_output <- function(dataset_dt, config) {
       config = config,
       findings_dt = findings_dt,
       output_path = prepared_paths$audit_file_path
-    )
-  } else {
-    cli::cli_alert_info(
-      "No audit findings detected — skipping Excel report generation."
     )
   }
 
