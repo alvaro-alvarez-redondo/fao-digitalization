@@ -35,26 +35,20 @@ format_elapsed_time <- function(elapsed_seconds) {
 
 
 #' @title assert checkmate validation results with cli errors
-#' @description validates the output of a `checkmate::check_*` call, requiring a
-#' `true` logical scalar or a non-empty error string. when validation fails, the
-#' function aborts with a structured cli error message.
-#' @param check_result logical true scalar or non-empty character scalar returned
-#' by a `checkmate::check_*` function.
-#' @return invisible logical true scalar when validation succeeds.
-#' @importFrom checkmate assert check_string check_true
+#' @description lightweight wrapper that checks the output of a
+#' `checkmate::check_*` call. when the check returns a character error message
+#' (i.e. validation failed), the function aborts with a structured cli error.
+#' passes through `TRUE` results with minimal overhead.
+#' @param check_result logical `TRUE` or character error string returned by a
+#' `checkmate::check_*` function.
+#' @return invisible `TRUE` when validation succeeds.
 #' @importFrom cli cli_abort
 #' @examples
 #' assert_or_abort(checkmate::check_string("ok"))
 assert_or_abort <- function(check_result) {
-  checkmate::assert(
-    checkmate::check_true(check_result),
-    checkmate::check_string(check_result, min.chars = 1)
-  )
-
   if (!isTRUE(check_result)) {
     cli::cli_abort(check_result)
   }
-
   return(invisible(TRUE))
 }
 

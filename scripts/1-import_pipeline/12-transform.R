@@ -17,9 +17,6 @@ identify_year_columns <- function(df, config) {
   assert_or_abort(checkmate::check_data_frame(df))
   assert_or_abort(checkmate::check_list(config, any.missing = FALSE))
 
-  if (!is.null(progressor)) {
-    assert_or_abort(checkmate::check_function(progressor))
-  }
   assert_or_abort(checkmate::check_character(
     config$column_order,
     any.missing = FALSE,
@@ -55,9 +52,6 @@ normalize_key_fields <- function(df, product_name, config) {
   assert_or_abort(checkmate::check_string(product_name, min.chars = 1))
   assert_or_abort(checkmate::check_list(config, any.missing = FALSE))
 
-  if (!is.null(progressor)) {
-    assert_or_abort(checkmate::check_function(progressor))
-  }
   assert_or_abort(checkmate::check_character(
     config$column_required,
     any.missing = FALSE,
@@ -97,9 +91,6 @@ convert_year_columns <- function(df, config) {
   assert_or_abort(checkmate::check_data_frame(df))
   assert_or_abort(checkmate::check_list(config, any.missing = FALSE))
 
-  if (!is.null(progressor)) {
-    assert_or_abort(checkmate::check_function(progressor))
-  }
   assert_or_abort(checkmate::check_character(
     config$column_order,
     any.missing = FALSE,
@@ -139,9 +130,6 @@ reshape_to_long <- function(df, config) {
   assert_or_abort(checkmate::check_data_frame(df))
   assert_or_abort(checkmate::check_list(config, any.missing = FALSE))
 
-  if (!is.null(progressor)) {
-    assert_or_abort(checkmate::check_function(progressor))
-  }
   assert_or_abort(checkmate::check_character(
     config$column_id,
     any.missing = FALSE,
@@ -192,9 +180,6 @@ add_metadata <- function(fao_data_long_raw, file_name, yearbook, config) {
   assert_or_abort(checkmate::check_string(yearbook, min.chars = 1))
   assert_or_abort(checkmate::check_list(config, any.missing = FALSE))
 
-  if (!is.null(progressor)) {
-    assert_or_abort(checkmate::check_function(progressor))
-  }
   assert_or_abort(checkmate::check_list(config$defaults, any.missing = FALSE))
   assert_or_abort(checkmate::check_character(config$defaults$notes_value, len = 1))
 
@@ -226,10 +211,6 @@ transform_file_dt <- function(df, file_name, yearbook, product_name, config) {
   assert_or_abort(checkmate::check_string(yearbook, min.chars = 1))
   assert_or_abort(checkmate::check_string(product_name, min.chars = 1))
   assert_or_abort(checkmate::check_list(config, any.missing = FALSE))
-
-  if (!is.null(progressor)) {
-    assert_or_abort(checkmate::check_function(progressor))
-  }
 
   df_norm <- df |>
     normalize_key_fields(product_name, config) |>
@@ -264,10 +245,6 @@ resolve_product_name <- function(file_row, config) {
     max.rows = 1
   ))
   assert_or_abort(checkmate::check_list(config, any.missing = FALSE))
-
-  if (!is.null(progressor)) {
-    assert_or_abort(checkmate::check_function(progressor))
-  }
 
   show_missing_product_metadata_warning <-
     !is.null(config$messages$show_missing_product_metadata_warning) &&
@@ -350,10 +327,6 @@ transform_single_file <- function(file_row, df_wide, config) {
   ))
   assert_or_abort(checkmate::check_data_frame(df_wide))
   assert_or_abort(checkmate::check_list(config, any.missing = FALSE))
-
-  if (!is.null(progressor)) {
-    assert_or_abort(checkmate::check_function(progressor))
-  }
 
   if (nrow(df_wide) == 0) {
     return(NULL)

@@ -150,10 +150,12 @@ write_stage_rule_template <- function(stage_name, audit_paths, overwrite = TRUE)
   checkmate::assert_flag(overwrite)
 
   template_columns <- get_stage_rule_template_columns(validated_stage_name)
-  template_data <- data.table::as.data.table(setNames(
-    replicate(length(template_columns), character(0), simplify = FALSE),
-    template_columns
-  ))
+  template_data <- data.table::data.table(
+    setNames(
+      replicate(length(template_columns), character(0), simplify = FALSE),
+      template_columns
+    )
+  )
 
   guidance_data <- data.table::data.table(
     note = c(

@@ -182,10 +182,6 @@ read_excel_sheet <- function(file_path, sheet_name, config) {
   assert_or_abort(checkmate::check_string(sheet_name, min.chars = 1))
   assert_or_abort(checkmate::check_list(config, any.missing = FALSE))
 
-  if (!is.null(progressor)) {
-    assert_or_abort(checkmate::check_function(progressor))
-  }
-
   base_cols <- config$column_required
   assert_or_abort(checkmate::check_character(
     base_cols,
@@ -263,9 +259,6 @@ read_file_sheets <- function(file_path, config) {
   assert_or_abort(checkmate::check_string(file_path, min.chars = 1))
   assert_or_abort(checkmate::check_list(config, any.missing = FALSE))
 
-  if (!is.null(progressor)) {
-    assert_or_abort(checkmate::check_function(progressor))
-  }
   assert_or_abort(checkmate::check_character(
     config$column_required,
     any.missing = FALSE,
