@@ -136,6 +136,7 @@ normalize_pipeline_read_result <- function(read_result) {
 #' @examples
 #' compute_non_empty_base_rows(data.frame(country = c("a", "")), "country")
 compute_non_empty_base_rows <- function(read_dt, base_cols) {
+  ensure_data_table(read_dt)
   base_subset_dt <- read_dt[, ..base_cols]
   non_empty_matrix <- !is.na(base_subset_dt) & trimws(as.matrix(base_subset_dt)) != ""
 
