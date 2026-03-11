@@ -1,15 +1,15 @@
 # script: file input-output script
 # description: discover all .xlsx files, validate file names,
-# and extract product/yearbook metadata in a tidy, vectorized style
+# and extract product/yearbook metadata in a vectorized data.table style
 
 #' @title build empty file metadata table
-#' @description create a zero-row metadata tibble with the stable schema used by
+#' @description create a zero-row data.table with the stable schema used by
 #' file discovery helpers.
-#' @return a zero-row tibble with columns `file_path`, `file_name`, `product`,
-#' `yearbook`, `is_ascii`, and `error_message`.
-#' @importFrom tibble tibble
+#' @return a zero-row data.table with columns `file_path`, `file_name`,
+#' `product`, `yearbook`, `is_ascii`, and `error_message`.
+#' @importFrom data.table data.table
 build_empty_file_metadata <- function() {
-  return(tibble::tibble(
+  return(data.table::data.table(
     file_path = character(),
     file_name = character(),
     product = character(),
@@ -25,15 +25,12 @@ build_empty_file_metadata <- function() {
 #' names, and derives product and yearbook fields using helper parsers.
 #' @param file_paths character vector of file paths. must be non-empty and contain
 #' no missing values.
-#' @return a tibble with columns `file_path`, `file_name`, `product`, `yearbook`,
-#' `is_ascii`, and `error_message`.
+#' @return a data.table with columns `file_path`, `file_name`, `product`,
+#' `yearbook`, `is_ascii`, and `error_message`.
 #' @importFrom checkmate check_character
-#' @importFrom tibble tibble
-#' @importFrom dplyr mutate if_else select
+#' @importFrom data.table data.table
 #' @importFrom fs path_file
 #' @importFrom stringi stri_enc_isascii
-#' @importFrom stringr str_split
-#' @importFrom purrr map_chr
 #' @examples
 #' file_paths_example <- c(
 #'   "1-import/10-raw_imports/crops_2020_sample.xlsx",
@@ -47,27 +44,25 @@ extract_file_metadata <- function(file_paths) {
     min.len = 1
   ))
 
-  metadata <- tibble::tibble(file_path = file_paths) |>
-    dplyr::mutate(
-      file_name = fs::path_file(file_path),
-      is_ascii = stringi::stri_enc_isascii(file_name),
-      error_message = dplyr::if_else(
-        !is_ascii,
-        paste0("non-ascii file name detected: ", file_name),
-        NA_character_
-      ),
-      name_parts = stringr::str_split(file_name, "_"),
-      yearbook = purrr::map_chr(name_parts, extract_yearbook),
-      product = purrr::map_chr(name_parts, extract_product)
-    ) |>
-    dplyr::select(
-      file_path,
-      file_name,
-      product,
-      yearbook,
-      is_ascii,
-      error_message
+  file_name <- fs::path_file(file_paths)
+  is_ascii <- stringi::stri_enc_isascii(file_name)
+
+  name_parts <- strsplit(file_name, "_", fixed = TRUE)
+  yearbook <- vapply(name_parts, extract_yearbook, character(1))
+  product <- vapply(name_parts, extract_product, character(1))
+
+  metadata <- data.table::data.table(
+    file_path = as.character(file_paths),
+    file_name = file_name,
+    product = product,
+    yearbook = yearbook,
+    is_ascii = is_ascii,
+    error_message = ifelse(
+      !is_ascii,
+      paste0("non-ascii file name detected: ", file_name),
+      NA_character_
     )
+  )
 
   return(metadata)
 }
@@ -76,10 +71,11 @@ extract_file_metadata <- function(file_paths) {
 #' @description recursively discover all xlsx files inside an import directory,
 #' validate the directory input, and return standardized metadata for each file.
 #' when no files are found, the function emits a cli warning and returns an empty
-#' metadata tibble with stable column names.
+#' metadata data.table with stable column names.
 #' @param import_folder character scalar path to an existing directory.
-#' @return a tibble with columns `file_path`, `file_name`, `product`, `yearbook`,
-#' `is_ascii`, and `error_message`. returns zero rows when no xlsx files are found.
+#' @return a data.table with columns `file_path`, `file_name`, `product`,
+#' `yearbook`, `is_ascii`, and `error_message`. returns zero rows when no xlsx
+#' files are found.
 #' @importFrom checkmate check_string check_directory_exists
 #' @importFrom fs dir_ls
 #' @importFrom cli cli_warn
@@ -119,9 +115,8 @@ discover_files <- function(import_folder) {
 #' `discover_files`.
 #' @param config named list containing `paths$data$imports$raw` as a character
 #' scalar path to an existing directory.
-#' @return a tibble with discovered file metadata from `discover_files`.
+#' @return a data.table with discovered file metadata from `discover_files`.
 #' @importFrom checkmate check_list check_string check_directory_exists
-#' @importFrom purrr pluck
 #' @importFrom cli cli_abort
 #' @examples
 #' temp_import_folder <- tempfile("imports_")
@@ -131,14 +126,7 @@ discover_files <- function(import_folder) {
 discover_pipeline_files <- function(config) {
   assert_or_abort(checkmate::check_list(config, any.missing = FALSE))
 
-  import_folder <- purrr::pluck(
-    config,
-    "paths",
-    "data",
-    "imports",
-    "raw",
-    .default = NULL
-  )
+  import_folder <- config[["paths"]][["data"]][["imports"]][["raw"]]
 
   if (is.null(import_folder)) {
     cli::cli_abort("`config$paths$data$imports$raw` must be defined.")

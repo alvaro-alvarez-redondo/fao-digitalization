@@ -58,7 +58,6 @@ validate_output_column_order <- function(config) {
 #' @return named list with `data` as a consolidated `data.table` and `warnings`
 #' as a character vector.
 #' @importFrom checkmate check_list
-#' @importFrom purrr compact map
 #' @importFrom data.table data.table rbindlist setcolorder
 #' @importFrom cli cli_warn
 #' @examples
@@ -73,9 +72,8 @@ consolidate_audited_dt <- function(dt_list, config) {
 
   column_order <- validate_output_column_order(config)
 
-  dt_items <- dt_list |>
-    purrr::compact() |>
-    purrr::map(coerce_to_data_table)
+  dt_items <- Filter(Negate(is.null), dt_list)
+  dt_items <- lapply(dt_items, coerce_to_data_table)
 
   if (length(dt_items) == 0) {
     warning_message <- "no data tables were provided for consolidation"
