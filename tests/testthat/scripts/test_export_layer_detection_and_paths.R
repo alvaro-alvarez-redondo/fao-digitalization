@@ -22,7 +22,7 @@ build_export_test_config <- function() {
 testthat::test_that("collect_layer_tables_for_export auto-detects supported layers", {
   env <- new.env(parent = emptyenv())
   env$demo_raw <- data.frame(a = 1:2)
-  env$demo_clean <- data.frame(a = 1:2)
+  env$demo_cleaned <- data.frame(a = 1:2)
   env$demo_other <- data.frame(a = 1:2)
   env$demo_wide_raw <- data.frame(a = 1:2)
 
@@ -35,17 +35,18 @@ testthat::test_that("collect_layer_tables_for_export auto-detects supported laye
 testthat::test_that("build export paths follow required naming conventions", {
   config <- build_export_test_config()
 
-  processed_path <- build_processed_export_path(config, "dataset_clean")
+  processed_path <- build_processed_export_path(config, "dataset_harmonized")
   column_lists_path <- build_column_lists_export_path(config, "country")
 
-  testthat::expect_match(basename(processed_path), "^dataset_clean\\.xlsx$")
+  testthat::expect_match(basename(processed_path), "^dataset_harmonized\\.xlsx$")
   testthat::expect_match(basename(column_lists_path), "^unique_country_list\\.xlsx$")
 })
 
 
-testthat::test_that("collect_layer_tables_for_export canonicalizes legacy names and drops post_processed", {
+testthat::test_that("collect_layer_tables_for_export rejects legacy names and drops post_processed", {
   env <- new.env(parent = emptyenv())
   env$fao_data_raw <- data.frame(a = 1:2)
+  env$fao_data_harmonized <- data.frame(a = 1:2)
   env$fao_data_clean <- data.frame(a = 1:2)
   env$fao_data_harmonize <- data.frame(a = 1:2)
   env$fao_data_standardize <- data.frame(a = 1:2)
@@ -55,9 +56,12 @@ testthat::test_that("collect_layer_tables_for_export canonicalizes legacy names 
 
   testthat::expect_setequal(
     names(layer_tables),
-    c("fao_data_raw", "fao_data_cleaned", "fao_data_harmonized", "fao_data_normalized")
+    c("fao_data_raw", "fao_data_harmonized")
   )
   testthat::expect_false("fao_data_post_processed" %in% names(layer_tables))
+  testthat::expect_false("fao_data_clean" %in% names(layer_tables))
+  testthat::expect_false("fao_data_harmonize" %in% names(layer_tables))
+  testthat::expect_false("fao_data_standardize" %in% names(layer_tables))
 })
 
 testthat::test_that("build_layer_tables_by_sheet enforces fixed sheet keys", {

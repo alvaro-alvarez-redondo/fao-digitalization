@@ -248,6 +248,7 @@ load_pipeline_config <- function(dataset_name = get_pipeline_constants()$dataset
     list_suffix = "_unique.xlsx",
     lists_to_export = fixed_export_columns,
     lists_workbook_name = "fao_unique_lists_raw",
+    export_layers = c("harmonized"),
     styles = list(
       error_highlight = list(
         fgFill = "#FFB84D",

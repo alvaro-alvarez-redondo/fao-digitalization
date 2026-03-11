@@ -1,6 +1,7 @@
 # script: 30-export_data.r
-# description: detect post-processing layer tables and export each as a
-# deterministic processed-data workbook.
+# description: detect post-processing layer tables and export the harmonized
+# layer as a deterministic processed-data workbook using a high-performance
+# C-based writer.
 
 #' @title Build processed-data export path for an object
 #' @description Resolves the processed export directory from config, ensures the
@@ -28,24 +29,6 @@ build_processed_export_path <- function(config, object_name) {
 }
 
 
-#' @title Canonicalize export object names
-#' @description Normalizes legacy/alias layer object names to canonical layer
-#' names used for deterministic export filenames.
-#' @param object_name Character scalar object name.
-#' @return Character scalar canonical object name.
-#' @importFrom checkmate assert_string
-canonicalize_layer_object_name <- function(object_name) {
-  checkmate::assert_string(object_name, min.chars = 1)
-
-  canonical_name <- object_name
-
-  canonical_name <- sub("_clean$", "_cleaned", canonical_name)
-  canonical_name <- sub("_harmonize$", "_harmonized", canonical_name)
-  canonical_name <- sub("_standardize$", "_normalized", canonical_name)
-
-  return(canonical_name)
-}
-
 #' @title Detect available layer tables for export
 #' @description Discovers available data.frame/data.table objects that end with
 #' configured layer suffixes.
@@ -61,7 +44,7 @@ canonicalize_layer_object_name <- function(object_name) {
 collect_layer_tables_for_export <- function(
   data_objects = NULL,
   env = .GlobalEnv,
-  layer_suffixes = c("raw", "cleaned", "normalized", "harmonized", "clean", "standardize", "harmonize")
+  layer_suffixes = c("raw", "cleaned", "normalized", "harmonized")
 ) {
   checkmate::assert_environment(env)
   checkmate::assert_character(layer_suffixes, min.len = 1, any.missing = FALSE, unique = TRUE)
@@ -106,60 +89,51 @@ collect_layer_tables_for_export <- function(
 
   detected_tables <- detected_tables[sort(names(detected_tables))]
 
-  canonical_names <- vapply(
-    names(detected_tables),
-    canonicalize_layer_object_name,
-    character(1)
-  )
-
-  canonical_table_list <- split(detected_tables, canonical_names)
-
-  canonical_table_list <- lapply(canonical_table_list, function(candidate_tables) {
-    return(candidate_tables[[1L]])
-  })
-
-  canonical_table_list <- canonical_table_list[
-    !grepl("_post_processed$", names(canonical_table_list))
+  detected_tables <- detected_tables[
+    !grepl("_post_processed$", names(detected_tables))
   ]
 
-  ordered_names <- sort(names(canonical_table_list))
-  canonical_table_list <- canonical_table_list[ordered_names]
+  ordered_names <- sort(names(detected_tables))
+  detected_tables <- detected_tables[ordered_names]
 
-  return(purrr::map(canonical_table_list, data.table::as.data.table))
+  return(purrr::map(detected_tables, data.table::as.data.table))
 }
 
-#' @title Write one data table to Excel
-#' @description Writes a data.table to a single-sheet workbook with fail-fast
-#' semantics.
+#' @title Write one data table to Excel (high-performance)
+#' @description Writes a data.table to a single-sheet `.xlsx` file using the
+#' C-based `writexl` engine.
 #' @param data_dt Data table to export.
 #' @param output_path Character scalar path to write.
 #' @param overwrite Logical scalar overwrite flag.
 #' @return Character scalar `output_path`.
 #' @importFrom checkmate assert_data_table assert_string assert_flag
-#' @importFrom openxlsx createWorkbook addWorksheet writeData saveWorkbook
-write_processed_table_excel <- function(data_dt, output_path, overwrite = TRUE) {
+#' @importFrom writexl write_xlsx
+write_processed_table_fast <- function(data_dt, output_path, overwrite = TRUE) {
   checkmate::assert_data_table(data_dt)
   checkmate::assert_string(output_path, min.chars = 1)
   checkmate::assert_flag(overwrite)
 
-  workbook <- openxlsx::createWorkbook()
-  openxlsx::addWorksheet(workbook, "data")
-  openxlsx::writeData(workbook, "data", data_dt)
-  openxlsx::saveWorkbook(workbook, output_path, overwrite = overwrite)
+  if (!overwrite && file.exists(output_path)) {
+    cli::cli_abort("file already exists and overwrite is disabled: {.path {output_path}}")
+  }
+
+  writexl::write_xlsx(data_dt, path = output_path)
 
   return(output_path)
 }
 
 #' @title Export processed layer tables
-#' @description Exports every detected layer table into
-#' `data/3-export/processed_data` as one workbook per object.
+#' @description Detects all layer tables for traceability, then exports only the
+#' layers listed in `config$export_config$export_layers` (default:
+#' `"harmonized"`) into `data/3-export/processed_data` using the
+#' high-performance writer.
 #' @param config Named configuration list.
 #' @param data_objects Optional named list of data.frame/data.table objects.
 #' @param overwrite Logical scalar overwrite flag.
 #' @param env Environment for automatic object detection when `data_objects` is
 #' `NULL`.
 #' @return Named character vector of processed export paths.
-#' @importFrom checkmate assert_list assert_flag assert_environment
+#' @importFrom checkmate assert_list assert_flag assert_environment assert_character
 #' @importFrom purrr imap_chr
 export_processed_data <- function(
   config,
@@ -176,10 +150,27 @@ export_processed_data <- function(
     env = env
   )
 
-  processed_paths <- purrr::imap_chr(layer_tables, function(data_dt, object_name) {
+  export_layers <- config$export_config$export_layers
+  if (is.null(export_layers)) {
+    export_layers <- c("harmonized")
+  }
+  checkmate::assert_character(export_layers, min.len = 1, any.missing = FALSE)
+
+  export_pattern <- paste0("_(", paste(export_layers, collapse = "|"), ")$")
+  export_tables <- layer_tables[grepl(export_pattern, names(layer_tables))]
+
+  if (length(export_tables) == 0L) {
+    cli::cli_abort(c(
+      "no exportable layer tables found.",
+      "i" = "detected layers: {.val {names(layer_tables)}}",
+      "x" = "config$export_config$export_layers is set to: {.val {export_layers}}"
+    ))
+  }
+
+  processed_paths <- purrr::imap_chr(export_tables, function(data_dt, object_name) {
     output_path <- build_processed_export_path(config = config, object_name = object_name)
 
-    write_processed_table_excel(
+    write_processed_table_fast(
       data_dt = data_dt,
       output_path = output_path,
       overwrite = overwrite
