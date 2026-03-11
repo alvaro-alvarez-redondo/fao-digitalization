@@ -121,7 +121,8 @@ ensure_standardize_template_exists <- function(config) {
 
     writexl::write_xlsx(
       list(units_standardization = template_dt),
-      path = template_path
+      path = template_path,
+      col_names = TRUE
     )
   }
 
