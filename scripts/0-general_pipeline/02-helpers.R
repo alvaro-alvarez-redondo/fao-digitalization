@@ -2,7 +2,6 @@
 # description: provides helper functions for validation, string normalization,
 # export path generation, and data.table coercion used across the pipeline
 
-
 #' @title Format elapsed time as a human-readable string
 #' @description Converts elapsed seconds into a concise label suitable for CLI
 #'   messages. Returns seconds, minutes+seconds, or hours+minutes depending on
@@ -22,7 +21,7 @@ format_elapsed_time <- function(elapsed_seconds) {
   }
 
   total_seconds <- as.integer(round(elapsed_seconds))
-  hours   <- total_seconds %/% 3600L
+  hours <- total_seconds %/% 3600L
   minutes <- (total_seconds %% 3600L) %/% 60L
   seconds <- total_seconds %% 60L
 
@@ -61,13 +60,11 @@ assert_or_abort <- function(check_result) {
 #' @return character vector with normalized lowercase ascii text.
 #' @importFrom stringi stri_trans_general stri_replace_all_regex stri_trim_both
 normalize_string_impl <- function(x) {
-  x <- as.character(x)
-  x <- tolower(x)
-  x <- stringi::stri_trans_general(x, "latin-ascii")
-  x <- stringi::stri_replace_all_regex(x, "[^a-z0-9 ]", " ")
-  x <- stringi::stri_replace_all_regex(x, "\\s+", " ")
-  x <- stringi::stri_trim_both(x)
-  return(x)
+  x |>
+    stringi::stri_trans_general("latin-ascii") |>
+    stringi::stri_trans_tolower() |>
+    stringi::stri_replace_all_regex("[^a-z0-9]+", " ") |>
+    stringi::stri_trim_both()
 }
 
 #' @title normalize free text into lowercase ascii
@@ -80,13 +77,12 @@ normalize_string_impl <- function(x) {
 #' @examples
 #' normalize_string("forest! data 2024")
 normalize_string <- function(string) {
-  assert_or_abort(checkmate::check_atomic(
+  checkmate::assert_atomic_vector(
     string,
     min.len = 1,
     any.missing = TRUE
-  ))
-
-  return(normalize_string_impl(string))
+  )
+  normalize_string_impl(string)
 }
 
 #' @title normalize file-friendly names
@@ -555,7 +551,12 @@ load_pipeline_checkpoint <- function(checkpoint_name, config) {
     return(NULL)
   }
 
-  checkpoint_path <- fs::path(here::here(), "data", ".checkpoints", paste0(checkpoint_name, ".rds"))
+  checkpoint_path <- fs::path(
+    here::here(),
+    "data",
+    ".checkpoints",
+    paste0(checkpoint_name, ".rds")
+  )
 
   if (!fs::file_exists(checkpoint_path)) {
     return(NULL)
