@@ -28,7 +28,7 @@ testthat::test_that("coerce_rule_schema normalizes stage-prefixed columns", {
     clean_value_source_raw = "Wheat",
     clean_column_target = "unit",
     clean_value_target_raw = "kg",
-    clean_value_target_clean = "kilogram",
+    clean_value_target = "kilogram",
     stringsAsFactors = FALSE
   )
 
@@ -40,8 +40,8 @@ testthat::test_that("coerce_rule_schema normalizes stage-prefixed columns", {
 
   testthat::expect_true(data.table::is.data.table(result))
   testthat::expect_true("column_source" %in% names(result))
-  testthat::expect_true("value_target_clean" %in% names(result))
-  testthat::expect_equal(result$value_target_clean[[1]], "kilogram")
+  testthat::expect_true("value_target" %in% names(result))
+  testthat::expect_equal(result$value_target[[1]], "kilogram")
 })
 
 testthat::test_that("coerce_rule_schema errors on missing required columns", {
@@ -67,7 +67,7 @@ testthat::test_that("coerce_rule_schema errors on duplicate columns after normal
     clean_value_source_raw = "Wheat",
     clean_column_target = "unit",
     clean_value_target_raw = "kg",
-    clean_value_target_clean = "kilogram",
+    clean_value_target = "kilogram",
     stringsAsFactors = FALSE
   )
 
@@ -131,7 +131,7 @@ testthat::test_that("validate_canonical_rules allows NA in value columns for cle
     value_source_raw = c(NA_character_, "Rice"),
     column_target = c("unit", "unit"),
     value_target_raw = c(NA_character_, "kg"),
-    value_target_clean = c(NA_character_, "kilogram")
+    value_target = c(NA_character_, "kilogram")
   )
 
   testthat::expect_invisible(
@@ -155,7 +155,7 @@ testthat::test_that("validate_canonical_rules fails for NA in structural columns
     value_source_raw = NA_character_,
     column_target = "unit",
     value_target_raw = "kg",
-    value_target_clean = "kilogram"
+    value_target = "kilogram"
   )
 
   testthat::expect_error(
@@ -180,7 +180,7 @@ testthat::test_that("validate_canonical_rules detects duplicate rule keys", {
     value_source_raw = c("Wheat", "Wheat"),
     column_target = c("unit", "unit"),
     value_target_raw = c("kg", "kg"),
-    value_target_clean = c("kilogram", "gram")
+    value_target = c("kilogram", "gram")
   )
 
   testthat::expect_error(
@@ -238,7 +238,7 @@ testthat::test_that("apply_conditional_rule_group applies clean rules", {
     value_source_raw = "Wheat",
     column_target = "unit",
     value_target_raw = "kg",
-    value_target_clean = "kilogram"
+    value_target = "kilogram"
   )
 
   result <- apply_conditional_rule_group(
@@ -269,7 +269,7 @@ testthat::test_that("apply_conditional_rule_group matches NA keys", {
     value_source_raw = NA_character_,
     column_target = "unit",
     value_target_raw = NA_character_,
-    value_target_clean = "unknown_unit"
+    value_target = "unknown_unit"
   )
 
   result <- apply_conditional_rule_group(
@@ -297,7 +297,7 @@ testthat::test_that("apply_conditional_rule_group applies empty target as NA", {
     value_source_raw = "Wheat",
     column_target = "unit",
     value_target_raw = "kg",
-    value_target_clean = ""
+    value_target = ""
   )
 
   result <- apply_conditional_rule_group(
@@ -328,7 +328,7 @@ testthat::test_that("apply_rule_payload applies multiple rule groups", {
     value_source_raw = c("Wheat", "Rice"),
     column_target = c("unit", "unit"),
     value_target_raw = c("kg", "kg"),
-    value_target_clean = c("kilogram", "gram")
+    value_target = c("kilogram", "gram")
   )
 
   result <- apply_rule_payload(

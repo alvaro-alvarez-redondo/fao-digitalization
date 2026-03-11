@@ -3,7 +3,14 @@ options(
   fao.run_clean_harmonize_pipeline.auto = FALSE
 )
 
-source(here::here("scripts", "2-post_processing_pipeline", "21-post_processing_utilities.R"), echo = FALSE)
+source(
+  here::here(
+    "scripts",
+    "2-post_processing_pipeline",
+    "21-post_processing_utilities.R"
+  ),
+  echo = FALSE
+)
 
 testthat::test_that("generate_post_processing_rule_templates writes clean and harmonize templates", {
   root_dir <- tempfile("fao-template-generation-")
@@ -31,10 +38,10 @@ testthat::test_that("generate_post_processing_rule_templates writes clean and ha
 
   testthat::expect_match(
     basename(template_paths[["clean"]]),
-    "^clean_rules_template\\.xlsx$"
+    "^clean_clean_harmonize_template\\.xlsx$"
   )
   testthat::expect_match(
     basename(template_paths[["harmonize"]]),
-    "^harmonize_rules_template\\.xlsx$"
+    "^harmonize_clean_harmonize_template\\.xlsx$"
   )
 })

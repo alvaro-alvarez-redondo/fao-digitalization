@@ -127,8 +127,8 @@ normalize_pipeline_read_result <- function(read_result) {
 
 #' @title Compute keep-row mask for required base columns
 #' @description Computes a logical vector selecting rows where at least one
-#' required base column is non-missing and non-empty using a vectorized
-#' matrix evaluation over selected base columns.
+#' required base column is non-missing and non-empty using a column-wise
+#' Reduce to avoid materializing a full matrix copy.
 #' @param read_dt data.frame or data.table containing required columns.
 #' @param base_cols character vector of required base column names.
 #' @return logical vector with one element per row in `read_dt`.
@@ -137,10 +137,15 @@ normalize_pipeline_read_result <- function(read_result) {
 #' compute_non_empty_base_rows(data.frame(country = c("a", "")), "country")
 compute_non_empty_base_rows <- function(read_dt, base_cols) {
   ensure_data_table(read_dt)
-  base_subset_dt <- read_dt[, ..base_cols]
-  non_empty_matrix <- !is.na(base_subset_dt) & trimws(as.matrix(base_subset_dt)) != ""
 
-  keep_row <- rowSums(non_empty_matrix) > 0L
+  if (length(base_cols) == 0) {
+    return(logical(nrow(read_dt)))
+  }
+
+  keep_row <- Reduce(`|`, lapply(base_cols, function(col) {
+    v <- read_dt[[col]]
+    !is.na(v) & trimws(v) != ""
+  }))
 
   return(keep_row)
 }
@@ -236,7 +241,6 @@ read_excel_sheet <- function(file_path, sheet_name, config) {
 #' @importFrom fs path_file
 #' @importFrom data.table data.table rbindlist
 #' @importFrom stringi stri_enc_isascii
-#' @importFrom purrr map
 #' @importFrom cli format_warning
 #' @examples
 #' config_example <- list(column_required = c("country", "year"))
@@ -278,17 +282,18 @@ read_file_sheets <- function(file_path, config) {
     character(0)
   }
 
-  sheets_list <- purrr::map(sheets, \(sheet_name) {
+  sheets_list <- lapply(sheets, function(sheet_name) {
     read_excel_sheet(file_path, sheet_name, config)
   })
 
-  combined_data <- sheets_list |>
-    purrr::map("data") |>
-    data.table::rbindlist(use.names = TRUE, fill = TRUE)
+  combined_data <- data.table::rbindlist(
+    lapply(sheets_list, `[[`, "data"),
+    use.names = TRUE, fill = TRUE
+  )
 
   combined_errors <- c(
     errors,
-    sheets_list |> purrr::map("errors") |> unlist(use.names = FALSE)
+    unlist(lapply(sheets_list, `[[`, "errors"), use.names = FALSE)
   )
 
   return(list(data = combined_data, errors = combined_errors))

@@ -4,37 +4,26 @@
 # audit helpers for post-processing stages.
 
 #' @title Get canonical rule columns
-#' @description Returns stage-specific canonical rule column names.
+#' @description Returns unified canonical rule column names used by both
+#' `clean` and `harmonize` post-processing stages.
 #' @param stage_name Optional character scalar stage label (`clean` or
-#' `harmonize`). When `NULL`, defaults to clean columns.
+#' `harmonize`). Accepted for backward compatibility but does not affect output.
 #' @return Character vector of canonical columns.
 #' @examples
 #' get_canonical_rule_columns("clean")
+#' get_canonical_rule_columns("harmonize")
 get_canonical_rule_columns <- function(stage_name = NULL) {
-  if (is.null(stage_name)) {
-    stage_name <- "clean"
-  }
-
-  validated_stage_name <- validate_post_processing_stage_name(stage_name)
-
-  if (identical(validated_stage_name, "harmonize")) {
-    return(c(
-      "column_source",
-      "value_source_raw",
-      "value_source_harmonize",
-      "column_target",
-      "value_target_raw",
-      "value_target_harmonize"
-    ))
+  if (!is.null(stage_name)) {
+    validate_post_processing_stage_name(stage_name)
   }
 
   return(c(
     "column_source",
     "value_source_raw",
-    "value_source_clean",
+    "value_source",
     "column_target",
     "value_target_raw",
-    "value_target_clean"
+    "value_target"
   ))
 }
 
@@ -54,37 +43,32 @@ get_post_processing_stage_names <- function() {
 #' @importFrom checkmate assert_string
 validate_post_processing_stage_name <- function(stage_name) {
   checkmate::assert_string(stage_name, min.chars = 1)
-  validated_stage_name <- match.arg(stage_name, choices = get_post_processing_stage_names())
+  validated_stage_name <- match.arg(
+    stage_name,
+    choices = get_post_processing_stage_names()
+  )
 
   return(validated_stage_name)
 }
 
 #' @title Get canonical target value column for stage
-#' @description Returns stage-specific target value column name.
+#' @description Returns unified target value column name used by both stages.
 #' @param stage_name Character scalar stage label.
 #' @return Character scalar target value column name.
 get_stage_target_value_column <- function(stage_name) {
-  validated_stage_name <- validate_post_processing_stage_name(stage_name)
+  validate_post_processing_stage_name(stage_name)
 
-  if (identical(validated_stage_name, "harmonize")) {
-    return("value_target_harmonize")
-  }
-
-  return("value_target_clean")
+  return("value_target")
 }
 
 #' @title Get canonical source value column for stage
-#' @description Returns stage-specific source value column name.
+#' @description Returns unified source value column name used by both stages.
 #' @param stage_name Character scalar stage label.
 #' @return Character scalar source value column name.
 get_stage_source_value_column <- function(stage_name) {
-  validated_stage_name <- validate_post_processing_stage_name(stage_name)
+  validate_post_processing_stage_name(stage_name)
 
-  if (identical(validated_stage_name, "harmonize")) {
-    return("value_source_harmonize")
-  }
-
-  return("value_source_clean")
+  return("value_source")
 }
 
 #' @title Get stage-specific rule template columns
@@ -105,7 +89,10 @@ get_stage_rule_template_columns <- function(stage_name) {
 #' @importFrom checkmate assert_list assert_string
 get_post_processing_audit_paths <- function(config) {
   checkmate::assert_list(config, min.len = 1)
-  checkmate::assert_string(config$paths$data$audit$audit_root_dir, min.chars = 1)
+  checkmate::assert_string(
+    config$paths$data$audit$audit_root_dir,
+    min.chars = 1
+  )
 
   audit_root_dir <- config$paths$data$audit$audit_root_dir
 
@@ -128,27 +115,36 @@ initialize_post_processing_audit_root <- function(config) {
   checkmate::assert_list(config, min.len = 1)
 
   audit_paths <- get_post_processing_audit_paths(config)
-  ensure_directories_exist(unlist(audit_paths, use.names = FALSE), recurse = TRUE)
+  ensure_directories_exist(
+    unlist(audit_paths, use.names = FALSE),
+    recurse = TRUE
+  )
 
   return(audit_paths)
 }
 
 #' @title Generate one stage rule template workbook
-#' @description Writes a deterministic template workbook with stage-prefixed
-#' rule columns and guidance under the audit template directory.
-#' @param stage_name Character scalar stage label.
+#' @description Writes a deterministic template workbook with unified rule
+#' columns and guidance under the audit template directory. Both `clean` and
+#' `harmonize` stages share the same column schema.
+#' @param stage_name Character scalar stage label (accepted for backward
+#' compatibility but column schema is stage-independent).
 #' @param audit_paths Named list from `get_post_processing_audit_paths()`.
 #' @param overwrite Logical scalar indicating whether existing template is replaced.
 #' @return Character scalar written template path.
 #' @importFrom checkmate assert_string assert_list assert_flag
 #' @importFrom writexl write_xlsx
-write_stage_rule_template <- function(stage_name, audit_paths, overwrite = TRUE) {
+write_stage_rule_template <- function(
+  stage_name,
+  audit_paths,
+  overwrite = TRUE
+) {
   validated_stage_name <- validate_post_processing_stage_name(stage_name)
   checkmate::assert_list(audit_paths, min.len = 1)
   checkmate::assert_string(audit_paths$templates_dir, min.chars = 1)
   checkmate::assert_flag(overwrite)
 
-  template_columns <- get_stage_rule_template_columns(validated_stage_name)
+  template_columns <- get_canonical_rule_columns()
   template_data <- data.table::as.data.table(setNames(
     replicate(length(template_columns), character(0), simplify = FALSE),
     template_columns
@@ -164,11 +160,11 @@ write_stage_rule_template <- function(stage_name, audit_paths, overwrite = TRUE)
 
   template_path <- fs::path(
     audit_paths$templates_dir,
-    paste0(validated_stage_name, "_rules_template.xlsx")
+    "clean_harmonize_template.xlsx"
   )
 
   writexl::write_xlsx(
-    list(rules_template = template_data, guidance = guidance_data),
+    list(clean_harmonize_template = template_data, guidance = guidance_data),
     path = template_path
   )
 
@@ -176,33 +172,27 @@ write_stage_rule_template <- function(stage_name, audit_paths, overwrite = TRUE)
 }
 
 #' @title Generate post-processing rule templates
-#' @description Writes clean and harmonize templates under `audit_root_dir/templates`.
+#' @description Writes a single unified rule template under
+#' `audit_root_dir/templates`. Both clean and harmonize stages share the same
+#' column schema; the only difference between rule files is the `clean_` or
+#' `harmonize_` filename prefix.
 #' @param config Named configuration list.
 #' @param overwrite Logical scalar indicating whether existing templates are replaced.
-#' @return Named character vector of generated template paths.
+#' @return Named character vector with `clean_harmonize_template` path.
 #' @importFrom checkmate assert_list assert_flag
 generate_post_processing_rule_templates <- function(config, overwrite = TRUE) {
   checkmate::assert_list(config, min.len = 1)
   checkmate::assert_flag(overwrite)
 
   audit_paths <- initialize_post_processing_audit_root(config)
-  stage_names <- get_post_processing_stage_names()
 
-  template_paths <- vapply(
-    stage_names,
-    function(stage_name) {
-      write_stage_rule_template(
-        stage_name = stage_name,
-        audit_paths = audit_paths,
-        overwrite = overwrite
-      )
-    },
-    character(1)
+  template_path <- write_stage_rule_template(
+    stage_name = "clean",
+    audit_paths = audit_paths,
+    overwrite = overwrite
   )
 
-  names(template_paths) <- stage_names
-
-  return(template_paths)
+  return(c(clean_harmonize_template = template_path))
 }
 
 #' @title Read rule table from csv or excel
@@ -223,7 +213,10 @@ read_rule_table <- function(file_path) {
     tolower()
 
   if (identical(file_extension, "csv")) {
-    return(readr::read_csv(file_path, show_col_types = FALSE) |> data.table::as.data.table())
+    return(
+      readr::read_csv(file_path, show_col_types = FALSE) |>
+        data.table::as.data.table()
+    )
   }
 
   if (file_extension %in% c("xlsx", "xls")) {
@@ -296,7 +289,11 @@ build_layer_diagnostics <- function(layer_name, rows_in, rows_out, audit_dt) {
   checkmate::assert_data_frame(audit_dt, min.rows = 0)
 
   audit_table <- data.table::as.data.table(audit_dt)
-  matched_count <- if (nrow(audit_table) == 0) 0L else as.integer(sum(audit_table$affected_rows))
+  matched_count <- if (nrow(audit_table) == 0) {
+    0L
+  } else {
+    as.integer(sum(audit_table$affected_rows))
+  }
 
   diagnostics <- list(
     layer_name = layer_name,

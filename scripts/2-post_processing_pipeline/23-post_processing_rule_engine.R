@@ -4,7 +4,9 @@
 # application for the clean and harmonize post-processing stages.
 
 #' @title Coerce rule schema to canonical columns
-#' @description Enforces strict stage-specific canonical schema.
+#' @description Enforces strict unified canonical schema. Strips the stage
+#' prefix (e.g. `clean_` or `harmonize_`) from column names and validates
+#' that the resulting columns match the canonical set.
 #' @param rule_dt Rule table as data.frame/data.table.
 #' @param stage_name Character scalar execution stage label.
 #' @param rule_file_id Character scalar rule file identifier.
@@ -85,11 +87,9 @@ normalize_rule_values_for_validation <- function(
   allowed_na_columns <- intersect(
     c(
       "value_source_raw",
-      "value_source_clean",
-      "value_source_harmonize",
+      "value_source",
       "value_target_raw",
-      "value_target_clean",
-      "value_target_harmonize"
+      "value_target"
     ),
     colnames(rules_dt)
   )

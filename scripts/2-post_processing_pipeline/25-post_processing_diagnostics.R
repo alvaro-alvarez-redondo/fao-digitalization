@@ -147,7 +147,7 @@ summarize_stage_rules <- function(audit_dt, stage_name) {
     "value_source_raw",
     "column_target",
     "value_target_raw",
-    "value_target_clean",
+    "value_target",
     "affected_rows"
   )
 
@@ -169,7 +169,7 @@ summarize_stage_rules <- function(audit_dt, stage_name) {
       value_source_raw = character(),
       column_target = character(),
       value_target_raw = character(),
-      value_target_clean = character(),
+      value_target = character(),
       affected_rows = integer()
     ))
   }
@@ -182,7 +182,7 @@ summarize_stage_rules <- function(audit_dt, stage_name) {
       value_source_raw,
       column_target,
       value_target_raw,
-      value_target_clean
+      value_target
     )
   ][
     order(rule_file_identifier, column_source, column_target)
@@ -196,7 +196,7 @@ summarize_stage_rules <- function(audit_dt, stage_name) {
       value_source_raw,
       column_target,
       value_target_raw,
-      value_target_clean,
+      value_target,
       affected_rows
     )
   ])

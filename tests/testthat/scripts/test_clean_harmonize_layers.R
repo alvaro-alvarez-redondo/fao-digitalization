@@ -51,7 +51,7 @@ testthat::test_that("clean and harmonize layers apply deterministic rule payload
     value_source_raw = "Wheat",
     column_target = "unit",
     value_target_raw = "kg",
-    value_target_clean = "kilogram",
+    value_target = "kilogram",
     stringsAsFactors = FALSE
   )
 
@@ -60,7 +60,7 @@ testthat::test_that("clean and harmonize layers apply deterministic rule payload
     value_source_raw = "Wheat",
     column_target = "variable",
     value_target_raw = "Prod",
-    value_target_harmonize = "Production",
+    value_target = "Production",
     stringsAsFactors = FALSE
   )
 
@@ -121,7 +121,7 @@ testthat::test_that("stage-prefixed schemas are accepted by coerce_rule_schema",
     clean_value_source_raw = "Wheat",
     clean_column_target = "unit",
     clean_value_target_raw = "kg",
-    clean_value_target_clean = "kilogram",
+    clean_value_target = "kilogram",
     stringsAsFactors = FALSE
   )
 
@@ -135,17 +135,17 @@ testthat::test_that("stage-prefixed schemas are accepted by coerce_rule_schema",
     c(
       "column_source",
       "value_source_raw",
-      "value_source_clean",
+      "value_source",
       "column_target",
       "value_target_raw",
-      "value_target_clean"
+      "value_target"
     ) %in%
       colnames(canonical_dt)
   ))
 
-  testthat::expect_equal(canonical_dt$value_target_clean[[1]], "kilogram")
-  testthat::expect_true("value_source_clean" %in% colnames(canonical_dt))
-  testthat::expect_true(is.na(canonical_dt$value_source_clean[[1]]))
+  testthat::expect_equal(canonical_dt$value_target[[1]], "kilogram")
+  testthat::expect_true("value_source" %in% colnames(canonical_dt))
+  testthat::expect_true(is.na(canonical_dt$value_source[[1]]))
 })
 
 
@@ -168,7 +168,7 @@ testthat::test_that("clean layer auto-creates missing rule-referenced columns", 
     value_source_raw = "match_me",
     column_target = "target_missing",
     value_target_raw = "before",
-    value_target_clean = "after",
+    value_target = "after",
     stringsAsFactors = FALSE
   )
 
@@ -225,10 +225,10 @@ testthat::test_that("clean stage applies optional source rewrites", {
   clean_rules <- data.frame(
     column_source = "product",
     value_source_raw = "Wheat",
-    value_source_clean = "Wheat cleaned",
+    value_source = "Wheat cleaned",
     column_target = "unit",
     value_target_raw = "kg",
-    value_target_clean = "kilogram",
+    value_target = "kilogram",
     stringsAsFactors = FALSE
   )
 
@@ -283,10 +283,10 @@ testthat::test_that("when source and target columns are identical target rewrite
   clean_rules <- data.frame(
     column_source = "product",
     value_source_raw = "Wheat",
-    value_source_clean = "Wheat source",
+    value_source = "Wheat source",
     column_target = "product",
     value_target_raw = "Wheat",
-    value_target_clean = "Wheat target",
+    value_target = "Wheat target",
     stringsAsFactors = FALSE
   )
 
@@ -339,10 +339,10 @@ testthat::test_that("harmonize stage applies optional source rewrites", {
   harmonize_rules <- data.frame(
     column_source = "variable",
     value_source_raw = "Prod",
-    value_source_harmonize = "Production",
+    value_source = "Production",
     column_target = "unit",
     value_target_raw = "kg",
-    value_target_harmonize = "kilogram",
+    value_target = "kilogram",
     stringsAsFactors = FALSE
   )
 
@@ -397,10 +397,10 @@ testthat::test_that("clean stage blank source rewrite assigns NA on matched rows
   clean_rules <- data.frame(
     column_source = "continent",
     value_source_raw = "asia",
-    value_source_clean = "",
+    value_source = "",
     column_target = "product",
     value_target_raw = "wheat",
-    value_target_clean = "asia wheat",
+    value_target = "asia wheat",
     stringsAsFactors = FALSE
   )
 

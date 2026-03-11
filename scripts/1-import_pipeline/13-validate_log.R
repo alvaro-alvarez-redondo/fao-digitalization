@@ -36,11 +36,10 @@ validate_mandatory_fields_dt <- function(dt, config) {
     dt_work[, document := "unknown_document"]
   }
 
-  dt_eval <- data.table::copy(dt_work)
-  dt_eval[, row_id := .I]
+  dt_work[, row_id := .I]
 
   missing_long <- data.table::melt(
-    dt_eval,
+    dt_work,
     id.vars = c("row_id", "document"),
     measure.vars = mandatory_cols,
     variable.name = "column_name",
@@ -61,6 +60,8 @@ validate_mandatory_fields_dt <- function(dt, config) {
   } else {
     character(0)
   }
+
+  dt_work[, row_id := NULL]
 
   return(list(errors = errors, data = dt_work))
 }

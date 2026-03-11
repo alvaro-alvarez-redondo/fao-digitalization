@@ -48,9 +48,12 @@ normalize_key_fields <- function(df, product_name, config) {
   }
 
   data_dt[, product := normalize_string_impl(product_name)]
-  data_dt[, variable := normalize_string_impl(variable)]
-  data_dt[, continent := normalize_string_impl(continent)]
-  data_dt[, country := normalize_string_impl(country)]
+
+  # normalize data-sourced text columns (product is set from file metadata above)
+  norm_cols <- c("variable", "continent", "country")
+  for (col in norm_cols) {
+    data.table::set(data_dt, j = col, value = normalize_string_impl(data_dt[[col]]))
+  }
 
   return(data_dt)
 }
@@ -301,7 +304,6 @@ transform_single_file <- function(file_row, df_wide, config) {
 #' by this function.
 #' @return list of transformed per-file results.
 #' @importFrom checkmate check_data_frame check_list check_function
-#' @importFrom purrr compact detect_index
 #' @importFrom future.apply future_lapply
 #' @examples
 #' # process_files(file_list_dt_example, read_data_list_example, config_example)
@@ -325,10 +327,13 @@ process_files <- function(file_list_dt, read_data_list, config, progressor = NUL
     ))
   }
 
-  invalid_read_data_index <- purrr::detect_index(
-    read_data_list,
-    \(x) !is.data.frame(x)
-  )
+  invalid_read_data_index <- 0L
+  for (i in seq_along(read_data_list)) {
+    if (!is.data.frame(read_data_list[[i]])) {
+      invalid_read_data_index <- i
+      break
+    }
+  }
 
   if (invalid_read_data_index > 0) {
     cli::cli_abort(c(
@@ -372,7 +377,7 @@ process_files <- function(file_list_dt, read_data_list, config, progressor = NUL
     )
   }
 
-  results <- purrr::compact(results)
+  results <- Filter(Negate(is.null), results)
 
   return(results)
 }
@@ -391,7 +396,6 @@ process_files <- function(file_list_dt, read_data_list, config, progressor = NUL
 #' @importFrom checkmate check_data_frame check_list check_function
 #' @importFrom cli cli_abort
 #' @importFrom data.table data.table rbindlist
-#' @importFrom purrr map
 #' @examples
 #' file_list_example <- data.frame(file_name = character(), yearbook = character(), product =
 #' character())
@@ -422,12 +426,12 @@ transform_files_list <- function(file_list_dt, read_data_list, config, progresso
   }
 
   transformed <- list(
-    wide_raw = results |>
-      purrr::map("wide_raw") |>
-      data.table::rbindlist(fill = TRUE),
-    long_raw = results |>
-      purrr::map("long_raw") |>
-      data.table::rbindlist(fill = TRUE)
+    wide_raw = data.table::rbindlist(
+      lapply(results, `[[`, "wide_raw"), fill = TRUE
+    ),
+    long_raw = data.table::rbindlist(
+      lapply(results, `[[`, "long_raw"), fill = TRUE
+    )
   )
 
   assert_transform_result_contract(transformed)

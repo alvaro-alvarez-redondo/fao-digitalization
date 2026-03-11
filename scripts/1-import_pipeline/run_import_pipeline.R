@@ -32,7 +32,6 @@ purrr::walk(
 #' as transformed wide `data.table`, and `diagnostics` list with
 #' `reading_errors`, `validation_errors`, and `warnings` character vectors.
 #' @importFrom checkmate assert_list assert_string assert_directory_exists assert_names assert_character assert_data_frame
-#' @importFrom purrr map
 #' @importFrom progressr with_progress progressor
 #' @importFrom cli cli_abort
 #' @examples
@@ -94,15 +93,17 @@ run_import_pipeline <- function(config) {
     )
 
     progress("Import Pipeline Progress: validating transformed records")
-    validation_results <- purrr::map(
+    validation_results <- lapply(
       validation_data_list,
-      \(document_dt) validate_long_dt(document_dt, config)
+      function(document_dt) validate_long_dt(document_dt, config)
     )
 
-    audited_dt_list <- purrr::map(validation_results, "data")
+    audited_dt_list <- lapply(validation_results, `[[`, "data")
 
-    validation_errors <- purrr::map(validation_results, "errors") |>
-      unlist(use.names = FALSE)
+    validation_errors <- unlist(
+      lapply(validation_results, `[[`, "errors"),
+      use.names = FALSE
+    )
 
     consolidated_result <- consolidate_audited_dt(audited_dt_list, config)
     checkmate::assert_names(

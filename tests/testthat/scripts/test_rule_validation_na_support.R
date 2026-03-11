@@ -36,14 +36,14 @@ testthat::test_that("validate_canonical_rules allows NA in value columns for cle
     value_source_raw = c(NA_character_, "Rice"),
     column_target = c("unit", "unit"),
     value_target_raw = c(NA_character_, "kg"),
-    value_target_clean = c(NA_character_, "kilogram")
+    value_target = c(NA_character_, "kilogram")
   )
 
   testthat::expect_invisible(
     validate_canonical_rules(
       rules_dt = rules_dt,
       dataset_dt = dataset_dt,
-      rule_file_id = "clean_rules_template.xlsx",
+      rule_file_id = "clean_clean_harmonize_template.xlsx",
       stage_name = "clean"
     )
   )
@@ -60,14 +60,14 @@ testthat::test_that("validate_canonical_rules remains fail-fast for structural r
     value_source_raw = NA_character_,
     column_target = "unit",
     value_target_raw = "kg",
-    value_target_clean = "kilogram"
+    value_target = "kilogram"
   )
 
   testthat::expect_error(
     validate_canonical_rules(
       rules_dt = rules_dt,
       dataset_dt = dataset_dt,
-      rule_file_id = "clean_rules_template.xlsx",
+      rule_file_id = "clean_clean_harmonize_template.xlsx",
       stage_name = "clean"
     ),
     regexp = "missing values in required columns"
@@ -85,7 +85,7 @@ testthat::test_that("apply_conditional_rule_group matches NA keys deterministica
     value_source_raw = NA_character_,
     column_target = "unit",
     value_target_raw = NA_character_,
-    value_target_clean = "unknown_unit"
+    value_target = "unknown_unit"
   )
 
   result <- apply_conditional_rule_group(
@@ -93,7 +93,7 @@ testthat::test_that("apply_conditional_rule_group matches NA keys deterministica
     group_rules = group_rules,
     stage_name = "clean",
     dataset_name = "demo",
-    rule_file_id = "clean_rules_template.xlsx",
+    rule_file_id = "clean_clean_harmonize_template.xlsx",
     execution_timestamp_utc = "2026-01-01T00:00:00Z"
   )
 
@@ -114,14 +114,14 @@ testthat::test_that("validate_canonical_rules allows NA in value columns for har
     value_source_raw = c(NA_character_, "Rice"),
     column_target = c("variable", "variable"),
     value_target_raw = c(NA_character_, "Prod"),
-    value_target_harmonize = c(NA_character_, "Production")
+    value_target = c(NA_character_, "Production")
   )
 
   testthat::expect_invisible(
     validate_canonical_rules(
       rules_dt = rules_dt,
       dataset_dt = dataset_dt,
-      rule_file_id = "harmonize_rules_template.xlsx",
+      rule_file_id = "harmonize_clean_harmonize_template.xlsx",
       stage_name = "harmonize"
     )
   )
@@ -139,7 +139,7 @@ testthat::test_that("empty target clean value is applied as NA_character_", {
     value_source_raw = "Wheat",
     column_target = "unit",
     value_target_raw = "kg",
-    value_target_clean = ""
+    value_target = ""
   )
 
   result <- apply_conditional_rule_group(
@@ -147,7 +147,7 @@ testthat::test_that("empty target clean value is applied as NA_character_", {
     group_rules = group_rules,
     stage_name = "clean",
     dataset_name = "demo",
-    rule_file_id = "clean_rules_template.xlsx",
+    rule_file_id = "clean_clean_harmonize_template.xlsx",
     execution_timestamp_utc = "2026-01-01T00:00:00Z"
   )
 

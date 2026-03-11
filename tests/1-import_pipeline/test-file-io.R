@@ -7,7 +7,7 @@ source(here::here("scripts", "1-import_pipeline", "10-file_io.R"), echo = FALSE)
 
 # --- build_empty_file_metadata -----------------------------------------------
 
-testthat::test_that("build_empty_file_metadata returns zero-row tibble with stable schema", {
+testthat::test_that("build_empty_file_metadata returns zero-row data.table with stable schema", {
   result <- build_empty_file_metadata()
 
   testthat::expect_true(is.data.frame(result))
