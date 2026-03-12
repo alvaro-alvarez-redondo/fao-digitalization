@@ -153,14 +153,6 @@ load_pipeline_config <- function(dataset_name = get_pipeline_constants()$dataset
     return(fs::path(project_root, ...))
   }
 
-  required_base_directories <- c(
-    build_path("data"),
-    build_path("data", "1-import")
-  )
-
-  ensure_directories_exist(required_base_directories, recurse = TRUE)
-  purrr::walk(required_base_directories, checkmate::assert_directory_exists)
-
   raw_imports_dir <- build_path("data", "1-import", "10-raw_imports")
   audit_root_dir <- build_path("data", "2-post_processing")
   audit_dir <- fs::path(audit_root_dir, "data_audit")
@@ -188,10 +180,6 @@ load_pipeline_config <- function(dataset_name = get_pipeline_constants()$dataset
       )
     )
   )
-
-  import_directories <- unlist(paths$data$imports, use.names = FALSE)
-  ensure_directories_exist(import_directories, recurse = TRUE)
-  purrr::walk(import_directories, checkmate::assert_directory_exists)
 
   files <- list(
     raw_data = "fao_data_raw.xlsx",
@@ -274,71 +262,6 @@ load_pipeline_config <- function(dataset_name = get_pipeline_constants()$dataset
     audit_columns = audit_columns,
     defaults = list(notes_value = NA_character_),
     messages = list(show_missing_product_metadata_warning = FALSE)
-  )
-
-  checkmate::assert_character(
-    config$column_order,
-    min.len = 1,
-    any.missing = FALSE
-  )
-  checkmate::assert_character(
-    config$audit_columns,
-    min.len = 1,
-    any.missing = FALSE
-  )
-
-  if (!is.null(config$audit_columns_by_type)) {
-    checkmate::assert_list(
-      config$audit_columns_by_type,
-      min.len = 1,
-      any.missing = FALSE
-    )
-    purrr::walk(config$audit_columns_by_type, \(audit_columns) {
-      checkmate::assert_character(
-        audit_columns,
-        min.len = 1,
-        any.missing = FALSE
-      )
-    })
-  }
-
-  checkmate::assert_string(
-    config$paths$data$imports$raw,
-    min.chars = 1
-  )
-  checkmate::assert_string(
-    config$paths$data$imports$standardization,
-    min.chars = 1
-  )
-  checkmate::assert_string(
-    config$paths$data$audit$audit_file_path,
-    min.chars = 1
-  )
-  checkmate::assert_string(
-    config$paths$data$audit$raw_imports_mirror_dir,
-    min.chars = 1
-  )
-  checkmate::assert_list(
-    config$export_config$styles,
-    min.len = 1,
-    any.missing = FALSE
-  )
-  checkmate::assert_list(
-    config$export_config$styles$error_highlight,
-    min.len = 1,
-    any.missing = FALSE
-  )
-  checkmate::assert_string(
-    config$export_config$styles$error_highlight$fgFill,
-    min.chars = 1
-  )
-  checkmate::assert_string(
-    config$export_config$styles$error_highlight$fontColour,
-    min.chars = 1
-  )
-  checkmate::assert_string(
-    config$export_config$styles$error_highlight$textDecoration,
-    min.chars = 1
   )
 
   return(config)
@@ -471,7 +394,7 @@ create_required_directories <- function(paths) {
   checkmate::assert_character(all_paths, any.missing = FALSE, min.len = 1)
 
   all_directories <- all_paths |>
-    purrr::map_chr(\(path_value) {
+    vapply(\(path_value) {
       path_file_name <- fs::path_file(path_value)
 
       if (grepl("\\.[a-z0-9]+$", path_file_name)) {
@@ -479,7 +402,7 @@ create_required_directories <- function(paths) {
       }
 
       path_value
-    }) |>
+    }, character(1)) |>
     unique() |>
     sort()
 

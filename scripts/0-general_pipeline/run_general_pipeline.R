@@ -11,12 +11,12 @@ if (!exists("get_pipeline_constants", mode = "function", inherits = TRUE)) {
 #' @title source general scripts
 #' @description validates a character vector of script names, resolves each
 #' script path from `scripts/0-general_pipeline`, validates file existence, sources
-#' each script, and returns sourced paths invisibly.
+#' each script, and returns sourced paths invisibly. scripts whose sentinel
+#' functions are already defined are skipped for faster repeated runs.
 #' @param script_names character vector with one or more script filenames,
 #' validated with `checkmate::assert_character(any.missing = false, min.len = 1)`.
 #' @return invisible character vector of sourced script paths.
 #' @importFrom checkmate assert_character assert_file_exists
-#' @importFrom purrr map_chr walk
 #' @importFrom here here
 #' @importFrom base source
 #' @examples
@@ -24,16 +24,30 @@ if (!exists("get_pipeline_constants", mode = "function", inherits = TRUE)) {
 source_general_scripts <- function(script_names) {
   checkmate::assert_character(script_names, any.missing = FALSE, min.len = 1)
 
-  script_paths <- script_names |>
-    purrr::map_chr(function(script_name) {
-      here::here("scripts", "0-general_pipeline", script_name)
-    })
+  # sentinel functions must match the primary export of each general script.
+  # update this mapping when script contents change.
+  sentinel_functions <- list(
+    "00-dependencies.R" = "check_dependencies",
+    "01-setup.R"        = "load_pipeline_config",
+    "02-helpers.R"      = "normalize_string"
+  )
 
-  script_paths |>
-    purrr::walk(function(script_path) {
-      checkmate::assert_file_exists(script_path)
-      source(script_path, echo = FALSE)
-    })
+  script_paths <- vapply(
+    script_names,
+    function(name) here::here("scripts", "0-general_pipeline", name),
+    character(1),
+    USE.NAMES = FALSE
+  )
+
+  for (i in seq_along(script_names)) {
+    sentinel <- sentinel_functions[[script_names[i]]]
+    if (!is.null(sentinel) &&
+        exists(sentinel, mode = "function", envir = .GlobalEnv)) {
+      next
+    }
+    checkmate::assert_file_exists(script_paths[i])
+    source(script_paths[i], echo = FALSE)
+  }
 
   return(invisible(script_paths))
 }

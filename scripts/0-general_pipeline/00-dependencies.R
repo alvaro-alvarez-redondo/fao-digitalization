@@ -73,14 +73,21 @@ check_dependencies <- function(packages) {
     min.len = 1
   ))
 
+  already_loaded <- vapply(packages, isNamespaceLoaded, logical(1))
+  candidates <- packages[!already_loaded]
+
+  if (length(candidates) == 0L) {
+    return(character(0))
+  }
+
   package_availability <- vapply(
-    packages,
+    candidates,
     FUN = requireNamespace,
     FUN.VALUE = logical(1),
     quietly = TRUE
   )
 
-  missing_packages <- unique(packages[!package_availability])
+  missing_packages <- unique(candidates[!package_availability])
 
   if (length(missing_packages) > 0) {
     cli::cli_warn(c(
@@ -115,16 +122,22 @@ load_dependencies <- function(packages) {
     min.len = 1
   ))
 
-  packages |>
-    purrr::walk(function(package_name) {
-      package_loaded <- suppressPackageStartupMessages(
-        require(package_name, character.only = TRUE, quietly = TRUE)
-      )
+  attached_packages <- sub("^package:", "", grep("^package:", search(), value = TRUE))
+  packages_to_load <- setdiff(packages, attached_packages)
 
-      if (!isTRUE(package_loaded)) {
-        cli::cli_abort("failed to attach package `{package_name}`.")
-      }
-    })
+  if (length(packages_to_load) == 0L) {
+    return(invisible(NULL))
+  }
+
+  for (package_name in packages_to_load) {
+    package_loaded <- suppressPackageStartupMessages(
+      require(package_name, character.only = TRUE, quietly = TRUE)
+    )
+
+    if (!isTRUE(package_loaded)) {
+      cli::cli_abort("failed to attach package `{package_name}`.")
+    }
+  }
 
   return(invisible(NULL))
 }
