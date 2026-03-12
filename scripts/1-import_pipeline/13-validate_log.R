@@ -11,7 +11,7 @@
 #' @return named list with `errors` as a character vector and `data` as a data
 #' table with normalized mandatory columns.
 #' @importFrom checkmate assert_data_frame assert_list assert_character
-#' @importFrom data.table as.data.table copy melt
+#' @importFrom data.table as.data.table copy
 #' @examples
 #' dt_example <- data.frame(
 #'   product = "a",
@@ -36,32 +36,29 @@ validate_mandatory_fields_dt <- function(dt, config) {
     dt_work[, document := "unknown_document"]
   }
 
-  dt_work[, row_id := .I]
-
-  missing_long <- data.table::melt(
-    dt_work,
-    id.vars = c("row_id", "document"),
-    measure.vars = mandatory_cols,
-    variable.name = "column_name",
-    value.name = "column_value",
-    variable.factor = FALSE
-  )[is.na(column_value) | column_value == ""]
-
-  errors <- if (nrow(missing_long) > 0) {
-    unique(paste0(
-      "missing mandatory value in document '",
-      missing_long$document,
-      "', row_id '",
-      missing_long$row_id,
-      "', column '",
-      missing_long$column_name,
-      "'"
-    ))
-  } else {
-    character(0)
+  error_parts <- vector("list", length(mandatory_cols))
+  for (col_idx in seq_along(mandatory_cols)) {
+    col <- mandatory_cols[[col_idx]]
+    col_values <- dt_work[[col]]
+    missing_mask <- is.na(col_values) | col_values == ""
+    if (any(missing_mask)) {
+      missing_rows <- which(missing_mask)
+      error_parts[[col_idx]] <- paste0(
+        "missing mandatory value in document '",
+        dt_work[["document"]][missing_rows],
+        "', row_id '",
+        missing_rows,
+        "', column '",
+        col,
+        "'"
+      )
+    }
   }
 
-  dt_work[, row_id := NULL]
+  errors <- unique(unlist(error_parts, use.names = FALSE))
+  if (is.null(errors)) {
+    errors <- character(0)
+  }
 
   return(list(errors = errors, data = dt_work))
 }

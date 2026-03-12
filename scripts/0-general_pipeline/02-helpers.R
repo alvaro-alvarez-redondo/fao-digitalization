@@ -60,8 +60,7 @@ assert_or_abort <- function(check_result) {
 #' @return character vector with normalized lowercase ascii text.
 #' @importFrom stringi stri_trans_general stri_replace_all_regex stri_trim_both
 normalize_string_impl <- function(x) {
-  out <- stringi::stri_trans_general(x, "latin-ascii")
-  out <- stringi::stri_trans_tolower(out)
+  out <- stringi::stri_trans_general(x, "Latin-ASCII; Lower")
   out <- stringi::stri_replace_all_regex(out, "[^a-z0-9]+", " ")
   stringi::stri_trim_both(out)
 }
