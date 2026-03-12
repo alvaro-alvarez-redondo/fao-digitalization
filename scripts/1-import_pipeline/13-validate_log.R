@@ -56,7 +56,9 @@ validate_mandatory_fields_dt <- function(dt, config) {
   }
 
   errors <- unique(unlist(error_parts, use.names = FALSE))
-  if (is.null(errors)) errors <- character(0)
+  if (is.null(errors)) {
+    errors <- character(0)
+  }
 
   return(list(errors = errors, data = dt_work))
 }

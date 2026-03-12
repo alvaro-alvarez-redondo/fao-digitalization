@@ -48,6 +48,9 @@ extract_file_metadata <- function(file_paths) {
   is_ascii <- stringi::stri_enc_isascii(file_name)
 
   name_parts <- strsplit(file_name, "_", fixed = TRUE)
+  # extract yearbook and product in a single pass over name_parts to avoid
+
+  # iterating twice (mirrors extract_yearbook / extract_product logic inline)
   metadata_pairs <- vapply(name_parts, function(parts) {
     yb <- if (length(parts) >= 4) paste(parts[2:4], collapse = "_") else NA_character_
     pr <- if (length(parts) > 6) {
