@@ -24,6 +24,8 @@ if (!exists("get_pipeline_constants", mode = "function", inherits = TRUE)) {
 source_general_scripts <- function(script_names) {
   checkmate::assert_character(script_names, any.missing = FALSE, min.len = 1)
 
+  # sentinel functions must match the primary export of each general script.
+  # update this mapping when script contents change.
   sentinel_functions <- list(
     "00-dependencies.R" = "check_dependencies",
     "01-setup.R"        = "load_pipeline_config",
@@ -40,7 +42,7 @@ source_general_scripts <- function(script_names) {
   for (i in seq_along(script_names)) {
     sentinel <- sentinel_functions[[script_names[i]]]
     if (!is.null(sentinel) &&
-        exists(sentinel, mode = "function", inherits = TRUE)) {
+        exists(sentinel, mode = "function", envir = .GlobalEnv)) {
       next
     }
     checkmate::assert_file_exists(script_paths[i])
