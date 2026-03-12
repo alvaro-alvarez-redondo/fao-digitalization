@@ -438,13 +438,17 @@ transform_files_list <- function(file_list_dt, read_data_list, config, progresso
     return(build_empty_transform_result())
   }
 
+  n_results <- length(results)
+  wide_list <- vector("list", n_results)
+  long_list <- vector("list", n_results)
+  for (i in seq_len(n_results)) {
+    wide_list[[i]] <- results[[i]][["wide_raw"]]
+    long_list[[i]] <- results[[i]][["long_raw"]]
+  }
+
   transformed <- list(
-    wide_raw = data.table::rbindlist(
-      lapply(results, `[[`, "wide_raw"), fill = TRUE
-    ),
-    long_raw = data.table::rbindlist(
-      lapply(results, `[[`, "long_raw"), fill = TRUE
-    )
+    wide_raw = data.table::rbindlist(wide_list, fill = TRUE),
+    long_raw = data.table::rbindlist(long_list, fill = TRUE)
   )
 
   assert_transform_result_contract(transformed)

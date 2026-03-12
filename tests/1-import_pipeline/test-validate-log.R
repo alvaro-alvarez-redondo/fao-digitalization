@@ -41,6 +41,48 @@ testthat::test_that("validate_mandatory_fields_dt creates missing columns", {
 })
 
 
+testthat::test_that("validate_mandatory_fields_dt detects missing values with correct error format", {
+  dt <- data.table::data.table(
+    continent = c("Asia", "", NA_character_),
+    country   = c("Japan", "France", ""),
+    product   = c("wheat", "rice", "corn"),
+    variable  = c("production", "trade", "yield"),
+    document  = c("doc.xlsx", "doc.xlsx", "doc.xlsx")
+  )
+  config <- build_test_config()
+
+  result <- validate_mandatory_fields_dt(dt, config)
+
+  testthat::expect_true(length(result$errors) > 0)
+  testthat::expect_true(any(grepl("continent", result$errors)))
+  testthat::expect_true(any(grepl("country", result$errors)))
+  testthat::expect_true(all(grepl("^missing mandatory value in document", result$errors)))
+})
+
+testthat::test_that("validate_mandatory_fields_dt adds document column when absent", {
+  dt <- data.table::data.table(
+    continent = c("Asia"),
+    country   = c("")
+  )
+  config <- build_test_config()
+
+  result <- validate_mandatory_fields_dt(dt, config)
+
+  testthat::expect_true("document" %in% names(result$data))
+  testthat::expect_equal(result$data[["document"]][1], "unknown_document")
+  testthat::expect_true(length(result$errors) > 0)
+})
+
+testthat::test_that("validate_mandatory_fields_dt does not add row_id to output", {
+  dt <- build_sample_long_dt()
+  config <- build_test_config()
+
+  result <- validate_mandatory_fields_dt(dt, config)
+
+  testthat::expect_false("row_id" %in% names(result$data))
+})
+
+
 # --- detect_duplicates_dt ---------------------------------------------------
 
 testthat::test_that("detect_duplicates_dt finds duplicate rows", {

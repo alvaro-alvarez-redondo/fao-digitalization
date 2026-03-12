@@ -40,6 +40,29 @@ testthat::test_that("extract_file_metadata extracts file names and paths", {
 })
 
 
+testthat::test_that("extract_file_metadata extracts yearbook and product in single pass", {
+  root_dir <- build_temp_dir("fao-file-io-meta-")
+  raw_dir  <- file.path(root_dir, "raw")
+  dir.create(raw_dir, recursive = TRUE)
+
+  wb <- openxlsx::createWorkbook()
+  openxlsx::addWorksheet(wb, "Sheet1")
+  openxlsx::writeData(wb, "Sheet1", data.frame(x = 1))
+  openxlsx::saveWorkbook(wb, file.path(raw_dir, "fao_yb_2020_2021_a_b_wheat.xlsx"), overwrite = TRUE)
+  openxlsx::saveWorkbook(wb, file.path(raw_dir, "fao_yb_2019_2020_c_d_rice_grain.xlsx"), overwrite = TRUE)
+
+  files <- sort(list.files(raw_dir, pattern = "\\.xlsx$", full.names = TRUE, recursive = TRUE))
+  result <- extract_file_metadata(files)
+
+  testthat::expect_true(is.data.frame(result))
+  testthat::expect_equal(nrow(result), 2L)
+  testthat::expect_true("yearbook" %in% names(result))
+  testthat::expect_true("product"  %in% names(result))
+  testthat::expect_true(all(!is.na(result$yearbook)))
+  testthat::expect_true(all(!is.na(result$product)))
+})
+
+
 # --- discover_files ----------------------------------------------------------
 
 testthat::test_that("discover_files finds xlsx files recursively", {
