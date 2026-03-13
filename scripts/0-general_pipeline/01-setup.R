@@ -37,6 +37,9 @@ get_pipeline_constants <- function() {
       post_processing = "fao.run_post_processing_pipeline.auto",
       export = "fao.run_export_pipeline.auto"
     ),
+    toggle_options = list(
+      drop_na_values = "fao.drop_na_values"
+    ),
     script_names = list(
       general = c("00-dependencies.R", "01-setup.R", "02-helpers.R"),
       pipeline_stage_runners = c(
