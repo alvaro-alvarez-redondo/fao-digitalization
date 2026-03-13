@@ -409,8 +409,8 @@ aggregate_standardized_rows <- function(dt, value_column = "value") {
   if (length(group_cols) == 0L) {
     vals <- dt[[value_column]]
     agg_val <- if (all(is.na(vals))) NA_real_ else sum(vals, na.rm = TRUE)
-    result <- data.table::data.table(x__ = agg_val)
-    data.table::setnames(result, "x__", value_column)
+    result <- data.table::data.table(agg_value_tmp_ = agg_val)
+    data.table::setnames(result, "agg_value_tmp_", value_column)
     return(result)
   }
 
@@ -424,10 +424,10 @@ aggregate_standardized_rows <- function(dt, value_column = "value") {
   # Vectorized aggregation: sum(na.rm = TRUE) for the value column.
   # All-NA groups are corrected in a second pass below.
   result <- dt[,
-    .(__agg_val__ = sum(get(value_column), na.rm = TRUE)),
+    .(agg_value_tmp_ = sum(get(value_column), na.rm = TRUE)),
     by = group_cols
   ]
-  data.table::setnames(result, "__agg_val__", value_column)
+  data.table::setnames(result, "agg_value_tmp_", value_column)
 
   if (has_na) {
     na_counts  <- dt[is.na(get(value_column)), .N, by = group_cols]
@@ -435,18 +435,18 @@ aggregate_standardized_rows <- function(dt, value_column = "value") {
     if (nrow(na_counts) > 0L) {
       total_counts <- dt[, .N, by = group_cols]
 
-      data.table::setnames(na_counts,  "N", "..na_n..")
-      data.table::setnames(total_counts, "N", "..total_n..")
+      data.table::setnames(na_counts,  "N", "na_count_tmp_")
+      data.table::setnames(total_counts, "N", "total_count_tmp_")
 
       data.table::setkeyv(na_counts,  group_cols)
       data.table::setkeyv(total_counts, group_cols)
 
       all_na_groups <- na_counts[total_counts, nomatch = 0L][
-        ..na_n.. == ..total_n..
+        na_count_tmp_ == total_count_tmp_
       ]
 
       if (nrow(all_na_groups) > 0L) {
-        all_na_groups[, c("..na_n..", "..total_n..") := NULL]
+        all_na_groups[, c("na_count_tmp_", "total_count_tmp_") := NULL]
         data.table::setkeyv(result, group_cols)
         data.table::setkeyv(all_na_groups, group_cols)
         result[all_na_groups, (value_column) := NA_real_]
