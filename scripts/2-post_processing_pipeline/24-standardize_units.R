@@ -565,37 +565,6 @@ load_units_standardization_rules <- function(config) {
   ))
 }
 
-#' @title apply units standardization mapping
-#' @description Backward-compatible wrapper around `apply_standardize_rules()`.
-#' @param mapped_dt data.table/data.frame to standardize.
-#' @param conversion_dt numeric conversion rules data.table/data.frame.
-#' @param unit_column character scalar unit column name.
-#' @param value_column character scalar numeric value column name.
-#' @param product_column character scalar product column name.
-#' @return named list with `data`, `matched_count`, and `unmatched_count`.
-#' @importFrom checkmate assert_data_frame assert_string
-#' @examples
-#' \dontrun{apply_units_standardization_mapping(mapped_dt, conversion_dt, "unit", "value", "product")}
-apply_units_standardization_mapping <- function(
-  mapped_dt,
-  conversion_dt,
-  unit_column,
-  value_column,
-  product_column
-) {
-  checkmate::assert_data_frame(conversion_dt, min.rows = 0)
-
-  prepared_rules_dt <- prepare_standardize_rules(conversion_dt)
-
-  return(apply_standardize_rules(
-    mapped_dt = mapped_dt,
-    prepared_rules_dt = prepared_rules_dt,
-    unit_column = unit_column,
-    value_column = value_column,
-    product_column = product_column
-  ))
-}
-
 #' @title run units standardization layer batch
 #' @description Orchestrates standardization rule loading, conversion execution,
 #' optional post-standardization row aggregation, and diagnostics attachment.
@@ -661,15 +630,3 @@ run_standardize_units_layer_batch <- function(
 
   return(normalized_dt)
 }
-
-# backward-compatible aliases
-run_number_standardization_layer_batch <- run_standardize_units_layer_batch
-run_number_standarization_layer_batch <- run_standardize_units_layer_batch
-run_number_harmonization_layer_batch <- run_standardize_units_layer_batch
-load_standardize_units_rules <- load_units_standardization_rules
-load_numeric_standardization_rules <- load_units_standardization_rules
-load_numeric_standarization_rules <- load_units_standardization_rules
-load_numeric_harmonization_rules <- load_units_standardization_rules
-apply_number_standardization_mapping <- apply_units_standardization_mapping
-apply_number_standarization_mapping <- apply_units_standardization_mapping
-apply_number_harmonization_mapping <- apply_units_standardization_mapping

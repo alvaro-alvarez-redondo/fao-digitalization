@@ -207,19 +207,15 @@ summarize_stage_rules <- function(audit_dt, stage_name) {
 #' audit tables.
 #' @param clean_audit_dt Clean-stage audit table.
 #' @param harmonize_audit_dt Harmonize-stage audit table.
-#' @param standardize_diagnostics Named diagnostics list for standardize layer.
-#' retained for backward compatibility.
 #' @return Named list with `clean_rule_summary` and `harmonize_rule_summary`
 #' data.tables.
-#' @importFrom checkmate assert_data_frame assert_list
+#' @importFrom checkmate assert_data_frame
 build_post_processing_diagnostics <- function(
   clean_audit_dt,
-  harmonize_audit_dt,
-  standardize_diagnostics = list()
+  harmonize_audit_dt
 ) {
   checkmate::assert_data_frame(clean_audit_dt, min.rows = 0)
   checkmate::assert_data_frame(harmonize_audit_dt, min.rows = 0)
-  checkmate::assert_list(standardize_diagnostics)
 
   clean_rule_summary <- summarize_stage_rules(clean_audit_dt, "clean")
   harmonize_rule_summary <- summarize_stage_rules(
@@ -239,34 +235,23 @@ build_post_processing_diagnostics <- function(
 #' workbook with one sheet per stage.
 #' @param clean_audit_dt Clean-stage audit table.
 #' @param harmonize_audit_dt Harmonize-stage audit table.
-#' @param standardize_diagnostics Named diagnostics list for standardize layer.
-#' retained for backward compatibility.
-#' @param dataset_name Character scalar dataset name (retained for backward compatibility).
-#' @param execution_timestamp_utc Character scalar run timestamp (retained for backward compatibility and currently unused).
 #' @param config Named configuration list.
 #' @return Named character vector containing `rule_summary` workbook path.
-#' @importFrom checkmate assert_data_frame assert_string assert_list
+#' @importFrom checkmate assert_data_frame assert_list
 #' @importFrom fs path
 #' @importFrom writexl write_xlsx
 persist_post_processing_audit <- function(
   clean_audit_dt,
   harmonize_audit_dt,
-  standardize_diagnostics,
-  dataset_name,
-  execution_timestamp_utc,
   config
 ) {
   checkmate::assert_data_frame(clean_audit_dt, min.rows = 0)
   checkmate::assert_data_frame(harmonize_audit_dt, min.rows = 0)
-  checkmate::assert_list(standardize_diagnostics)
-  checkmate::assert_string(dataset_name, min.chars = 1)
-  checkmate::assert_string(execution_timestamp_utc, min.chars = 1)
   checkmate::assert_list(config, min.len = 1)
 
   diagnostics <- build_post_processing_diagnostics(
     clean_audit_dt = clean_audit_dt,
-    harmonize_audit_dt = harmonize_audit_dt,
-    standardize_diagnostics = standardize_diagnostics
+    harmonize_audit_dt = harmonize_audit_dt
   )
 
   audit_paths <- initialize_post_processing_audit_root(config)

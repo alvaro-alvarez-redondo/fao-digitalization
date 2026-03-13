@@ -17,7 +17,7 @@ coerce_rule_schema <- function(rule_dt, stage_name, rule_file_id) {
   validated_stage_name <- validate_post_processing_stage_name(stage_name)
   checkmate::assert_string(rule_file_id, min.chars = 1)
 
-  canonical_columns <- get_canonical_rule_columns(validated_stage_name)
+  canonical_columns <- get_canonical_rule_columns()
   stage_prefix <- paste0("^", validated_stage_name, "_")
 
   canonical_dt <- data.table::as.data.table(rule_dt)
@@ -248,7 +248,7 @@ validate_canonical_rules <- function(rules_dt, dataset_dt, rule_file_id, stage_n
   checkmate::assert_string(rule_file_id, min.chars = 1)
   validated_stage_name <- validate_post_processing_stage_name(stage_name)
 
-  required_columns <- get_canonical_rule_columns(validated_stage_name)
+  required_columns <- get_canonical_rule_columns()
   missing_rule_columns <- setdiff(required_columns, colnames(rules_dt))
   if (length(missing_rule_columns) > 0) {
     cli::cli_abort(c(

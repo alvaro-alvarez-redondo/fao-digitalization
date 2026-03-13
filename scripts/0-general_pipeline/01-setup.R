@@ -35,7 +35,6 @@ get_pipeline_constants <- function() {
       general = "fao.run_general_pipeline.auto",
       import = "fao.run_import_pipeline.auto",
       post_processing = "fao.run_post_processing_pipeline.auto",
-      post_processing_legacy = "fao.run_clean_harmonize_pipeline.auto",
       export = "fao.run_export_pipeline.auto"
     ),
     script_names = list(
