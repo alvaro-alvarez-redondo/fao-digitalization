@@ -11,7 +11,6 @@ options(
   fao.run_general_pipeline.auto    = FALSE,
   fao.run_import_pipeline.auto     = FALSE,
   fao.run_post_processing_pipeline.auto = FALSE,
-  fao.run_clean_harmonize_pipeline.auto = FALSE,
   fao.run_export_pipeline.auto     = FALSE,
   fao.checkpointing.enabled        = FALSE
 )

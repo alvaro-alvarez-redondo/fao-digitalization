@@ -258,24 +258,6 @@ testthat::test_that("apply_standardize_rules errors for non-numeric values", {
 })
 
 
-# --- backward-compatible aliases ---------------------------------------------
-
-testthat::test_that("backward-compatible standardization aliases remain bound", {
-  testthat::expect_identical(
-    apply_number_standardization_mapping,
-    apply_units_standardization_mapping
-  )
-  testthat::expect_identical(
-    run_number_standardization_layer_batch,
-    run_standardize_units_layer_batch
-  )
-  testthat::expect_identical(
-    load_numeric_standardization_rules,
-    load_units_standardization_rules
-  )
-})
-
-
 # --- aggregate_standardized_rows ---------------------------------------------
 
 testthat::test_that("aggregate_standardized_rows sums duplicate groups", {
