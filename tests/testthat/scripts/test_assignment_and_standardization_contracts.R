@@ -1,6 +1,5 @@
 options(
   fao.run_post_processing_pipeline.auto = FALSE,
-  fao.run_clean_harmonize_pipeline.auto = FALSE,
   fao.run_pipeline.auto = FALSE
 )
 
@@ -148,21 +147,6 @@ testthat::test_that("apply_standardize_rules errors for non-numeric value payloa
       product_column = "product"
     ),
     "non-numeric"
-  )
-})
-
-testthat::test_that("backward-compatible standardization aliases remain bound", {
-  testthat::expect_identical(
-    apply_number_standardization_mapping,
-    apply_units_standardization_mapping
-  )
-  testthat::expect_identical(
-    run_number_standardization_layer_batch,
-    run_standardize_units_layer_batch
-  )
-  testthat::expect_identical(
-    load_numeric_standardization_rules,
-    load_units_standardization_rules
   )
 })
 

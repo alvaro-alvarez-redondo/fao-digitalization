@@ -35,8 +35,10 @@ get_pipeline_constants <- function() {
       general = "fao.run_general_pipeline.auto",
       import = "fao.run_import_pipeline.auto",
       post_processing = "fao.run_post_processing_pipeline.auto",
-      post_processing_legacy = "fao.run_clean_harmonize_pipeline.auto",
       export = "fao.run_export_pipeline.auto"
+    ),
+    toggle_options = list(
+      drop_na_values = "fao.drop_na_values"
     ),
     script_names = list(
       general = c("00-dependencies.R", "01-setup.R", "02-helpers.R"),

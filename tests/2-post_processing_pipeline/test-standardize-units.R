@@ -258,19 +258,193 @@ testthat::test_that("apply_standardize_rules errors for non-numeric values", {
 })
 
 
-# --- backward-compatible aliases ---------------------------------------------
+# --- aggregate_standardized_rows ---------------------------------------------
 
-testthat::test_that("backward-compatible standardization aliases remain bound", {
-  testthat::expect_identical(
-    apply_number_standardization_mapping,
-    apply_units_standardization_mapping
+testthat::test_that("aggregate_standardized_rows sums duplicate groups", {
+  dt <- data.table::data.table(
+    product = c("wheat", "wheat", "rice"),
+    unit = c("kg", "kg", "kg"),
+    value = c(10, 20, 5)
   )
-  testthat::expect_identical(
-    run_number_standardization_layer_batch,
-    run_standardize_units_layer_batch
+
+  result <- aggregate_standardized_rows(dt, "value")
+
+  testthat::expect_s3_class(result, "data.table")
+  testthat::expect_equal(nrow(result), 2L)
+  testthat::expect_equal(
+    result[product == "wheat"]$value,
+    30
   )
-  testthat::expect_identical(
-    load_numeric_standardization_rules,
-    load_units_standardization_rules
+  testthat::expect_equal(
+    result[product == "rice"]$value,
+    5
   )
+})
+
+testthat::test_that("aggregate_standardized_rows returns empty table unchanged", {
+  dt <- data.table::data.table(
+    product = character(0),
+    unit = character(0),
+    value = numeric(0)
+  )
+
+  result <- aggregate_standardized_rows(dt, "value")
+
+  testthat::expect_equal(nrow(result), 0L)
+  testthat::expect_identical(names(result), c("product", "unit", "value"))
+})
+
+testthat::test_that("aggregate_standardized_rows is idempotent", {
+  dt <- data.table::data.table(
+    product = c("wheat", "rice"),
+    unit = c("kg", "kg"),
+    value = c(10, 5)
+  )
+
+  result1 <- aggregate_standardized_rows(dt, "value")
+  result2 <- aggregate_standardized_rows(result1, "value")
+
+  testthat::expect_identical(result1, result2)
+})
+
+testthat::test_that("aggregate_standardized_rows handles all-NA group", {
+  dt <- data.table::data.table(
+    product = c("wheat", "wheat"),
+    unit = c("kg", "kg"),
+    value = c(NA_real_, NA_real_)
+  )
+
+  result <- aggregate_standardized_rows(dt, "value")
+
+  testthat::expect_equal(nrow(result), 1L)
+  testthat::expect_true(is.na(result$value))
+})
+
+testthat::test_that("aggregate_standardized_rows sums non-NA with partial NA", {
+  dt <- data.table::data.table(
+    product = c("wheat", "wheat"),
+    unit = c("kg", "kg"),
+    value = c(10, NA_real_)
+  )
+
+  result <- aggregate_standardized_rows(dt, "value")
+
+  testthat::expect_equal(nrow(result), 1L)
+  testthat::expect_equal(result$value, 10)
+})
+
+testthat::test_that("aggregate_standardized_rows preserves column order", {
+  dt <- data.table::data.table(
+    product = c("wheat", "wheat"),
+    value = c(10, 20),
+    unit = c("kg", "kg")
+  )
+
+  result <- aggregate_standardized_rows(dt, "value")
+
+  testthat::expect_identical(names(result), c("product", "value", "unit"))
+})
+
+testthat::test_that("aggregate_standardized_rows skips already-unique data", {
+  dt <- data.table::data.table(
+    product = c("wheat", "rice"),
+    unit = c("kg", "kg"),
+    value = c(10, 5)
+  )
+
+  result <- aggregate_standardized_rows(dt, "value")
+
+  testthat::expect_identical(result, dt)
+})
+
+testthat::test_that("aggregate_standardized_rows returns single row unchanged", {
+  dt <- data.table::data.table(
+    product = "wheat",
+    unit = "kg",
+    value = 42
+  )
+
+  result <- aggregate_standardized_rows(dt, "value")
+
+  testthat::expect_identical(result, dt)
+})
+
+testthat::test_that("aggregate_standardized_rows handles only-value-column edge case", {
+  dt <- data.table::data.table(value = c(10, 20, 30))
+
+  result <- aggregate_standardized_rows(dt, "value")
+
+  testthat::expect_equal(nrow(result), 1L)
+  testthat::expect_equal(result$value, 60)
+})
+
+testthat::test_that("aggregate_standardized_rows errors on missing value column", {
+  dt <- data.table::data.table(product = "wheat", unit = "kg")
+
+  testthat::expect_error(
+    aggregate_standardized_rows(dt, "value"),
+    "not found"
+  )
+})
+
+testthat::test_that("aggregate_standardized_rows handles mixed column types", {
+  dt <- data.table::data.table(
+    product = c("wheat", "wheat"),
+    year = as.Date(c("2020-01-01", "2020-01-01")),
+    category = factor(c("a", "a")),
+    value = c(10, 20)
+  )
+
+  result <- aggregate_standardized_rows(dt, "value")
+
+  testthat::expect_equal(nrow(result), 1L)
+  testthat::expect_equal(result$value, 30)
+  testthat::expect_s3_class(result$year, "Date")
+  testthat::expect_s3_class(result$category, "factor")
+})
+
+
+# --- attach_standardize_diagnostics aggregation fields -----------------------
+
+testthat::test_that("attach_standardize_diagnostics includes aggregation fields", {
+  dt <- data.table::data.table(product = "wheat", value = 10)
+
+  result <- attach_standardize_diagnostics(
+    standardized_dt = dt,
+    cleaned_rows_count = 5L,
+    matched_count = 3L,
+    unmatched_count = 2L,
+    rules_count = 1L,
+    rule_sources = "test.xlsx",
+    aggregation_enabled = TRUE,
+    rows_before_aggregation = 5L,
+    rows_after_aggregation = 3L
+  )
+
+  diag <- attr(result, "layer_diagnostics")$standardize_units
+
+  testthat::expect_true(diag$aggregation_enabled)
+  testthat::expect_identical(diag$rows_before_aggregation, 5L)
+  testthat::expect_identical(diag$rows_after_aggregation, 3L)
+  testthat::expect_identical(diag$collapsed_rows_count, 2L)
+  testthat::expect_identical(diag$aggregated_groups_count, 3L)
+})
+
+testthat::test_that("attach_standardize_diagnostics omits aggregation counts when disabled", {
+  dt <- data.table::data.table(product = "wheat", value = 10)
+
+  result <- attach_standardize_diagnostics(
+    standardized_dt = dt,
+    cleaned_rows_count = 1L,
+    matched_count = 1L,
+    unmatched_count = 0L,
+    rules_count = 1L,
+    rule_sources = "test.xlsx",
+    aggregation_enabled = FALSE
+  )
+
+  diag <- attr(result, "layer_diagnostics")$standardize_units
+
+  testthat::expect_false(diag$aggregation_enabled)
+  testthat::expect_null(diag$rows_before_aggregation)
 })

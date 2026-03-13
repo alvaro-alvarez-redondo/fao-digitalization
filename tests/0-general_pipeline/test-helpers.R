@@ -417,3 +417,79 @@ testthat::test_that("format_elapsed_time rejects invalid input", {
   testthat::expect_error(format_elapsed_time("10"))
   testthat::expect_error(format_elapsed_time(Inf))
 })
+
+
+# --- drop_na_value_rows ------------------------------------------------------
+
+testthat::test_that("drop_na_value_rows removes rows where value is NA", {
+  dt <- data.table::data.table(
+    country = c("Japan", "France", "Italy"),
+    value   = c("100", NA_character_, "300")
+  )
+
+  withr::with_options(list(fao.drop_na_values = TRUE), {
+    result <- drop_na_value_rows(dt)
+    testthat::expect_equal(nrow(result), 2L)
+    testthat::expect_true(all(!is.na(result$value)))
+  })
+})
+
+testthat::test_that("drop_na_value_rows skips filtering when option is FALSE", {
+  dt <- data.table::data.table(
+    country = c("Japan", "France"),
+    value   = c("100", NA_character_)
+  )
+
+  withr::with_options(list(fao.drop_na_values = FALSE), {
+    result <- drop_na_value_rows(dt)
+    testthat::expect_equal(nrow(result), 2L)
+  })
+})
+
+testthat::test_that("drop_na_value_rows defaults to TRUE when option is unset", {
+  dt <- data.table::data.table(
+    country = c("Japan", "France"),
+    value   = c("100", NA_character_)
+  )
+
+  withr::with_options(list(fao.drop_na_values = NULL), {
+    result <- drop_na_value_rows(dt)
+    testthat::expect_equal(nrow(result), 1L)
+  })
+})
+
+testthat::test_that("drop_na_value_rows returns unchanged dt when no NAs", {
+  dt <- data.table::data.table(
+    country = c("Japan", "France"),
+    value   = c("100", "200")
+  )
+
+  result <- drop_na_value_rows(dt)
+  testthat::expect_equal(nrow(result), 2L)
+})
+
+testthat::test_that("drop_na_value_rows works with custom column name", {
+  dt <- data.table::data.table(
+    country = c("Japan", "France", "Italy"),
+    amount  = c("100", NA_character_, "300")
+  )
+
+  result <- drop_na_value_rows(dt, value_column = "amount")
+  testthat::expect_equal(nrow(result), 2L)
+})
+
+testthat::test_that("drop_na_value_rows returns dt when column not found", {
+  dt <- data.table::data.table(
+    country = c("Japan", "France"),
+    value   = c("100", "200")
+  )
+
+  result <- drop_na_value_rows(dt, value_column = "nonexistent")
+  testthat::expect_equal(nrow(result), 2L)
+})
+
+testthat::test_that("drop_na_value_rows handles empty data.table", {
+  dt <- data.table::data.table(country = character(0), value = character(0))
+  result <- drop_na_value_rows(dt)
+  testthat::expect_equal(nrow(result), 0L)
+})

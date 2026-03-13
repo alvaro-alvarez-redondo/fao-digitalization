@@ -16,8 +16,8 @@ for (test_dir in test_dirs) {
   }
 }
 
-# also run legacy tests in tests/testthat/scripts/ if present
-legacy_dir <- here::here("tests", "testthat", "scripts")
-if (dir.exists(legacy_dir) && length(list.files(legacy_dir, pattern = "^test_")) > 0) {
-  testthat::test_dir(legacy_dir, reporter = "summary")
+# also run tests in tests/testthat/scripts/ if present
+additional_dir <- here::here("tests", "testthat", "scripts")
+if (dir.exists(additional_dir) && length(list.files(additional_dir, pattern = "^test_")) > 0) {
+  testthat::test_dir(additional_dir, reporter = "summary")
 }

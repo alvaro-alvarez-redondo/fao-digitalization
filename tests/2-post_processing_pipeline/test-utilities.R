@@ -14,8 +14,8 @@ source(
 
 # --- get_canonical_rule_columns ----------------------------------------------
 
-testthat::test_that("get_canonical_rule_columns returns correct columns for clean stage", {
-  result <- get_canonical_rule_columns("clean")
+testthat::test_that("get_canonical_rule_columns returns correct columns", {
+  result <- get_canonical_rule_columns()
 
   testthat::expect_true(is.character(result))
   testthat::expect_true("column_source" %in% result)
@@ -23,13 +23,6 @@ testthat::test_that("get_canonical_rule_columns returns correct columns for clea
   testthat::expect_true("column_target" %in% result)
   testthat::expect_true("value_target_raw" %in% result)
   testthat::expect_true("value_target" %in% result)
-})
-
-testthat::test_that("get_canonical_rule_columns returns same columns for harmonize stage", {
-  result <- get_canonical_rule_columns("harmonize")
-
-  testthat::expect_true("value_target" %in% result)
-  testthat::expect_identical(result, get_canonical_rule_columns("clean"))
 })
 
 

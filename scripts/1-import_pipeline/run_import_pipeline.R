@@ -113,8 +113,10 @@ run_import_pipeline <- function(config) {
     checkmate::assert_data_frame(consolidated_result$data, min.rows = 0)
     checkmate::assert_character(consolidated_result$warnings, any.missing = FALSE)
 
+    consolidated_data <- drop_na_value_rows(consolidated_result$data)
+
     list(
-      data = consolidated_result$data,
+      data = consolidated_data,
       wide_raw = transformed$wide_raw,
       diagnostics = list(
         reading_errors = read_pipeline_result$errors,

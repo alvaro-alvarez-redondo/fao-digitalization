@@ -381,6 +381,83 @@ apply_standardize_rules <- function(
   ))
 }
 
+#' @title Aggregate standardized rows
+#' @description Collapses rows where all columns except a numeric measure
+#' (`value_column`) are identical by summing the measure. Preserves column
+#' order and schema. Returns `NA` for groups where every value is `NA`;
+#' otherwise sums non-`NA` values. Idempotent: re-running on an
+#' already-unique table is a no-op.
+#' @param dt `data.table` to aggregate.
+#' @param value_column Character scalar name of the numeric column to sum.
+#' @return Aggregated `data.table` with the same column order and schema.
+#' @importFrom checkmate assert_data_table assert_string
+#' @importFrom data.table setcolorder setnames setkeyv anyDuplicated
+aggregate_standardized_rows <- function(dt, value_column = "value") {
+  checkmate::assert_data_table(dt)
+  checkmate::assert_string(value_column, min.chars = 1)
+
+  if (!value_column %in% names(dt)) {
+    cli::cli_abort("value column {.val {value_column}} not found in data")
+  }
+
+  if (nrow(dt) <= 1L) {
+    return(dt)
+  }
+
+  group_cols <- setdiff(names(dt), value_column)
+
+  if (length(group_cols) == 0L) {
+    vals <- dt[[value_column]]
+    agg_val <- if (all(is.na(vals))) NA_real_ else sum(vals, na.rm = TRUE)
+    result <- data.table::data.table(agg_value_tmp_ = agg_val)
+    data.table::setnames(result, "agg_value_tmp_", value_column)
+    return(result)
+  }
+
+  if (anyDuplicated(dt, by = group_cols) == 0L) {
+    return(dt)
+  }
+
+  original_order <- names(dt)
+  has_na <- anyNA(dt[[value_column]])
+
+  # Vectorized aggregation: sum(na.rm = TRUE) for the value column.
+  # All-NA groups are corrected in a second pass below.
+  result <- dt[,
+    .(agg_value_tmp_ = sum(get(value_column), na.rm = TRUE)),
+    by = group_cols
+  ]
+  data.table::setnames(result, "agg_value_tmp_", value_column)
+
+  if (has_na) {
+    na_counts  <- dt[is.na(get(value_column)), .N, by = group_cols]
+
+    if (nrow(na_counts) > 0L) {
+      total_counts <- dt[, .N, by = group_cols]
+
+      data.table::setnames(na_counts,  "N", "na_count_tmp_")
+      data.table::setnames(total_counts, "N", "total_count_tmp_")
+
+      data.table::setkeyv(na_counts,  group_cols)
+      data.table::setkeyv(total_counts, group_cols)
+
+      all_na_groups <- na_counts[total_counts, nomatch = 0L][
+        na_count_tmp_ == total_count_tmp_
+      ]
+
+      if (nrow(all_na_groups) > 0L) {
+        all_na_groups[, c("na_count_tmp_", "total_count_tmp_") := NULL]
+        data.table::setkeyv(result, group_cols)
+        data.table::setkeyv(all_na_groups, group_cols)
+        result[all_na_groups, (value_column) := NA_real_]
+      }
+    }
+  }
+
+  data.table::setcolorder(result, original_order)
+  return(result)
+}
+
 #' @title Attach standardize layer diagnostics
 #' @description Creates and attaches standardized diagnostics payload to the
 #' standardized dataset.
@@ -390,15 +467,22 @@ apply_standardize_rules <- function(
 #' @param unmatched_count Integer unmatched row count.
 #' @param rules_count Integer number of loaded rules.
 #' @param rule_sources Character vector of source rule files.
+#' @param aggregation_enabled Logical scalar whether aggregation was applied.
+#' @param rows_before_aggregation Integer rows before aggregation (or `NULL`).
+#' @param rows_after_aggregation Integer rows after aggregation (or `NULL`).
 #' @return data.table with `layer_diagnostics` attribute.
 #' @importFrom checkmate assert_data_frame assert_int assert_character
+#'  assert_flag
 attach_standardize_diagnostics <- function(
   standardized_dt,
   cleaned_rows_count,
   matched_count,
   unmatched_count,
   rules_count,
-  rule_sources
+  rule_sources,
+  aggregation_enabled = FALSE,
+  rows_before_aggregation = NULL,
+  rows_after_aggregation = NULL
 ) {
   checkmate::assert_data_frame(standardized_dt, min.rows = 0)
   checkmate::assert_int(cleaned_rows_count, lower = 0)
@@ -406,6 +490,7 @@ attach_standardize_diagnostics <- function(
   checkmate::assert_int(unmatched_count, lower = 0)
   checkmate::assert_int(rules_count, lower = 0)
   checkmate::assert_character(rule_sources, any.missing = FALSE)
+  checkmate::assert_flag(aggregation_enabled)
 
   diagnostics_audit_dt <- if (matched_count > 0L) {
     data.table::data.table(affected_rows = as.integer(matched_count))
@@ -423,6 +508,16 @@ attach_standardize_diagnostics <- function(
   diagnostics$unmatched_count <- as.integer(unmatched_count)
   diagnostics$applied_rules <- as.integer(rules_count)
   diagnostics$rule_sources <- unique(rule_sources)
+
+  diagnostics$aggregation_enabled <- aggregation_enabled
+  if (aggregation_enabled && !is.null(rows_before_aggregation)) {
+    diagnostics$rows_before_aggregation <- as.integer(rows_before_aggregation)
+    diagnostics$rows_after_aggregation  <- as.integer(rows_after_aggregation)
+    diagnostics$collapsed_rows_count    <- as.integer(
+      rows_before_aggregation - rows_after_aggregation
+    )
+    diagnostics$aggregated_groups_count <- as.integer(rows_after_aggregation)
+  }
 
   if (rules_count == 0L) {
     diagnostics$messages <- "no numeric standardization rules found"
@@ -470,47 +565,21 @@ load_units_standardization_rules <- function(config) {
   ))
 }
 
-#' @title apply units standardization mapping
-#' @description Backward-compatible wrapper around `apply_standardize_rules()`.
-#' @param mapped_dt data.table/data.frame to standardize.
-#' @param conversion_dt numeric conversion rules data.table/data.frame.
-#' @param unit_column character scalar unit column name.
-#' @param value_column character scalar numeric value column name.
-#' @param product_column character scalar product column name.
-#' @return named list with `data`, `matched_count`, and `unmatched_count`.
-#' @importFrom checkmate assert_data_frame assert_string
-#' @examples
-#' \dontrun{apply_units_standardization_mapping(mapped_dt, conversion_dt, "unit", "value", "product")}
-apply_units_standardization_mapping <- function(
-  mapped_dt,
-  conversion_dt,
-  unit_column,
-  value_column,
-  product_column
-) {
-  checkmate::assert_data_frame(conversion_dt, min.rows = 0)
-
-  prepared_rules_dt <- prepare_standardize_rules(conversion_dt)
-
-  return(apply_standardize_rules(
-    mapped_dt = mapped_dt,
-    prepared_rules_dt = prepared_rules_dt,
-    unit_column = unit_column,
-    value_column = value_column,
-    product_column = product_column
-  ))
-}
-
 #' @title run units standardization layer batch
 #' @description Orchestrates standardization rule loading, conversion execution,
-#' and diagnostics attachment.
+#' optional post-standardization row aggregation, and diagnostics attachment.
 #' @param cleaned_dt cleaned data.table/data.frame.
 #' @param config named configuration list.
 #' @param unit_column character scalar unit column name.
 #' @param value_column character scalar numeric value column name.
 #' @param product_column character scalar product column name.
+#' @param aggregate_after_standardize Logical scalar toggle for post-
+#' standardization row aggregation. When `TRUE` (default), rows that are
+#' identical on every column except `value_column` are collapsed by summing
+#' the numeric measure.
 #' @return standardized data.table with diagnostics attached.
 #' @importFrom checkmate assert_data_frame assert_list assert_string
+#'  assert_flag
 #' @examples
 #' \dontrun{run_units_standardization_layer_batch(cleaned_dt, config)}
 run_standardize_units_layer_batch <- function(
@@ -518,13 +587,15 @@ run_standardize_units_layer_batch <- function(
   config,
   unit_column = "unit",
   value_column = "value",
-  product_column = "product"
+  product_column = "product",
+  aggregate_after_standardize = TRUE
 ) {
   checkmate::assert_data_frame(cleaned_dt, min.rows = 0)
   checkmate::assert_list(config, min.len = 1)
   checkmate::assert_string(unit_column, min.chars = 1)
   checkmate::assert_string(value_column, min.chars = 1)
   checkmate::assert_string(product_column, min.chars = 1)
+  checkmate::assert_flag(aggregate_after_standardize)
 
   layer_payload <- load_units_standardization_rules(config)
 
@@ -536,26 +607,26 @@ run_standardize_units_layer_batch <- function(
     product_column = product_column
   )
 
+  rows_before_aggregation <- nrow(apply_result$data)
+  if (aggregate_after_standardize && rows_before_aggregation > 0L) {
+    apply_result$data <- aggregate_standardized_rows(
+      data.table::as.data.table(apply_result$data),
+      value_column = value_column
+    )
+  }
+  rows_after_aggregation <- nrow(apply_result$data)
+
   normalized_dt <- attach_standardize_diagnostics(
     standardized_dt = apply_result$data,
     cleaned_rows_count = nrow(cleaned_dt),
     matched_count = as.integer(apply_result$matched_count),
     unmatched_count = as.integer(apply_result$unmatched_count),
     rules_count = as.integer(nrow(layer_payload$layer_rules)),
-    rule_sources = as.character(layer_payload$source_path)
+    rule_sources = as.character(layer_payload$source_path),
+    aggregation_enabled = aggregate_after_standardize,
+    rows_before_aggregation = as.integer(rows_before_aggregation),
+    rows_after_aggregation = as.integer(rows_after_aggregation)
   )
 
   return(normalized_dt)
 }
-
-# backward-compatible aliases
-run_number_standardization_layer_batch <- run_standardize_units_layer_batch
-run_number_standarization_layer_batch <- run_standardize_units_layer_batch
-run_number_harmonization_layer_batch <- run_standardize_units_layer_batch
-load_standardize_units_rules <- load_units_standardization_rules
-load_numeric_standardization_rules <- load_units_standardization_rules
-load_numeric_standarization_rules <- load_units_standardization_rules
-load_numeric_harmonization_rules <- load_units_standardization_rules
-apply_number_standardization_mapping <- apply_units_standardization_mapping
-apply_number_standarization_mapping <- apply_units_standardization_mapping
-apply_number_harmonization_mapping <- apply_units_standardization_mapping

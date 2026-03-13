@@ -6,17 +6,10 @@
 #' @title Get canonical rule columns
 #' @description Returns unified canonical rule column names used by both
 #' `clean` and `harmonize` post-processing stages.
-#' @param stage_name Optional character scalar stage label (`clean` or
-#' `harmonize`). Accepted for backward compatibility but does not affect output.
 #' @return Character vector of canonical columns.
 #' @examples
-#' get_canonical_rule_columns("clean")
-#' get_canonical_rule_columns("harmonize")
-get_canonical_rule_columns <- function(stage_name = NULL) {
-  if (!is.null(stage_name)) {
-    validate_post_processing_stage_name(stage_name)
-  }
-
+#' get_canonical_rule_columns()
+get_canonical_rule_columns <- function() {
   return(c(
     "column_source",
     "value_source_raw",
@@ -71,17 +64,6 @@ get_stage_source_value_column <- function(stage_name) {
   return("value_source")
 }
 
-#' @title Get stage-specific rule template columns
-#' @description Returns canonical stage columns for template generation.
-#' @param stage_name Character scalar stage label.
-#' @return Character vector of template columns.
-#' @importFrom checkmate assert_string
-get_stage_rule_template_columns <- function(stage_name) {
-  validated_stage_name <- validate_post_processing_stage_name(stage_name)
-
-  return(get_canonical_rule_columns(validated_stage_name))
-}
-
 #' @title Get post-processing audit paths
 #' @description Resolves deterministic audit root and subdirectory paths.
 #' @param config Named configuration list.
@@ -123,23 +105,19 @@ initialize_post_processing_audit_root <- function(config) {
   return(audit_paths)
 }
 
-#' @title Generate one stage rule template workbook
+#' @title Generate unified rule template workbook
 #' @description Writes a deterministic template workbook with unified rule
 #' columns and guidance under the audit template directory. Both `clean` and
 #' `harmonize` stages share the same column schema.
-#' @param stage_name Character scalar stage label (accepted for backward
-#' compatibility but column schema is stage-independent).
 #' @param audit_paths Named list from `get_post_processing_audit_paths()`.
 #' @param overwrite Logical scalar indicating whether existing template is replaced.
 #' @return Character scalar written template path.
-#' @importFrom checkmate assert_string assert_list assert_flag
+#' @importFrom checkmate assert_list assert_flag
 #' @importFrom writexl write_xlsx
 write_stage_rule_template <- function(
-  stage_name,
   audit_paths,
   overwrite = TRUE
 ) {
-  validated_stage_name <- validate_post_processing_stage_name(stage_name)
   checkmate::assert_list(audit_paths, min.len = 1)
   checkmate::assert_string(audit_paths$templates_dir, min.chars = 1)
   checkmate::assert_flag(overwrite)
@@ -187,7 +165,6 @@ generate_post_processing_rule_templates <- function(config, overwrite = TRUE) {
   audit_paths <- initialize_post_processing_audit_root(config)
 
   template_path <- write_stage_rule_template(
-    stage_name = "clean",
     audit_paths = audit_paths,
     overwrite = overwrite
   )

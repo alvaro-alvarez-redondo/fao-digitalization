@@ -587,6 +587,44 @@ clear_pipeline_checkpoints <- function(config) {
 }
 
 
+#' @title Drop rows where value column is NA
+#' @description Removes rows from a `data.table` where the specified value
+#' column is `NA`. Controlled by the `fao.drop_na_values` option (default
+#' `TRUE`). When the option is `FALSE`, the data is returned unchanged.
+#' Reports the number of dropped rows via `cli::cli_alert_info`.
+#' @param dt `data.table` to filter.
+#' @param value_column Character scalar column name to check for `NA` values.
+#' @return Filtered `data.table` (copy when rows are dropped; original when
+#' nothing changes or the toggle is off).
+#' @importFrom checkmate assert_data_frame assert_string
+#' @importFrom cli cli_alert_info
+drop_na_value_rows <- function(dt, value_column = "value") {
+  checkmate::assert_data_frame(dt, min.rows = 0)
+  checkmate::assert_string(value_column, min.chars = 1)
+
+  if (!isTRUE(getOption("fao.drop_na_values", TRUE))) {
+    return(dt)
+  }
+
+  if (!value_column %in% colnames(dt)) {
+    return(dt)
+  }
+
+  na_mask <- is.na(dt[[value_column]])
+  n_dropped <- sum(na_mask)
+
+  if (n_dropped == 0L) {
+    return(dt)
+  }
+
+  cli::cli_alert_info(
+    "Dropped {n_dropped} row{?s} where {.field {value_column}} is NA."
+  )
+
+  return(dt[!na_mask])
+}
+
+
 #' @title Cached unzip with timestamp guard
 #' @description Extracts a `.zip` archive only when the source archive is newer
 #' than the target directory or when the target does not exist. This avoids
