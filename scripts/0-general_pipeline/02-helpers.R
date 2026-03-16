@@ -621,7 +621,7 @@ drop_na_value_rows <- function(dt, value_column = "value") {
     "Dropped {n_dropped} row{?s} where {.field {value_column}} is NA."
   )
 
-  return(dt[!na_mask])
+  return(dt[!na_mask, ])
 }
 
 

@@ -443,7 +443,7 @@ transform_files_list <- function(file_list_dt, read_data_list, config, progresso
   long_list <- vector("list", n_results)
   for (i in seq_len(n_results)) {
     wide_list[[i]] <- results[[i]][["wide_raw"]]
-    long_list[[i]] <- results[[i]][["long_raw"]]
+    long_list[[i]] <- drop_na_value_rows(results[[i]][["long_raw"]])
   }
 
   transformed <- list(
