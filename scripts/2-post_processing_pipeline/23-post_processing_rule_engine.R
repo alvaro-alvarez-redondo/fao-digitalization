@@ -664,3 +664,221 @@ apply_rule_payload <- function(
   return(list(data = current_data, audit = combined_audit))
 }
 
+#' @title Apply footnote rules via vectorized split-join-reconstruct
+#' @description Splits multi-value footnotes (separated by `;`), matches each
+#' individual footnote against a canonical rule table, applies replacements or
+#' removals, updates additional target columns, and reconstructs the footnotes
+#' column preserving original order. Fully vectorized using data.table joins.
+#' @param dataset_dt Data table containing a `footnotes` column.
+#' @param footnote_rules Canonical rule table filtered to footnote rules. Must
+#'   use the canonical schema: `column_source`, `value_source_raw`,
+#'   `value_source` (replacement), `column_target`, `value_target_raw`,
+#'   `value_target` (target update value).
+#' @param stage_name Character scalar stage label (`clean` or `harmonize`).
+#' @param dataset_name Character scalar dataset identifier.
+#' @param rule_file_id Character scalar rule file identifier.
+#' @param execution_timestamp_utc Character scalar execution timestamp.
+#' @return List with mutated `data` and `audit` table.
+#' @importFrom checkmate assert_data_table assert_data_frame assert_string
+#' @importFrom data.table data.table copy rbindlist tstrsplit setindex
+apply_footnote_rules <- function(
+  dataset_dt,
+  footnote_rules,
+  stage_name,
+  dataset_name,
+  rule_file_id,
+  execution_timestamp_utc
+) {
+  checkmate::assert_data_table(dataset_dt)
+  checkmate::assert_data_frame(footnote_rules, min.rows = 1)
+  validated_stage_name <- validate_post_processing_stage_name(stage_name)
+  checkmate::assert_string(dataset_name, min.chars = 1)
+  checkmate::assert_string(rule_file_id, min.chars = 1)
+  checkmate::assert_string(execution_timestamp_utc, min.chars = 1)
+
+  if (!("footnotes" %in% colnames(dataset_dt))) {
+    return(list(
+      data = dataset_dt,
+      audit = data.table::data.table()
+    ))
+  }
+
+  source_value_col <- get_stage_source_value_column(validated_stage_name)
+
+  # --- step 1: assign row identity -------------------------------------------
+  dataset_dt[, row_id := .I]
+
+  # --- step 2: split footnotes into long format ------------------------------
+  # extract only rows with non-NA footnotes for expansion
+  has_footnotes_mask <- !is.na(dataset_dt$footnotes) & nzchar(trimws(dataset_dt$footnotes))
+  rows_with_fn <- dataset_dt[has_footnotes_mask, .(row_id, footnotes)]
+
+  if (nrow(rows_with_fn) == 0L) {
+    dataset_dt[, row_id := NULL]
+    return(list(
+      data = dataset_dt,
+      audit = data.table::data.table()
+    ))
+  }
+
+  # split by ";" and expand to long format preserving order via footnote_index
+  fn_split <- rows_with_fn[
+    , {
+      parts <- trimws(unlist(strsplit(footnotes, ";", fixed = TRUE)))
+      .(footnote = parts, footnote_index = seq_along(parts))
+    },
+    by = row_id
+  ]
+
+  # remove empty fragments that may result from trailing ";"
+  fn_split <- fn_split[nzchar(footnote)]
+
+  # --- step 3: build rule lookup table ---------------------------------------
+  rules_dt <- data.table::as.data.table(footnote_rules)
+
+  rule_lookup <- unique(rules_dt[, .(
+    value_source_raw,
+    value_source_result = get(source_value_col),
+    match_key = encode_rule_match_key(value_source_raw)
+  )])
+
+  # normalize: empty-string replacement means removal (NA)
+  rule_lookup[
+    !is.na(value_source_result) & trimws(value_source_result) == "",
+    value_source_result := NA_character_
+  ]
+
+  data.table::setindex(rule_lookup, match_key)
+
+  # --- step 4: join footnotes with rule lookup -------------------------------
+  fn_split[, match_key := encode_rule_match_key(footnote)]
+
+  joined <- rule_lookup[fn_split, on = .(match_key)]
+
+  # compute footnote_final:
+  #   - if rule matched and value_source_result is not NA -> replacement
+  #   - if rule matched and value_source_result is NA -> removal (set to NA)
+  #   - if no rule matched (value_source_raw is NA from join) -> keep original
+  joined[, footnote_final := data.table::fifelse(
+    is.na(value_source_raw),
+    footnote,
+    value_source_result
+  )]
+
+  # --- step 5: apply column_target updates -----------------------------------
+  # build unique target updates from matched rules
+  target_rules <- unique(rules_dt[, .(
+    value_source_raw,
+    column_target,
+    value_target_result_encoded = encode_target_rule_value(value_target),
+    target_match_key = encode_rule_match_key(value_source_raw)
+  )])
+  target_rules[, value_target_result := decode_target_rule_value(value_target_result_encoded)]
+
+  # identify matched footnotes (those with a rule hit)
+  matched_fn <- joined[!is.na(value_source_raw), .(row_id, match_key)]
+  matched_fn <- unique(matched_fn)
+
+  # join matched footnotes with target rules to get all updates
+  target_updates <- target_rules[
+    matched_fn,
+    on = .(target_match_key = match_key),
+    allow.cartesian = TRUE,
+    nomatch = NULL
+  ]
+
+  # apply each unique (column_target, row_id) update
+  if (nrow(target_updates) > 0L) {
+    target_columns <- unique(target_updates$column_target)
+    target_columns <- target_columns[!is.na(target_columns) & nzchar(trimws(target_columns))]
+
+    for (tgt_col in target_columns) {
+      col_updates <- target_updates[column_target == tgt_col]
+
+      if (!(tgt_col %in% colnames(dataset_dt))) {
+        dataset_dt[, (tgt_col) := NA_character_]
+      }
+
+      # for each row, use the last matched rule value (deterministic by rule order)
+      col_updates_final <- col_updates[, .(value = value_target_result[.N]), by = row_id]
+
+      dataset_dt[
+        col_updates_final,
+        (tgt_col) := i.value,
+        on = .(row_id)
+      ]
+    }
+  }
+
+  # --- step 6: reconstruct footnotes column ----------------------------------
+  # keep only non-removed footnotes and preserve original order
+  surviving <- joined[!is.na(footnote_final), .(row_id, footnote_index, footnote_final)]
+  data.table::setorderv(surviving, c("row_id", "footnote_index"))
+
+  reconstructed <- surviving[
+    ,
+    .(footnotes_new = paste(footnote_final, collapse = "; ")),
+    by = row_id
+  ]
+
+  # rows whose footnotes were fully removed get NA
+  all_fn_rows <- unique(fn_split$row_id)
+  removed_rows <- setdiff(all_fn_rows, reconstructed$row_id)
+
+  if (length(removed_rows) > 0L) {
+    reconstructed <- data.table::rbindlist(list(
+      reconstructed,
+      data.table::data.table(
+        row_id = removed_rows,
+        footnotes_new = NA_character_
+      )
+    ), use.names = TRUE)
+  }
+
+  # update dataset footnotes column by row_id join
+  dataset_dt[reconstructed, footnotes := i.footnotes_new, on = .(row_id)]
+
+  # --- step 7: build audit records -------------------------------------------
+  audit_source <- joined[!is.na(value_source_raw)]
+
+  if (nrow(audit_source) > 0L) {
+    audit_counts <- audit_source[, .(affected_rows = .N), by = .(value_source_raw)]
+
+    audit_base <- unique(rules_dt[, .(
+      column_source,
+      value_source_raw,
+      value_source_result = get(source_value_col),
+      column_target,
+      value_target_raw,
+      value_target_result = decode_target_rule_value(
+        encode_target_rule_value(value_target)
+      )
+    )])
+
+    audit_dt <- audit_base[
+      audit_counts,
+      on = .(value_source_raw),
+      allow.cartesian = TRUE
+    ][, .(
+      dataset_name = dataset_name,
+      column_source,
+      value_source_raw,
+      value_source_result,
+      column_target,
+      value_target_raw,
+      value_target_result,
+      affected_rows = data.table::fcoalesce(affected_rows, 0L),
+      execution_timestamp_utc = execution_timestamp_utc,
+      rule_file_identifier = rule_file_id,
+      execution_stage = validated_stage_name
+    )][order(column_source, column_target, value_source_raw, value_target_raw)]
+  } else {
+    audit_dt <- data.table::data.table()
+  }
+
+  # --- step 8: cleanup temporary columns -------------------------------------
+  dataset_dt[, row_id := NULL]
+
+  return(list(data = dataset_dt, audit = audit_dt))
+}
+
