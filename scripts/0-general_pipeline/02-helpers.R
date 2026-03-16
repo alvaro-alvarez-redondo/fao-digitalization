@@ -591,13 +591,11 @@ clear_pipeline_checkpoints <- function(config) {
 #' @description Removes rows from a `data.table` where the specified value
 #' column is `NA`. Controlled by the `fao.drop_na_values` option (default
 #' `TRUE`). When the option is `FALSE`, the data is returned unchanged.
-#' Reports the number of dropped rows via `cli::cli_alert_info`.
 #' @param dt `data.table` to filter.
 #' @param value_column Character scalar column name to check for `NA` values.
 #' @return Filtered `data.table` (copy when rows are dropped; original when
 #' nothing changes or the toggle is off).
 #' @importFrom checkmate assert_data_frame assert_string
-#' @importFrom cli cli_alert_info
 drop_na_value_rows <- function(dt, value_column = "value") {
   checkmate::assert_data_frame(dt, min.rows = 0)
   checkmate::assert_string(value_column, min.chars = 1)
@@ -610,18 +608,13 @@ drop_na_value_rows <- function(dt, value_column = "value") {
     return(dt)
   }
 
-  na_mask <- is.na(dt[[value_column]])
-  n_dropped <- sum(na_mask)
+  keep_idx <- which(!is.na(dt[[value_column]]))
 
-  if (n_dropped == 0L) {
+  if (length(keep_idx) == nrow(dt)) {
     return(dt)
   }
 
-  cli::cli_alert_info(
-    "Dropped {n_dropped} row{?s} where {.field {value_column}} is NA."
-  )
-
-  return(dt[!na_mask])
+  return(dt[keep_idx, ])
 }
 
 

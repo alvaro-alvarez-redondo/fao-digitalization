@@ -493,3 +493,27 @@ testthat::test_that("drop_na_value_rows handles empty data.table", {
   result <- drop_na_value_rows(dt)
   testthat::expect_equal(nrow(result), 0L)
 })
+
+testthat::test_that("drop_na_value_rows is idempotent", {
+  dt <- data.table::data.table(
+    country = c("Japan", "France", "Italy"),
+    value   = c("100", NA_character_, "300")
+  )
+
+  first_pass  <- drop_na_value_rows(dt)
+  second_pass <- drop_na_value_rows(first_pass)
+  testthat::expect_equal(nrow(second_pass), 2L)
+  testthat::expect_identical(first_pass, second_pass)
+})
+
+testthat::test_that("drop_na_value_rows uses explicit row subsetting for data.frame input", {
+  df <- data.frame(
+    country = c("Japan", "France", "Italy"),
+    value   = c("100", NA_character_, "300"),
+    stringsAsFactors = FALSE
+  )
+
+  result <- drop_na_value_rows(df)
+  testthat::expect_equal(nrow(result), 2L)
+  testthat::expect_true(all(!is.na(result$value)))
+})

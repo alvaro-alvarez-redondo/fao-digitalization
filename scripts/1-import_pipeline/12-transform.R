@@ -110,14 +110,15 @@ convert_year_columns <- function(df, config) {
 #' reshape_to_long(df_example, config_example)
 reshape_to_long <- function(df, config) {
   column_id <- config$column_id
-  year_cols <- identify_year_columns(df, config)
+  data_dt <- ensure_data_table(df)
+  year_cols <- identify_year_columns(data_dt, config)
 
   if (length(year_cols) == 0) {
     cli::cli_abort("no year columns were identified for reshaping")
   }
 
   long_dt <- data.table::melt(
-    data = df,
+    data = data_dt,
     id.vars = column_id,
     measure.vars = year_cols,
     variable.name = "year",
@@ -130,14 +131,17 @@ reshape_to_long <- function(df, config) {
 
 #' @title add metadata
 #' @description append file-level metadata fields (`document`, `notes`,
-#' `yearbook`) to long-format data and return a data table.
-#' @param fao_data_long_raw data frame or data table in long format.
+#' `yearbook`) to long-format data using `data.table::set()` for zero-overhead
+#' column assignment.
+#' @param fao_data_long_raw data table in long format (as returned by
+#' `reshape_to_long()`).
 #' @param file_name character scalar source file name.
 #' @param yearbook character scalar yearbook label.
 #' @param config named list containing `defaults$notes_value` as a character
 #' scalar and may be `na_character_` when notes are intentionally missing.
-#' @return data table with metadata columns added.
+#' @return data table with metadata columns added (modified in place).
 #' @importFrom checkmate check_character check_data_frame check_list check_string
+#' @importFrom data.table set
 #' @examples
 #' df_example <- data.frame(country = "x", year = "2020", value = "1")
 #' config_example <- list(defaults = list(notes_value = NA_character_))
@@ -146,16 +150,17 @@ add_metadata <- function(fao_data_long_raw, file_name, yearbook, config) {
   notes_value <- config$defaults$notes_value
   data_dt <- ensure_data_table(fao_data_long_raw)
 
-  data_dt[, document := file_name]
-  data_dt[, notes := notes_value]
-  data_dt[, yearbook := yearbook]
+  data.table::set(data_dt, j = "document", value = file_name)
+  data.table::set(data_dt, j = "notes", value = notes_value)
+  data.table::set(data_dt, j = "yearbook", value = yearbook)
 
   return(data_dt)
 }
 
 #' @title transform file data table
-#' @description run normalization, year coercion, long reshaping, and metadata
-#' enrichment for one file dataset.
+#' @description run normalization, year coercion, long reshaping, metadata
+#' enrichment, and NA-value filtering for one file dataset. filtering NA rows
+#' here avoids carrying throwaway rows into downstream binding and validation.
 #' @param df data frame or data table with source observations.
 #' @param file_name character scalar source file name.
 #' @param yearbook character scalar yearbook label.
@@ -178,7 +183,8 @@ transform_file_dt <- function(df, file_name, yearbook, product_name, config) {
 
   fao_data_long_raw <- df_norm |>
     reshape_to_long(config) |>
-    add_metadata(file_name, yearbook, config)
+    add_metadata(file_name, yearbook, config) |>
+    drop_na_value_rows()
 
   transform_result <- list(wide_raw = df_norm, long_raw = fao_data_long_raw)
   assert_transform_result_contract(transform_result)
@@ -447,8 +453,8 @@ transform_files_list <- function(file_list_dt, read_data_list, config, progresso
   }
 
   transformed <- list(
-    wide_raw = data.table::rbindlist(wide_list, fill = TRUE),
-    long_raw = data.table::rbindlist(long_list, fill = TRUE)
+    wide_raw = data.table::rbindlist(wide_list, use.names = TRUE, fill = TRUE),
+    long_raw = data.table::rbindlist(long_list, use.names = TRUE, fill = TRUE)
   )
 
   assert_transform_result_contract(transformed)
