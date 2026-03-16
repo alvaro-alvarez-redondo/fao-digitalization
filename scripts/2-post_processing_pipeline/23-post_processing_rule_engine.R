@@ -678,7 +678,11 @@ apply_rule_payload <- function(
 #' @param dataset_name Character scalar dataset identifier.
 #' @param rule_file_id Character scalar rule file identifier.
 #' @param execution_timestamp_utc Character scalar execution timestamp.
-#' @return List with mutated `data` and `audit` table.
+#' @return List with `data` (mutated dataset), `audit` (rule audit table with
+#'   `value_target_result_encoded` for consistency with the canonical engine),
+#'   and `conflict_audit` (data.table of conflict records when multiple
+#'   footnotes update the same target column for a row; empty data.table if
+#'   no conflicts). Conflicts are resolved deterministically via last-rule-wins.
 #' @importFrom checkmate assert_data_table assert_data_frame assert_string
 #' @importFrom data.table data.table copy rbindlist tstrsplit setindex
 apply_footnote_rules <- function(
@@ -699,7 +703,8 @@ apply_footnote_rules <- function(
   if (!("footnotes" %in% colnames(dataset_dt))) {
     return(list(
       data = dataset_dt,
-      audit = data.table::data.table()
+      audit = data.table::data.table(),
+      conflict_audit = data.table::data.table()
     ))
   }
 
@@ -717,7 +722,8 @@ apply_footnote_rules <- function(
     dataset_dt[, row_id := NULL]
     return(list(
       data = dataset_dt,
-      audit = data.table::data.table()
+      audit = data.table::data.table(),
+      conflict_audit = data.table::data.table()
     ))
   }
 
@@ -766,12 +772,14 @@ apply_footnote_rules <- function(
   )]
 
   # --- step 5: apply column_target updates -----------------------------------
-  # build unique target updates from matched rules
+  # build target update rules including value_target_raw condition
   target_rules <- unique(rules_dt[, .(
     value_source_raw,
     column_target,
+    value_target_raw,
     value_target_result_encoded = encode_target_rule_value(value_target),
-    target_match_key = encode_rule_match_key(value_source_raw)
+    target_match_key = encode_rule_match_key(value_source_raw),
+    target_condition_key = encode_rule_match_key(value_target_raw)
   )])
   target_rules[, value_target_result := decode_target_rule_value(value_target_result_encoded)]
 
@@ -787,7 +795,88 @@ apply_footnote_rules <- function(
     nomatch = NULL
   ]
 
-  # apply each unique (column_target, row_id) update
+  # filter by value_target_raw condition: when value_target_raw is non-NA,
+  # only apply if the current dataset column value matches the condition.
+  # group by column_target to vectorize the check per target column.
+  if (nrow(target_updates) > 0L) {
+    has_condition <- !is.na(target_updates$value_target_raw)
+
+    if (any(has_condition)) {
+      cond_updates <- target_updates[has_condition]
+      uncond_updates <- target_updates[!has_condition]
+
+      # vectorized condition matching per target column group
+      cond_cols <- unique(cond_updates$column_target)
+      passing_list <- vector("list", length(cond_cols))
+
+      for (ci in seq_along(cond_cols)) {
+        tgt_col_name <- cond_cols[[ci]]
+        col_subset <- cond_updates[column_target == tgt_col_name]
+
+        if (tgt_col_name %in% colnames(dataset_dt)) {
+          # build lookup of current values by row_id for vectorized matching
+          current_vals <- dataset_dt[
+            col_subset[, .(row_id)],
+            .(row_id, current_key = encode_rule_match_key(get(tgt_col_name))),
+            on = .(row_id)
+          ]
+
+          col_subset[current_vals, current_key := i.current_key, on = .(row_id)]
+          passing_list[[ci]] <- col_subset[current_key == target_condition_key]
+        }
+        # if column doesn't exist, no updates pass (list element stays NULL)
+      }
+
+      passing_cond <- data.table::rbindlist(passing_list, use.names = TRUE, fill = TRUE)
+      # drop helper column
+      if ("current_key" %in% colnames(passing_cond)) {
+        passing_cond[, current_key := NULL]
+      }
+      if ("current_key" %in% colnames(uncond_updates)) {
+        uncond_updates[, current_key := NULL]
+      }
+
+      target_updates <- data.table::rbindlist(
+        list(uncond_updates, passing_cond),
+        use.names = TRUE,
+        fill = TRUE
+      )
+    }
+  }
+
+  # detect conflicting updates: multiple footnotes updating same target column
+  # for the same row with different values
+  conflict_audit <- data.table::data.table()
+
+  if (nrow(target_updates) > 0L) {
+    conflict_check <- target_updates[
+      ,
+      .(
+        n_distinct_values = data.table::uniqueN(value_target_result_encoded),
+        conflicting_sources = paste(unique(value_source_raw), collapse = "; ")
+      ),
+      by = .(row_id, column_target)
+    ]
+
+    conflicts <- conflict_check[n_distinct_values > 1L]
+
+    if (nrow(conflicts) > 0L) {
+      # build conflict audit records for diagnostics
+      conflict_audit <- conflicts[, .(
+        dataset_name = dataset_name,
+        column_target,
+        row_id,
+        conflict_type = "footnote_target_conflict",
+        conflicting_sources,
+        resolution = "last_rule_wins",
+        execution_timestamp_utc = execution_timestamp_utc,
+        rule_file_identifier = rule_file_id,
+        execution_stage = validated_stage_name
+      )]
+    }
+  }
+
+  # apply each unique (column_target, row_id) update with last-rule-wins
   if (nrow(target_updates) > 0L) {
     target_columns <- unique(target_updates$column_target)
     target_columns <- target_columns[!is.na(target_columns) & nzchar(target_columns)]
@@ -799,7 +888,7 @@ apply_footnote_rules <- function(
         dataset_dt[, (tgt_col) := NA_character_]
       }
 
-      # for each row, use the last matched rule value (deterministic by rule order)
+      # deterministic resolution: last matched rule wins per row
       col_updates_final <- col_updates[, .(value = value_target_result[.N]), by = row_id]
 
       dataset_dt[
@@ -850,6 +939,7 @@ apply_footnote_rules <- function(
       value_source_result = get(source_value_col),
       column_target,
       value_target_raw,
+      value_target_result_encoded = encode_target_rule_value(value_target),
       value_target_result = decode_target_rule_value(
         encode_target_rule_value(value_target)
       )
@@ -866,6 +956,7 @@ apply_footnote_rules <- function(
       value_source_result,
       column_target,
       value_target_raw,
+      value_target_result_encoded,
       value_target_result,
       affected_rows = data.table::fcoalesce(affected_rows, 0L),
       execution_timestamp_utc = execution_timestamp_utc,
@@ -879,6 +970,10 @@ apply_footnote_rules <- function(
   # --- step 8: cleanup temporary columns -------------------------------------
   dataset_dt[, row_id := NULL]
 
-  return(list(data = dataset_dt, audit = audit_dt))
+  return(list(
+    data = dataset_dt,
+    audit = audit_dt,
+    conflict_audit = conflict_audit
+  ))
 }
 

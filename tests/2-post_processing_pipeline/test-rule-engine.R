@@ -692,3 +692,164 @@ testthat::test_that("apply_footnote_rules works with harmonize stage", {
   testthat::expect_equal(result$data$footnotes[[1]], "northern")
   testthat::expect_equal(result$data$country[[1]], "spain: north")
 })
+
+testthat::test_that("apply_footnote_rules detects conflicting target updates from multiple footnotes", {
+  dataset_dt <- data.table::data.table(
+    product = "Wheat",
+    footnotes = "north; south",
+    country = "spain"
+  )
+
+  # two footnotes both want to update "country" with different values
+  footnote_rules <- data.table::data.table(
+    column_source = c("footnotes", "footnotes"),
+    value_source_raw = c("north", "south"),
+    value_source = c("northern region", "southern region"),
+    column_target = c("country", "country"),
+    value_target_raw = c(NA_character_, NA_character_),
+    value_target = c("spain: north", "spain: south")
+  )
+
+  result <- apply_footnote_rules(
+    dataset_dt = dataset_dt,
+    footnote_rules = footnote_rules,
+    stage_name = "clean",
+    dataset_name = "demo",
+    rule_file_id = "test.xlsx",
+    execution_timestamp_utc = "2026-01-01T00:00:00Z"
+  )
+
+  # conflict_audit should report the conflict
+  testthat::expect_true(nrow(result$conflict_audit) >= 1L)
+  testthat::expect_true("footnote_target_conflict" %in% result$conflict_audit$conflict_type)
+  testthat::expect_true("last_rule_wins" %in% result$conflict_audit$resolution)
+
+  # deterministic resolution: last rule wins ("south" rule is last)
+  testthat::expect_equal(result$data$country[[1]], "spain: south")
+
+  # both footnotes are replaced in the footnotes column
+  testthat::expect_equal(
+    result$data$footnotes[[1]],
+    "northern region; southern region"
+  )
+})
+
+testthat::test_that("apply_footnote_rules filters target updates by value_target_raw condition", {
+  dataset_dt <- data.table::data.table(
+    product = "Wheat",
+    footnotes = "north",
+    country = "spain"
+  )
+
+  # rule has condition: only update country if current value is "france"
+  footnote_rules <- data.table::data.table(
+    column_source = "footnotes",
+    value_source_raw = "north",
+    value_source = "northern region",
+    column_target = "country",
+    value_target_raw = "france",
+    value_target = "france: north"
+  )
+
+  result <- apply_footnote_rules(
+    dataset_dt = dataset_dt,
+    footnote_rules = footnote_rules,
+    stage_name = "clean",
+    dataset_name = "demo",
+    rule_file_id = "test.xlsx",
+    execution_timestamp_utc = "2026-01-01T00:00:00Z"
+  )
+
+  # footnote is still replaced in the source column
+  testthat::expect_equal(result$data$footnotes[[1]], "northern region")
+  # target column NOT updated because condition "france" != current "spain"
+  testthat::expect_equal(result$data$country[[1]], "spain")
+})
+
+testthat::test_that("apply_footnote_rules applies target update when value_target_raw condition matches", {
+  dataset_dt <- data.table::data.table(
+    product = "Wheat",
+    footnotes = "north",
+    country = "spain"
+  )
+
+  # rule condition matches: update country when current is "spain"
+  footnote_rules <- data.table::data.table(
+    column_source = "footnotes",
+    value_source_raw = "north",
+    value_source = "northern region",
+    column_target = "country",
+    value_target_raw = "spain",
+    value_target = "spain: north"
+  )
+
+  result <- apply_footnote_rules(
+    dataset_dt = dataset_dt,
+    footnote_rules = footnote_rules,
+    stage_name = "clean",
+    dataset_name = "demo",
+    rule_file_id = "test.xlsx",
+    execution_timestamp_utc = "2026-01-01T00:00:00Z"
+  )
+
+  testthat::expect_equal(result$data$footnotes[[1]], "northern region")
+  testthat::expect_equal(result$data$country[[1]], "spain: north")
+})
+
+testthat::test_that("apply_footnote_rules audit includes value_target_result_encoded", {
+  dataset_dt <- data.table::data.table(
+    product = "Wheat",
+    footnotes = "north",
+    country = "spain"
+  )
+
+  footnote_rules <- data.table::data.table(
+    column_source = "footnotes",
+    value_source_raw = "north",
+    value_source = "northern region",
+    column_target = "country",
+    value_target_raw = NA_character_,
+    value_target = "spain: north"
+  )
+
+  result <- apply_footnote_rules(
+    dataset_dt = dataset_dt,
+    footnote_rules = footnote_rules,
+    stage_name = "clean",
+    dataset_name = "demo",
+    rule_file_id = "test.xlsx",
+    execution_timestamp_utc = "2026-01-01T00:00:00Z"
+  )
+
+  testthat::expect_true("value_target_result_encoded" %in% colnames(result$audit))
+  testthat::expect_true(nrow(result$audit) >= 1L)
+})
+
+testthat::test_that("apply_footnote_rules returns conflict_audit in all return paths", {
+  # test with no footnotes column
+  dataset_dt <- data.table::data.table(
+    product = "Wheat",
+    country = "spain"
+  )
+
+  footnote_rules <- data.table::data.table(
+    column_source = "footnotes",
+    value_source_raw = "north",
+    value_source = "replaced",
+    column_target = "country",
+    value_target_raw = NA_character_,
+    value_target = "spain: north"
+  )
+
+  result <- apply_footnote_rules(
+    dataset_dt = dataset_dt,
+    footnote_rules = footnote_rules,
+    stage_name = "clean",
+    dataset_name = "demo",
+    rule_file_id = "test.xlsx",
+    execution_timestamp_utc = "2026-01-01T00:00:00Z"
+  )
+
+  testthat::expect_true("conflict_audit" %in% names(result))
+  testthat::expect_equal(nrow(result$conflict_audit), 0L)
+})
