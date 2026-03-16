@@ -150,10 +150,9 @@ add_metadata <- function(fao_data_long_raw, file_name, yearbook, config) {
   notes_value <- config$defaults$notes_value
   data_dt <- ensure_data_table(fao_data_long_raw)
 
-  n <- nrow(data_dt)
-  data.table::set(data_dt, j = "document", value = rep_len(file_name, n))
-  data.table::set(data_dt, j = "notes", value = rep_len(notes_value, n))
-  data.table::set(data_dt, j = "yearbook", value = rep_len(yearbook, n))
+  data.table::set(data_dt, j = "document", value = file_name)
+  data.table::set(data_dt, j = "notes", value = notes_value)
+  data.table::set(data_dt, j = "yearbook", value = yearbook)
 
   return(data_dt)
 }
