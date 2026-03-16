@@ -790,7 +790,7 @@ apply_footnote_rules <- function(
   # apply each unique (column_target, row_id) update
   if (nrow(target_updates) > 0L) {
     target_columns <- unique(target_updates$column_target)
-    target_columns <- target_columns[!is.na(target_columns) & nzchar(trimws(target_columns))]
+    target_columns <- target_columns[!is.na(target_columns) & nzchar(target_columns)]
 
     for (tgt_col in target_columns) {
       col_updates <- target_updates[column_target == tgt_col]
