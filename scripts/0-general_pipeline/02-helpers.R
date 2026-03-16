@@ -610,8 +610,8 @@ drop_na_value_rows <- function(dt, value_column = "value") {
     return(dt)
   }
 
-  na_mask <- is.na(dt[[value_column]])
-  n_dropped <- sum(na_mask)
+  keep_idx <- which(!is.na(dt[[value_column]]))
+  n_dropped <- nrow(dt) - length(keep_idx)
 
   if (n_dropped == 0L) {
     return(dt)
@@ -621,7 +621,7 @@ drop_na_value_rows <- function(dt, value_column = "value") {
     "Dropped {n_dropped} row{?s} where {.field {value_column}} is NA."
   )
 
-  return(dt[!na_mask, ])
+  return(dt[keep_idx, ])
 }
 
 

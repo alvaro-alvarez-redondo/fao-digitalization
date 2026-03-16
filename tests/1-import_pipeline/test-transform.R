@@ -198,3 +198,51 @@ testthat::test_that("transform_files_list drops NA value rows before binding", {
     testthat::expect_equal(nrow(result$long_raw), 2L)
   })
 })
+
+
+# --- transform_file_dt: per-file NA filtering --------------------------------
+
+testthat::test_that("transform_file_dt filters NA value rows from long output", {
+  config <- build_test_config()
+
+  wide_dt <- data.table::data.table(
+    product   = "wheat",
+    variable  = "production",
+    unit      = "tonnes",
+    continent = "Asia",
+    country   = "Japan",
+    footnotes = NA_character_,
+    `2020`    = "100",
+    `2021`    = NA_character_
+  )
+
+  withr::with_options(list(fao.drop_na_values = TRUE), {
+    result <- transform_file_dt(wide_dt, "test.xlsx", "yb_2024", "wheat", config)
+    testthat::expect_true(all(!is.na(result$long_raw$value)))
+    testthat::expect_equal(nrow(result$long_raw), 1L)
+  })
+})
+
+
+# --- reshape_to_long: data.frame input ---------------------------------------
+
+testthat::test_that("reshape_to_long converts data.frame input to data.table", {
+  df <- data.frame(
+    continent = c("Asia", "Europe"),
+    country   = c("Japan", "France"),
+    product   = c("wheat", "rice"),
+    variable  = c("production", "trade"),
+    unit      = c("tonnes", "tonnes"),
+    footnotes = c(NA_character_, NA_character_),
+    check.names = FALSE,
+    stringsAsFactors = FALSE
+  )
+  df[["2020"]] <- c("100", "200")
+  df[["2021"]] <- c("300", "400")
+
+  config <- build_test_config()
+  result <- reshape_to_long(df, config)
+
+  testthat::expect_true(data.table::is.data.table(result))
+  testthat::expect_equal(nrow(result), 4L)
+})
