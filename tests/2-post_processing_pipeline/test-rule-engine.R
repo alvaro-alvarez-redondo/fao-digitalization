@@ -361,3 +361,517 @@ testthat::test_that("apply_rule_payload returns empty audit for zero rules", {
   testthat::expect_true(is.list(result))
   testthat::expect_equal(nrow(result$audit), 0L)
 })
+
+
+# --- apply_footnote_rules ----------------------------------------------------
+
+testthat::test_that("apply_footnote_rules replaces a single footnote", {
+  dataset_dt <- data.table::data.table(
+    product = c("Wheat", "Rice"),
+    footnotes = c("old note", "other note")
+  )
+
+  footnote_rules <- data.table::data.table(
+    column_source = "footnotes",
+    value_source_raw = "old note",
+    value_source = "new note",
+    column_target = "footnotes",
+    value_target_raw = NA_character_,
+    value_target = NA_character_
+  )
+
+  result <- apply_footnote_rules(
+    dataset_dt = dataset_dt,
+    footnote_rules = footnote_rules,
+    stage_name = "clean",
+    dataset_name = "demo",
+    rule_file_id = "test.xlsx",
+    execution_timestamp_utc = "2026-01-01T00:00:00Z"
+  )
+
+  testthat::expect_true(is.list(result))
+  testthat::expect_equal(result$data$footnotes[[1]], "new note")
+  testthat::expect_equal(result$data$footnotes[[2]], "other note")
+  testthat::expect_true(nrow(result$audit) >= 1L)
+})
+
+testthat::test_that("apply_footnote_rules removes a single footnote to NA", {
+  dataset_dt <- data.table::data.table(
+    product = c("Wheat"),
+    footnotes = c("remove me")
+  )
+
+  footnote_rules <- data.table::data.table(
+    column_source = "footnotes",
+    value_source_raw = "remove me",
+    value_source = NA_character_,
+    column_target = "footnotes",
+    value_target_raw = NA_character_,
+    value_target = NA_character_
+  )
+
+  result <- apply_footnote_rules(
+    dataset_dt = dataset_dt,
+    footnote_rules = footnote_rules,
+    stage_name = "clean",
+    dataset_name = "demo",
+    rule_file_id = "test.xlsx",
+    execution_timestamp_utc = "2026-01-01T00:00:00Z"
+  )
+
+  testthat::expect_true(is.na(result$data$footnotes[[1]]))
+})
+
+testthat::test_that("apply_footnote_rules handles multi-footnote split and reconstruct", {
+  dataset_dt <- data.table::data.table(
+    product = c("Wheat"),
+    footnotes = c("note A; note B; note C")
+  )
+
+  footnote_rules <- data.table::data.table(
+    column_source = "footnotes",
+    value_source_raw = "note B",
+    value_source = "replaced B",
+    column_target = "footnotes",
+    value_target_raw = NA_character_,
+    value_target = NA_character_
+  )
+
+  result <- apply_footnote_rules(
+    dataset_dt = dataset_dt,
+    footnote_rules = footnote_rules,
+    stage_name = "clean",
+    dataset_name = "demo",
+    rule_file_id = "test.xlsx",
+    execution_timestamp_utc = "2026-01-01T00:00:00Z"
+  )
+
+  testthat::expect_equal(result$data$footnotes[[1]], "note A; replaced B; note C")
+})
+
+testthat::test_that("apply_footnote_rules preserves footnote order", {
+  dataset_dt <- data.table::data.table(
+    product = "Wheat",
+    footnotes = "first; second; third"
+  )
+
+  footnote_rules <- data.table::data.table(
+    column_source = "footnotes",
+    value_source_raw = "second",
+    value_source = "2nd",
+    column_target = "footnotes",
+    value_target_raw = NA_character_,
+    value_target = NA_character_
+  )
+
+  result <- apply_footnote_rules(
+    dataset_dt = dataset_dt,
+    footnote_rules = footnote_rules,
+    stage_name = "clean",
+    dataset_name = "demo",
+    rule_file_id = "test.xlsx",
+    execution_timestamp_utc = "2026-01-01T00:00:00Z"
+  )
+
+  testthat::expect_equal(result$data$footnotes[[1]], "first; 2nd; third")
+})
+
+testthat::test_that("apply_footnote_rules removes one footnote from multi-footnote cell", {
+  dataset_dt <- data.table::data.table(
+    product = "Wheat",
+    footnotes = "keep A; remove me; keep B"
+  )
+
+  footnote_rules <- data.table::data.table(
+    column_source = "footnotes",
+    value_source_raw = "remove me",
+    value_source = NA_character_,
+    column_target = "footnotes",
+    value_target_raw = NA_character_,
+    value_target = NA_character_
+  )
+
+  result <- apply_footnote_rules(
+    dataset_dt = dataset_dt,
+    footnote_rules = footnote_rules,
+    stage_name = "clean",
+    dataset_name = "demo",
+    rule_file_id = "test.xlsx",
+    execution_timestamp_utc = "2026-01-01T00:00:00Z"
+  )
+
+  testthat::expect_equal(result$data$footnotes[[1]], "keep A; keep B")
+})
+
+testthat::test_that("apply_footnote_rules sets NA when all footnotes removed", {
+  dataset_dt <- data.table::data.table(
+    product = "Wheat",
+    footnotes = "del A; del B"
+  )
+
+  footnote_rules <- data.table::data.table(
+    column_source = c("footnotes", "footnotes"),
+    value_source_raw = c("del A", "del B"),
+    value_source = c(NA_character_, NA_character_),
+    column_target = c("footnotes", "footnotes"),
+    value_target_raw = c(NA_character_, NA_character_),
+    value_target = c(NA_character_, NA_character_)
+  )
+
+  result <- apply_footnote_rules(
+    dataset_dt = dataset_dt,
+    footnote_rules = footnote_rules,
+    stage_name = "clean",
+    dataset_name = "demo",
+    rule_file_id = "test.xlsx",
+    execution_timestamp_utc = "2026-01-01T00:00:00Z"
+  )
+
+  testthat::expect_true(is.na(result$data$footnotes[[1]]))
+})
+
+testthat::test_that("apply_footnote_rules preserves unmatched footnotes", {
+  dataset_dt <- data.table::data.table(
+    product = "Wheat",
+    footnotes = "unmatched note; matched note"
+  )
+
+  footnote_rules <- data.table::data.table(
+    column_source = "footnotes",
+    value_source_raw = "matched note",
+    value_source = "replaced",
+    column_target = "footnotes",
+    value_target_raw = NA_character_,
+    value_target = NA_character_
+  )
+
+  result <- apply_footnote_rules(
+    dataset_dt = dataset_dt,
+    footnote_rules = footnote_rules,
+    stage_name = "clean",
+    dataset_name = "demo",
+    rule_file_id = "test.xlsx",
+    execution_timestamp_utc = "2026-01-01T00:00:00Z"
+  )
+
+  testthat::expect_equal(result$data$footnotes[[1]], "unmatched note; replaced")
+})
+
+testthat::test_that("apply_footnote_rules handles comma-containing footnotes", {
+  dataset_dt <- data.table::data.table(
+    product = "Wheat",
+    footnotes = "note with, comma; simple note"
+  )
+
+  footnote_rules <- data.table::data.table(
+    column_source = "footnotes",
+    value_source_raw = "note with, comma",
+    value_source = "comma preserved",
+    column_target = "footnotes",
+    value_target_raw = NA_character_,
+    value_target = NA_character_
+  )
+
+  result <- apply_footnote_rules(
+    dataset_dt = dataset_dt,
+    footnote_rules = footnote_rules,
+    stage_name = "clean",
+    dataset_name = "demo",
+    rule_file_id = "test.xlsx",
+    execution_timestamp_utc = "2026-01-01T00:00:00Z"
+  )
+
+  testthat::expect_equal(result$data$footnotes[[1]], "comma preserved; simple note")
+})
+
+testthat::test_that("apply_footnote_rules applies target column updates", {
+  dataset_dt <- data.table::data.table(
+    product = "Wheat",
+    unit = "kg",
+    footnotes = "update unit"
+  )
+
+  footnote_rules <- data.table::data.table(
+    column_source = "footnotes",
+    value_source_raw = "update unit",
+    value_source = NA_character_,
+    column_target = "unit",
+    value_target_raw = NA_character_,
+    value_target = "kilogram"
+  )
+
+  result <- apply_footnote_rules(
+    dataset_dt = dataset_dt,
+    footnote_rules = footnote_rules,
+    stage_name = "clean",
+    dataset_name = "demo",
+    rule_file_id = "test.xlsx",
+    execution_timestamp_utc = "2026-01-01T00:00:00Z"
+  )
+
+  testthat::expect_equal(result$data$unit[[1]], "kilogram")
+})
+
+testthat::test_that("apply_footnote_rules handles NA footnotes rows", {
+  dataset_dt <- data.table::data.table(
+    product = c("Wheat", "Rice"),
+    footnotes = c(NA_character_, "some note")
+  )
+
+  footnote_rules <- data.table::data.table(
+    column_source = "footnotes",
+    value_source_raw = "some note",
+    value_source = "replaced",
+    column_target = "footnotes",
+    value_target_raw = NA_character_,
+    value_target = NA_character_
+  )
+
+  result <- apply_footnote_rules(
+    dataset_dt = dataset_dt,
+    footnote_rules = footnote_rules,
+    stage_name = "clean",
+    dataset_name = "demo",
+    rule_file_id = "test.xlsx",
+    execution_timestamp_utc = "2026-01-01T00:00:00Z"
+  )
+
+  testthat::expect_true(is.na(result$data$footnotes[[1]]))
+  testthat::expect_equal(result$data$footnotes[[2]], "replaced")
+})
+
+testthat::test_that("apply_footnote_rules cleans temporary columns", {
+  dataset_dt <- data.table::data.table(
+    product = "Wheat",
+    footnotes = "note"
+  )
+
+  footnote_rules <- data.table::data.table(
+    column_source = "footnotes",
+    value_source_raw = "note",
+    value_source = "new",
+    column_target = "footnotes",
+    value_target_raw = NA_character_,
+    value_target = NA_character_
+  )
+
+  result <- apply_footnote_rules(
+    dataset_dt = dataset_dt,
+    footnote_rules = footnote_rules,
+    stage_name = "clean",
+    dataset_name = "demo",
+    rule_file_id = "test.xlsx",
+    execution_timestamp_utc = "2026-01-01T00:00:00Z"
+  )
+
+  testthat::expect_false("row_id" %in% names(result$data))
+  testthat::expect_false("footnote_index" %in% names(result$data))
+})
+
+testthat::test_that("apply_footnote_rules generates compatible audit structure", {
+  dataset_dt <- data.table::data.table(
+    product = "Wheat",
+    footnotes = "test note"
+  )
+
+  footnote_rules <- data.table::data.table(
+    column_source = "footnotes",
+    value_source_raw = "test note",
+    value_source = "replaced",
+    column_target = "footnotes",
+    value_target_raw = NA_character_,
+    value_target = NA_character_
+  )
+
+  result <- apply_footnote_rules(
+    dataset_dt = dataset_dt,
+    footnote_rules = footnote_rules,
+    stage_name = "clean",
+    dataset_name = "demo",
+    rule_file_id = "test.xlsx",
+    execution_timestamp_utc = "2026-01-01T00:00:00Z"
+  )
+
+  expected_columns <- c(
+    "dataset_name", "column_source", "value_source_raw",
+    "value_source_result", "column_target", "value_target_raw",
+    "value_target_result", "affected_rows",
+    "execution_timestamp_utc", "rule_file_identifier", "execution_stage"
+  )
+  testthat::expect_true(all(expected_columns %in% names(result$audit)))
+  testthat::expect_equal(result$audit$dataset_name[[1]], "demo")
+  testthat::expect_equal(result$audit$column_source[[1]], "footnotes")
+  testthat::expect_equal(result$audit$execution_stage[[1]], "clean")
+  testthat::expect_equal(result$audit$rule_file_identifier[[1]], "test.xlsx")
+})
+
+testthat::test_that("apply_footnote_rules works with harmonize stage", {
+  dataset_dt <- data.table::data.table(
+    product = "Wheat",
+    footnotes = "harmonize me"
+  )
+
+  footnote_rules <- data.table::data.table(
+    column_source = "footnotes",
+    value_source_raw = "harmonize me",
+    value_source = "harmonized",
+    column_target = "footnotes",
+    value_target_raw = NA_character_,
+    value_target = NA_character_
+  )
+
+  result <- apply_footnote_rules(
+    dataset_dt = dataset_dt,
+    footnote_rules = footnote_rules,
+    stage_name = "harmonize",
+    dataset_name = "demo",
+    rule_file_id = "test.xlsx",
+    execution_timestamp_utc = "2026-01-01T00:00:00Z"
+  )
+
+  testthat::expect_equal(result$data$footnotes[[1]], "harmonized")
+  testthat::expect_equal(result$audit$execution_stage[[1]], "harmonize")
+})
+
+testthat::test_that("apply_rule_payload routes footnote rules to apply_footnote_rules", {
+  dataset_dt <- data.table::data.table(
+    product = c("Wheat", "Rice"),
+    unit = c("kg", "kg"),
+    footnotes = c("fn A; fn B", "fn C")
+  )
+
+  canonical_rules <- data.table::data.table(
+    column_source = c("footnotes", "product"),
+    value_source_raw = c("fn A", "Rice"),
+    value_source = c("replaced A", NA_character_),
+    column_target = c("footnotes", "unit"),
+    value_target_raw = c(NA_character_, "kg"),
+    value_target = c(NA_character_, "gram")
+  )
+
+  result <- apply_rule_payload(
+    dataset_dt = dataset_dt,
+    canonical_rules = canonical_rules,
+    stage_name = "clean",
+    dataset_name = "demo",
+    rule_file_id = "test.xlsx",
+    execution_timestamp_utc = "2026-01-01T00:00:00Z"
+  )
+
+  testthat::expect_equal(result$data$footnotes[[1]], "replaced A; fn B")
+  testthat::expect_equal(result$data$unit[[2]], "gram")
+  testthat::expect_true(nrow(result$audit) >= 2L)
+})
+
+testthat::test_that("apply_footnote_rules detects conflicting target updates", {
+  dataset_dt <- data.table::data.table(
+    product = "Wheat",
+    unit = "kg",
+    footnotes = "fn1; fn2"
+  )
+
+  footnote_rules <- data.table::data.table(
+    column_source = c("footnotes", "footnotes"),
+    value_source_raw = c("fn1", "fn2"),
+    value_source = c(NA_character_, NA_character_),
+    column_target = c("unit", "unit"),
+    value_target_raw = c(NA_character_, NA_character_),
+    value_target = c("kilogram", "gram")
+  )
+
+  result <- apply_footnote_rules(
+    dataset_dt = dataset_dt,
+    footnote_rules = footnote_rules,
+    stage_name = "clean",
+    dataset_name = "demo",
+    rule_file_id = "test.xlsx",
+    execution_timestamp_utc = "2026-01-01T00:00:00Z"
+  )
+
+  # last rule wins deterministically
+  testthat::expect_true(result$data$unit[[1]] %in% c("kilogram", "gram"))
+  testthat::expect_true(nrow(result$audit) >= 2L)
+})
+
+testthat::test_that("apply_footnote_rules adds missing footnotes column", {
+  dataset_dt <- data.table::data.table(
+    product = "Wheat",
+    unit = "kg"
+  )
+
+  footnote_rules <- data.table::data.table(
+    column_source = "footnotes",
+    value_source_raw = "any",
+    value_source = "replaced",
+    column_target = "footnotes",
+    value_target_raw = NA_character_,
+    value_target = NA_character_
+  )
+
+  result <- apply_footnote_rules(
+    dataset_dt = dataset_dt,
+    footnote_rules = footnote_rules,
+    stage_name = "clean",
+    dataset_name = "demo",
+    rule_file_id = "test.xlsx",
+    execution_timestamp_utc = "2026-01-01T00:00:00Z"
+  )
+
+  testthat::expect_true("footnotes" %in% names(result$data))
+})
+
+testthat::test_that("apply_footnote_rules applies conditional target updates", {
+  dataset_dt <- data.table::data.table(
+    product = "Wheat",
+    unit = "kg",
+    footnotes = "conditional fn"
+  )
+
+  footnote_rules <- data.table::data.table(
+    column_source = "footnotes",
+    value_source_raw = "conditional fn",
+    value_source = NA_character_,
+    column_target = "unit",
+    value_target_raw = "kg",
+    value_target = "kilogram"
+  )
+
+  result <- apply_footnote_rules(
+    dataset_dt = dataset_dt,
+    footnote_rules = footnote_rules,
+    stage_name = "clean",
+    dataset_name = "demo",
+    rule_file_id = "test.xlsx",
+    execution_timestamp_utc = "2026-01-01T00:00:00Z"
+  )
+
+  testthat::expect_equal(result$data$unit[[1]], "kilogram")
+})
+
+testthat::test_that("apply_footnote_rules skips conditional update when condition not met", {
+  dataset_dt <- data.table::data.table(
+    product = "Wheat",
+    unit = "tonnes",
+    footnotes = "conditional fn"
+  )
+
+  footnote_rules <- data.table::data.table(
+    column_source = "footnotes",
+    value_source_raw = "conditional fn",
+    value_source = NA_character_,
+    column_target = "unit",
+    value_target_raw = "kg",
+    value_target = "kilogram"
+  )
+
+  result <- apply_footnote_rules(
+    dataset_dt = dataset_dt,
+    footnote_rules = footnote_rules,
+    stage_name = "clean",
+    dataset_name = "demo",
+    rule_file_id = "test.xlsx",
+    execution_timestamp_utc = "2026-01-01T00:00:00Z"
+  )
+
+  testthat::expect_equal(result$data$unit[[1]], "tonnes")
+})
