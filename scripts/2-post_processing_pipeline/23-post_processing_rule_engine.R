@@ -766,8 +766,9 @@ apply_footnote_rules <- function(
   }
 
   # --- step 7: reconstruct footnotes per row ---------------------------------
-  # keep only rows relevant for footnotes reconstruction (deduplicate from cartesian join)
+  # deduplicate from cartesian join: keep first footnote_final per (row_id, footnote_index)
   recon <- unique(joined[, .(row_id, footnote_index, footnote_final)])
+  recon <- recon[, .SD[1L], by = .(row_id, footnote_index)]
   data.table::setorder(recon, row_id, footnote_index)
   reconstructed <- recon[
     ,
