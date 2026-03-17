@@ -192,3 +192,52 @@ testthat::test_that("safe_execute_read captures errors and returns structured re
   # should not throw; result should contain error info
   testthat::expect_true(is.character(result) || is.list(result))
 })
+
+
+# --- janitor::remove_empty integration ---------------------------------------
+
+testthat::test_that("read_excel_sheet removes entirely blank rows via janitor::remove_empty", {
+  root_dir <- build_temp_dir("fao-read-empty-rows-")
+  file_path <- file.path(root_dir, "test_empty_rows.xlsx")
+
+  # row 2 is entirely blank (NA values become empty cells in Excel,
+  # which readxl reads back as NA_character_ with col_types = "text")
+  test_data <- data.frame(
+    continent = c("Asia", NA_character_, "Europe"),
+    country   = c("Japan", NA_character_, "France"),
+    stringsAsFactors = FALSE
+  )
+
+  create_test_xlsx(test_data, file_path)
+  config <- build_test_config()
+
+  result <- read_excel_sheet(file_path, "Sheet1", config)
+
+  # the entirely blank row should have been removed
+  testthat::expect_equal(nrow(result$data), 2L)
+  testthat::expect_equal(sort(result$data$continent), c("Asia", "Europe"))
+  testthat::expect_equal(sort(result$data$country),   c("France", "Japan"))
+})
+
+testthat::test_that("read_excel_sheet removes entirely blank columns via janitor::remove_empty", {
+  root_dir <- build_temp_dir("fao-read-empty-cols-")
+  file_path <- file.path(root_dir, "test_empty_cols.xlsx")
+
+  # empty_col is entirely NA; janitor::remove_empty should drop it
+  test_data <- data.frame(
+    continent = c("Asia", "Europe"),
+    country   = c("Japan", "France"),
+    empty_col = c(NA_character_, NA_character_),
+    stringsAsFactors = FALSE
+  )
+
+  create_test_xlsx(test_data, file_path)
+  config <- build_test_config()
+
+  result <- read_excel_sheet(file_path, "Sheet1", config)
+
+  # the entirely blank column should have been removed
+  testthat::expect_false("empty_col" %in% names(result$data))
+  testthat::expect_true("continent" %in% names(result$data))
+  testthat::expect_true("country"   %in% names(result$data))
+})

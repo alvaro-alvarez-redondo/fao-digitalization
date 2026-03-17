@@ -104,6 +104,8 @@ testthat::test_that("detect_duplicates_dt finds duplicate rows", {
 
   testthat::expect_true(is.list(result))
   testthat::expect_true("data" %in% names(result))
+  testthat::expect_true(length(result$errors) > 0)
+  testthat::expect_true(grepl("duplicate_count '2'", result$errors[[1]]))
 })
 
 testthat::test_that("detect_duplicates_dt returns clean result for unique rows", {
@@ -112,6 +114,7 @@ testthat::test_that("detect_duplicates_dt returns clean result for unique rows",
   result <- detect_duplicates_dt(dt)
 
   testthat::expect_true(is.list(result))
+  testthat::expect_equal(length(result$errors), 0L)
 })
 
 

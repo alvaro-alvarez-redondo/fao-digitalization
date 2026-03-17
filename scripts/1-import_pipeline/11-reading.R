@@ -165,6 +165,7 @@ compute_non_empty_base_rows <- function(read_dt, base_cols) {
 #' @importFrom readxl read_excel
 #' @importFrom data.table data.table as.data.table
 #' @importFrom cli format_warning
+#' @importFrom janitor remove_empty
 #' @examples
 #' config_example <- list(column_required = c("country", "year"))
 #' # read_excel_sheet("1-import/10-raw_imports/example.xlsx", "sheet1", config_example)
@@ -203,6 +204,7 @@ read_excel_sheet <- function(file_path, sheet_name, config) {
   }
 
   read_dt <- data.table::setDT(safe_read_result$result)
+  read_dt <- data.table::setDT(janitor::remove_empty(read_dt, which = c("rows", "cols")))
 
   missing_base <- setdiff(base_cols, colnames(read_dt))
 

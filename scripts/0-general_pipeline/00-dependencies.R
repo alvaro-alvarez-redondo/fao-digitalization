@@ -13,6 +13,7 @@ required_packages <- c(
   "future",
   "future.apply",
   "here",
+  "janitor",
   "openxlsx",
   "progressr",
   "purrr",
