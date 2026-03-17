@@ -114,6 +114,53 @@ testthat::test_that("detect_duplicates_dt returns clean result for unique rows",
   testthat::expect_true(is.list(result))
 })
 
+testthat::test_that("detect_duplicates_dt reports errors for duplicate key groups", {
+  dt <- data.table::data.table(
+    product  = c("wheat", "wheat", "rice"),
+    variable = c("production", "production", "yield"),
+    year     = c("2020", "2020", "2021"),
+    value    = c("100", "100", "50"),
+    document = c("file1.xlsx", "file1.xlsx", "file2.xlsx"),
+    continent = c("Asia", "Asia", "Europe"),
+    country   = c("Japan", "Japan", "France"),
+    unit      = c("tonnes", "tonnes", "kg"),
+    footnotes = rep(NA_character_, 3),
+    yearbook  = rep("yb_2024", 3),
+    notes     = rep(NA_character_, 3)
+  )
+
+  result <- detect_duplicates_dt(dt)
+
+  testthat::expect_true(length(result$errors) > 0)
+  testthat::expect_true(any(grepl("wheat", result$errors)))
+  testthat::expect_true(any(grepl("duplicate", result$errors)))
+  testthat::expect_true(any(grepl("duplicate_count", result$errors)))
+})
+
+testthat::test_that("detect_duplicates_dt returns no errors for unique data", {
+  dt <- build_sample_long_dt()
+
+  result <- detect_duplicates_dt(dt)
+
+  testthat::expect_equal(length(result$errors), 0L)
+})
+
+testthat::test_that("detect_duplicates_dt handles empty data.table without error", {
+  dt <- data.table::data.table(
+    product  = character(0),
+    variable = character(0),
+    year     = character(0),
+    value    = character(0),
+    document = character(0)
+  )
+
+  result <- detect_duplicates_dt(dt)
+
+  testthat::expect_true(is.list(result))
+  testthat::expect_equal(length(result$errors), 0L)
+  testthat::expect_equal(nrow(result$data), 0L)
+})
+
 
 # --- validate_long_dt --------------------------------------------------------
 

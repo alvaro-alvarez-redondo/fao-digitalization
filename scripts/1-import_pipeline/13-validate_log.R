@@ -66,12 +66,14 @@ validate_mandatory_fields_dt <- function(dt, config) {
 #' @title detect duplicates data table
 #' @description detect duplicate rows using the long-grain key
 #' (`product`, `variable`, `year`, `value`, `document`) and return duplicate
-#' diagnostics as error messages.
+#' diagnostics as error messages. uses `janitor::get_dupes()` to identify
+#' duplicate key combinations.
 #' @param dt data table or data frame containing long-format observations.
 #' @return named list with `errors` as a character vector and `data` as the
 #' unchanged data table.
 #' @importFrom checkmate assert_data_frame assert_names
 #' @importFrom data.table as.data.table
+#' @importFrom janitor get_dupes
 #' @examples
 #' dt_example <- data.frame(
 #'   product = c("wheat", "wheat"),
@@ -84,27 +86,25 @@ validate_mandatory_fields_dt <- function(dt, config) {
 detect_duplicates_dt <- function(dt) {
   dt_work <- ensure_data_table(dt)
 
-  dup_counts <- dt_work[,
-    .(duplicate_count = .N),
-    by = .(product, variable, year, value, document)
-  ]
+  dupes_dt <- janitor::get_dupes(dt_work, product, variable, year, value, document)
 
-  dup_rows <- dup_counts[duplicate_count > 1]
-
-  errors <- if (nrow(dup_rows) > 0) {
+  errors <- if (nrow(dupes_dt) > 0) {
+    dup_groups <- unique(
+      dupes_dt[, c("product", "variable", "year", "value", "document", "dupe_count")]
+    )
     paste0(
       "duplicate entries detected for product '",
-      dup_rows$product,
+      dup_groups$product,
       "', variable '",
-      dup_rows$variable,
+      dup_groups$variable,
       "', year '",
-      dup_rows$year,
+      dup_groups$year,
       "', value '",
-      dup_rows$value,
+      dup_groups$value,
       "', duplicate_count '",
-      dup_rows$duplicate_count,
+      dup_groups$dupe_count,
       "' in document '",
-      dup_rows$document,
+      dup_groups$document,
       "'"
     )
   } else {

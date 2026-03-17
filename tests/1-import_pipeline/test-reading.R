@@ -95,6 +95,35 @@ testthat::test_that("read_excel_sheet handles file with missing required columns
   testthat::expect_true(data.table::is.data.table(result))
 })
 
+testthat::test_that("read_excel_sheet drops all-NA rows via janitor::remove_empty", {
+  root_dir <- build_temp_dir("fao-read-empty-rows-")
+  file_path <- file.path(root_dir, "test_empty_rows.xlsx")
+
+  # Include a row that is entirely NA across all columns
+  test_data <- data.frame(
+    continent = c("Asia", NA_character_, "Europe"),
+    country   = c("Japan", NA_character_, "France"),
+    value     = c("100", NA_character_, "200"),
+    stringsAsFactors = FALSE
+  )
+
+  create_test_xlsx(test_data, file_path)
+
+  config <- build_test_config()
+
+  result <- read_excel_sheet(
+    file_path = file_path,
+    sheet_name = "Sheet1",
+    config = config
+  )
+
+  # all-NA row should be dropped; only the two valid data rows remain
+  testthat::expect_true(is.list(result))
+  testthat::expect_equal(nrow(result$data), 2L)
+  testthat::expect_false(any(is.na(result$data$continent)))
+  testthat::expect_false(any(is.na(result$data$country)))
+})
+
 
 # --- read_file_sheets --------------------------------------------------------
 

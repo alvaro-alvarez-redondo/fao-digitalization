@@ -153,7 +153,8 @@ compute_non_empty_base_rows <- function(read_dt, base_cols) {
 #' @title read excel sheet
 #' @description read one excel sheet as text columns, validate required inputs,
 #' enforce required base columns, and return a standardized list containing a
-#' `data.table` plus any validation or read errors.
+#' `data.table` plus any validation or read errors. all-`NA` rows produced by
+#' trailing empty excel cells are removed early via `janitor::remove_empty()`.
 #' @param file_path character scalar path to an existing xlsx file.
 #' @param sheet_name character scalar with sheet name to read.
 #' @param config named list containing `column_required` as a non-empty character
@@ -163,7 +164,8 @@ compute_non_empty_base_rows <- function(read_dt, base_cols) {
 #' filtered to rows where at least one required base column is non-empty.
 #' @importFrom checkmate check_character check_list check_string
 #' @importFrom readxl read_excel
-#' @importFrom data.table data.table as.data.table
+#' @importFrom data.table data.table as.data.table setDT
+#' @importFrom janitor remove_empty
 #' @importFrom cli format_warning
 #' @examples
 #' config_example <- list(column_required = c("country", "year"))
@@ -202,7 +204,9 @@ read_excel_sheet <- function(file_path, sheet_name, config) {
     return(create_empty_read_result(safe_read_result$errors))
   }
 
-  read_dt <- data.table::setDT(safe_read_result$result)
+  read_dt <- data.table::setDT(
+    janitor::remove_empty(safe_read_result$result, which = "rows")
+  )
 
   missing_base <- setdiff(base_cols, colnames(read_dt))
 
