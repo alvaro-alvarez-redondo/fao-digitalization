@@ -24,7 +24,9 @@ coerce_rule_schema <- function(rule_dt, stage_name, rule_file_id) {
   available_columns <- colnames(canonical_dt)
 
   normalized_columns <- sub(stage_prefix, "", available_columns)
-  duplicated_normalized_columns <- normalized_columns[duplicated(normalized_columns)]
+  duplicated_normalized_columns <- normalized_columns[duplicated(
+    normalized_columns
+  )]
 
   if (length(duplicated_normalized_columns) > 0L) {
     cli::cli_abort(c(
@@ -97,8 +99,7 @@ normalize_rule_values_for_validation <- function(
   rules_for_validation <- data.table::copy(data.table::as.data.table(rules_dt))
 
   if (length(allowed_na_columns) > 0L) {
-    rules_for_validation[
-      ,
+    rules_for_validation[,
       (allowed_na_columns) := lapply(.SD, function(column_values) {
         replacement_values <- column_values
 
@@ -147,16 +148,23 @@ ensure_rule_referenced_columns <- function(dataset_dt, rules_dt) {
     return(dataset_dt)
   }
 
-  referenced_columns <- unique(c(rules_dt$column_source, rules_dt$column_target))
+  referenced_columns <- unique(c(
+    rules_dt$column_source,
+    rules_dt$column_target
+  ))
   referenced_columns <- as.character(referenced_columns)
   referenced_columns <- trimws(referenced_columns)
-  referenced_columns <- referenced_columns[!is.na(referenced_columns) & nzchar(referenced_columns)]
+  referenced_columns <- referenced_columns[
+    !is.na(referenced_columns) & nzchar(referenced_columns)
+  ]
 
   if (length(referenced_columns) == 0L) {
     return(dataset_dt)
   }
 
-  missing_columns <- referenced_columns[!(referenced_columns %in% existing_columns)]
+  missing_columns <- referenced_columns[
+    !(referenced_columns %in% existing_columns)
+  ]
 
   if (length(missing_columns) > 0L) {
     dataset_dt[, (missing_columns) := NA_character_]
@@ -242,7 +250,12 @@ check_type_compatibility <- function(
 #' @param stage_name Character scalar execution stage label.
 #' @return Invisibly returns `TRUE`.
 #' @importFrom checkmate assert_data_frame assert_string
-validate_canonical_rules <- function(rules_dt, dataset_dt, rule_file_id, stage_name) {
+validate_canonical_rules <- function(
+  rules_dt,
+  dataset_dt,
+  rule_file_id,
+  stage_name
+) {
   checkmate::assert_data_frame(rules_dt, min.rows = 0)
   checkmate::assert_data_frame(dataset_dt, min.rows = 0)
   checkmate::assert_string(rule_file_id, min.chars = 1)
@@ -287,8 +300,12 @@ validate_canonical_rules <- function(rules_dt, dataset_dt, rule_file_id, stage_n
   dataset_columns <- colnames(dataset_dt)
   source_columns <- unique(trimws(as.character(rules_dt$column_source)))
   target_columns <- unique(trimws(as.character(rules_dt$column_target)))
-  source_columns <- source_columns[!is.na(source_columns) & nzchar(source_columns)]
-  target_columns <- target_columns[!is.na(target_columns) & nzchar(target_columns)]
+  source_columns <- source_columns[
+    !is.na(source_columns) & nzchar(source_columns)
+  ]
+  target_columns <- target_columns[
+    !is.na(target_columns) & nzchar(target_columns)
+  ]
 
   missing_source <- setdiff(source_columns, dataset_columns)
   missing_target <- setdiff(target_columns, dataset_columns)
@@ -296,13 +313,16 @@ validate_canonical_rules <- function(rules_dt, dataset_dt, rule_file_id, stage_n
   if (length(missing_source) > 0 || length(missing_target) > 0) {
     cli::cli_abort(c(
       "Rule columns are not present in dataset for {.file {rule_file_id}}.",
-      if (length(missing_source) > 0) paste0("x source: ", paste(missing_source, collapse = ", ")),
-      if (length(missing_target) > 0) paste0("x target: ", paste(missing_target, collapse = ", "))
+      if (length(missing_source) > 0) {
+        paste0("x source: ", paste(missing_source, collapse = ", "))
+      },
+      if (length(missing_target) > 0) {
+        paste0("x target: ", paste(missing_target, collapse = ", "))
+      }
     ))
   }
 
-  duplicate_key_dt <- rules_for_validation[
-    ,
+  duplicate_key_dt <- rules_for_validation[,
     .N,
     by = .(column_source, value_source_raw, column_target, value_target_raw)
   ][N > 1L]
@@ -317,8 +337,7 @@ validate_canonical_rules <- function(rules_dt, dataset_dt, rule_file_id, stage_n
   target_value_column <- get_stage_target_value_column(validated_stage_name)
   source_value_column <- get_stage_source_value_column(validated_stage_name)
 
-  conflict_dt <- rules_for_validation[
-    ,
+  conflict_dt <- rules_for_validation[,
     .(target_value_count = uniqueN(get(target_value_column))),
     by = .(column_source, value_source_raw, column_target, value_target_raw)
   ][target_value_count > 1L]
@@ -330,21 +349,19 @@ validate_canonical_rules <- function(rules_dt, dataset_dt, rule_file_id, stage_n
     ))
   }
 
-  source_conflict_dt <- rules_for_validation[
-    ,
+  source_conflict_dt <- rules_for_validation[,
     .(source_value_count = uniqueN(get(source_value_column))),
-    by = .(column_source, value_source_raw)
+    by = .(column_source, value_source_raw, column_target)
   ][source_value_count > 1L]
 
   if (nrow(source_conflict_dt) > 0) {
     cli::cli_abort(c(
       "Conflicting source rewrite rules detected in {.file {rule_file_id}}.",
-      "x" = "A single (column_source, value_source_raw) maps to multiple source result values."
+      "x" = "A single (column_source, value_source_raw, column_target) maps to multiple source result values."
     ))
   }
 
-  rules_dt[
-    ,
+  rules_dt[,
     check_type_compatibility(
       dataset_dt[[column_source[1]]],
       value_source_raw,
@@ -354,8 +371,7 @@ validate_canonical_rules <- function(rules_dt, dataset_dt, rule_file_id, stage_n
     ),
     by = column_source
   ]
-  rules_dt[
-    ,
+  rules_dt[,
     check_type_compatibility(
       dataset_dt[[column_target[1]]],
       value_target_raw,
@@ -368,8 +384,7 @@ validate_canonical_rules <- function(rules_dt, dataset_dt, rule_file_id, stage_n
 
   rules_with_source_result <- rules_dt[!is.na(get(source_value_column))]
   if (nrow(rules_with_source_result) > 0L) {
-    rules_with_source_result[
-      ,
+    rules_with_source_result[,
       check_type_compatibility(
         dataset_dt[[column_source[1]]],
         get(source_value_column),
@@ -410,7 +425,11 @@ build_conditional_rule_dictionary <- function(rules_dt, stage_name) {
 
   grouped_rules <- split(
     x = ordered_rules,
-    f = interaction(ordered_rules$column_source, ordered_rules$column_target, drop = TRUE),
+    f = interaction(
+      ordered_rules$column_source,
+      ordered_rules$column_target,
+      drop = TRUE
+    ),
     drop = TRUE
   )
 
@@ -526,18 +545,24 @@ apply_conditional_rule_group <- function(
     source_value_raw = get(source_value_column),
     column_target,
     value_target_raw,
-    value_target_result_encoded = encode_target_rule_value(get(target_value_column)),
+    value_target_result_encoded = encode_target_rule_value(get(
+      target_value_column
+    )),
     source_key = encode_rule_match_key(value_source_raw),
     target_key = encode_rule_match_key(value_target_raw)
-  )][
-    ,
+  )][,
     `:=`(
       value_source_result = as.character(source_value_raw),
-      value_target_result = decode_target_rule_value(value_target_result_encoded)
+      value_target_result = decode_target_rule_value(
+        value_target_result_encoded
+      )
     )
   ])
 
-  normalized_rules[trimws(value_source_result) == "", value_source_result := NA_character_]
+  normalized_rules[
+    trimws(value_source_result) == "",
+    value_source_result := NA_character_
+  ]
 
   data.table::setindex(normalized_rules, source_key, target_key)
 
@@ -572,14 +597,18 @@ apply_conditional_rule_group <- function(
     ]
   }
 
-  matched_counts <- joined_dt[matched_row_mask, .(
-    affected_rows = .N
-  ), by = .(
-    source_key,
-    target_key,
-    value_source_result,
-    value_target_result_encoded
-  )]
+  matched_counts <- joined_dt[
+    matched_row_mask,
+    .(
+      affected_rows = .N
+    ),
+    by = .(
+      source_key,
+      target_key,
+      value_source_result,
+      value_target_result_encoded
+    )
+  ]
 
   audit_dt <- normalized_rules[
     matched_counts,
@@ -589,8 +618,7 @@ apply_conditional_rule_group <- function(
       value_source_result,
       value_target_result_encoded
     )
-  ][
-    ,
+  ][,
     .(
       dataset_name = dataset_name,
       column_source,
@@ -652,10 +680,21 @@ apply_footnote_rules <- function(
   n_rows <- nrow(dataset_dt)
 
   # --- step 2: split footnotes by ";" into long format -----------------------
-  fn_long <- dataset_dt[, .(
-    footnote_raw = unlist(strsplit(as.character(footnotes), ";", fixed = TRUE)),
-    footnote_index = seq_along(unlist(strsplit(as.character(footnotes), ";", fixed = TRUE)))
-  ), by = row_id]
+  fn_long <- dataset_dt[,
+    .(
+      footnote_raw = unlist(strsplit(
+        as.character(footnotes),
+        ";",
+        fixed = TRUE
+      )),
+      footnote_index = seq_along(unlist(strsplit(
+        as.character(footnotes),
+        ";",
+        fixed = TRUE
+      )))
+    ),
+    by = row_id
+  ]
   fn_long[, footnote := trimws(footnote_raw)]
   fn_long[trimws(footnote) == "", footnote := NA_character_]
 
@@ -680,21 +719,31 @@ apply_footnote_rules <- function(
     source_value_raw = get(source_value_column),
     column_target,
     value_target_raw,
-    value_target_result_encoded = encode_target_rule_value(get(target_value_column)),
+    value_target_result_encoded = encode_target_rule_value(get(
+      target_value_column
+    )),
     source_key = encode_rule_match_key(value_source_raw)
-  )][
-    ,
+  )][,
     `:=`(
       value_source_result = as.character(source_value_raw),
-      value_target_result = decode_target_rule_value(value_target_result_encoded)
+      value_target_result = decode_target_rule_value(
+        value_target_result_encoded
+      )
     )
   ])
-  normalized_rules[trimws(value_source_result) == "", value_source_result := NA_character_]
+  normalized_rules[
+    trimws(value_source_result) == "",
+    value_source_result := NA_character_
+  ]
   data.table::setindex(normalized_rules, source_key)
 
   # --- step 4: join footnotes with rules on source key -----------------------
   fn_long[, source_key := encode_rule_match_key(footnote)]
-  joined <- normalized_rules[fn_long, on = .(source_key), allow.cartesian = TRUE]
+  joined <- normalized_rules[
+    fn_long,
+    on = .(source_key),
+    allow.cartesian = TRUE
+  ]
 
   # --- step 5: compute footnote_final using vectorized conditional logic -----
   matched_mask <- !is.na(joined$column_source)
@@ -717,8 +766,7 @@ apply_footnote_rules <- function(
 
   if (nrow(target_updates) > 0L) {
     # detect conflicts: multiple footnotes updating same target column for same row
-    conflict_check <- target_updates[
-      ,
+    conflict_check <- target_updates[,
       .(n_values = data.table::uniqueN(value_target_result_encoded)),
       by = .(row_id, column_target)
     ][n_values > 1L]
@@ -747,9 +795,16 @@ apply_footnote_rules <- function(
         )
         condition_met <- current_keys == condition_keys
         condition_rows <- tc_updates$row_id[has_condition][condition_met]
-        condition_vals <- tc_updates$value_target_result[has_condition][condition_met]
+        condition_vals <- tc_updates$value_target_result[has_condition][
+          condition_met
+        ]
         if (length(condition_rows) > 0L) {
-          data.table::set(dataset_dt, i = condition_rows, j = tc, value = condition_vals)
+          data.table::set(
+            dataset_dt,
+            i = condition_rows,
+            j = tc,
+            value = condition_vals
+          )
         }
       }
 
@@ -758,7 +813,12 @@ apply_footnote_rules <- function(
       if (any(no_condition)) {
         uncond_rows <- tc_updates$row_id[no_condition]
         uncond_vals <- tc_updates$value_target_result[no_condition]
-        data.table::set(dataset_dt, i = uncond_rows, j = tc, value = uncond_vals)
+        data.table::set(
+          dataset_dt,
+          i = uncond_rows,
+          j = tc,
+          value = uncond_vals
+        )
       }
     }
   } else {
@@ -770,12 +830,15 @@ apply_footnote_rules <- function(
   recon <- unique(joined[, .(row_id, footnote_index, footnote_final)])
   recon <- recon[, .SD[1L], by = .(row_id, footnote_index)]
   data.table::setorder(recon, row_id, footnote_index)
-  reconstructed <- recon[
-    ,
+  reconstructed <- recon[,
     .(
       footnotes_new = {
         valid <- footnote_final[!is.na(footnote_final)]
-        if (length(valid) == 0L) NA_character_ else paste(valid, collapse = "; ")
+        if (length(valid) == 0L) {
+          NA_character_
+        } else {
+          paste(valid, collapse = "; ")
+        }
       }
     ),
     by = row_id
@@ -787,7 +850,12 @@ apply_footnote_rules <- function(
   # rows without any footnote entries (should not happen, but safety net)
   missing_recon <- setdiff(seq_len(n_rows), reconstructed$row_id)
   if (length(missing_recon) > 0L) {
-    data.table::set(dataset_dt, i = missing_recon, j = "footnotes", value = NA_character_)
+    data.table::set(
+      dataset_dt,
+      i = missing_recon,
+      j = "footnotes",
+      value = NA_character_
+    )
   }
 
   # --- step 8: clean temporary columns ---------------------------------------
@@ -797,8 +865,7 @@ apply_footnote_rules <- function(
   audit_source <- joined[matched_mask]
 
   if (nrow(audit_source) > 0L) {
-    source_audit <- audit_source[
-      ,
+    source_audit <- audit_source[,
       .(affected_rows = .N),
       by = .(
         value_source_raw,
@@ -916,8 +983,11 @@ apply_rule_payload <- function(
     }
   }
 
-  combined_audit <- data.table::rbindlist(audit_tables, use.names = TRUE, fill = TRUE)
+  combined_audit <- data.table::rbindlist(
+    audit_tables,
+    use.names = TRUE,
+    fill = TRUE
+  )
 
   return(list(data = current_data, audit = combined_audit))
 }
-
