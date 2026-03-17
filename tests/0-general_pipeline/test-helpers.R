@@ -42,6 +42,33 @@ testthat::test_that("normalize_string_impl matches normalize_string output", {
   )
 })
 
+# janitor::make_clean_names() incompatibility guards --------------------------
+# These tests document the exact behaviours that differ from janitor and must
+# not regress, because the pipeline depends on them for match-key encoding.
+
+testthat::test_that("normalize_string_impl preserves digit-starting tokens (no x-prefix)", {
+  # janitor::make_clean_names("2020") would produce "x2020".
+  # normalize_string_impl must NOT add any prefix.
+  testthat::expect_identical(normalize_string_impl("2020"), "2020")
+  testthat::expect_identical(normalize_string_impl("123abc"), "123abc")
+  # Vectorised: all elements in a year vector stay unchanged
+  years <- as.character(2010:2024)
+  testthat::expect_identical(normalize_string_impl(years), years)
+})
+
+testthat::test_that("normalize_string_impl uses spaces not underscores as separators", {
+  # janitor::make_clean_names("food balance") → "food_balance".
+  # normalize_string() must produce space-separated tokens for join consistency.
+  testthat::expect_identical(normalize_string_impl("food balance"), "food balance")
+  testthat::expect_identical(normalize_string_impl("food_balance"), "food balance")
+  testthat::expect_identical(normalize_string_impl("food-balance"), "food balance")
+  # All three inputs encode to the same match key
+  testthat::expect_identical(
+    normalize_string_impl("food balance"),
+    normalize_string_impl("food_balance")
+  )
+})
+
 
 # --- normalize_string --------------------------------------------------------
 
@@ -70,6 +97,25 @@ testthat::test_that("normalize_string preserves NA values", {
   testthat::expect_true(is.na(result[2]))
 })
 
+testthat::test_that("normalize_string preserves digit-starting tokens (no x-prefix)", {
+  # janitor::make_clean_names("2020") → "x2020"; normalize_string must not do this.
+  testthat::expect_identical(normalize_string("2020"), "2020")
+  testthat::expect_identical(normalize_string(c("2020", "2021")), c("2020", "2021"))
+})
+
+testthat::test_that("normalize_string is idempotent across space/underscore/hyphen variants", {
+  # All three variants of the same phrase must produce the same match key so
+  # rule-engine joins are not sensitive to the original separator style.
+  testthat::expect_identical(
+    normalize_string("food balance"),
+    normalize_string("food_balance")
+  )
+  testthat::expect_identical(
+    normalize_string("food balance"),
+    normalize_string("food-balance")
+  )
+})
+
 
 # --- normalize_filename ------------------------------------------------------
 
@@ -80,6 +126,13 @@ testthat::test_that("normalize_filename replaces spaces with underscores", {
 testthat::test_that("normalize_filename replaces empty/NA with unknown", {
   testthat::expect_identical(normalize_filename(""), "unknown")
   testthat::expect_identical(normalize_filename(NA_character_), "unknown")
+})
+
+testthat::test_that("normalize_filename preserves digit-starting tokens (no x-prefix)", {
+  # janitor::make_clean_names("2020_exports") → "x2020_exports".
+  # normalize_filename must not add any prefix to digit-starting tokens.
+  testthat::expect_identical(normalize_filename("2020 exports"), "2020_exports")
+  testthat::expect_identical(normalize_filename("2024"), "2024")
 })
 
 

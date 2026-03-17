@@ -51,13 +51,57 @@ assert_or_abort <- function(check_result) {
   return(invisible(TRUE))
 }
 
+# --- string normalization -----------------------------------------------------
+# NOTE ON janitor COMPATIBILITY
+#
+# These three functions intentionally do NOT use `janitor::make_clean_names()`
+# or `janitor::clean_names()`, even though janitor is available in the project.
+# The reasons are:
+#
+# 1. OUTPUT FORMAT — janitor::make_clean_names() produces snake_case identifiers
+#    separated by underscores (e.g. "food balance" → "food_balance").
+#    normalize_string() intentionally keeps **space** separators because its
+#    output is used as a match-key encoder throughout the pipeline: in
+#    encode_rule_match_key() (rule engine), normalize_key_fields() (import
+#    transform), and product/unit key joins in standardize_units. Changing to
+#    underscores would silently break all of these joins.
+#
+# 2. DIGIT-STARTING STRINGS — janitor::make_clean_names() prepends an "x" to
+#    any token that starts with a digit or underscore so that the result is a
+#    valid R identifier (e.g. "2020" → "x2020"). normalize_string() preserves
+#    digit-starting strings as-is. Applying make_clean_names() would corrupt
+#    year values, numeric unit codes, and any rule value that starts with a
+#    digit, causing silent lookup misses.
+#
+# 3. TARGET AUDIENCE — janitor::clean_names() operates on column **names** of a
+#    data.frame, not on arbitrary character vectors of data values.
+#    normalize_string_impl() and normalize_string() operate on row-level text
+#    content, which is a fundamentally different use case.
+#
+# 4. PERFORMANCE — normalize_string_impl() is a hot-path inner-loop function
+#    called per-row during import transforms and rule-engine joins. It
+#    deliberately skips input validation. Routing through janitor would add
+#    dispatch overhead not acceptable in this context.
+#
+# 5. FALLBACK SEMANTICS — normalize_filename() replaces NA and empty-string
+#    results with the sentinel value "unknown". janitor has no equivalent
+#    fallback for missing or empty inputs.
+
 #' @title fast internal string normalization
 #' @description converts an atomic vector to lowercase ascii, removes
 #' non-alphanumeric characters except spaces, and squishes repeated spaces.
 #' skips input validation for performance in hot paths. callers must ensure
 #' the input is a valid atomic vector.
+#'
+#' **why not `janitor::make_clean_names()`?**
+#' (1) janitor produces underscore-separated snake_case; this function keeps
+#' spaces so downstream joins via `encode_rule_match_key()` stay consistent.
+#' (2) janitor prepends `x` to digit-starting tokens (`"2020"` → `"x2020"`),
+#' which would corrupt year values and numeric lookup keys.
+#' (3) janitor targets column names, not row-level text values.
 #' @param x atomic vector to normalize. coerced to character internally.
-#' @return character vector with normalized lowercase ascii text.
+#' @return character vector with normalized lowercase ascii text, using single
+#' spaces as word separators. `NA` inputs produce `NA` outputs.
 #' @importFrom stringi stri_trans_general stri_replace_all_regex stri_trim_both
 normalize_string_impl <- function(x) {
   out <- stringi::stri_trans_general(x, "Latin-ASCII; Lower")
@@ -68,9 +112,18 @@ normalize_string_impl <- function(x) {
 #' @title normalize free text into lowercase ascii
 #' @description converts input text to lowercase ascii, removes non-alphanumeric
 #' characters except spaces, and squishes repeated spaces to one separator.
+#'
+#' **why not `janitor::make_clean_names()`?**
+#' (1) janitor produces underscore-separated snake_case; this function keeps
+#' spaces so all callers (`encode_rule_match_key()`, `normalize_key_fields()`,
+#' unit/product key joins) produce consistent space-separated match keys.
+#' (2) janitor prepends `x` to digit-starting tokens (`"2020"` → `"x2020"`),
+#' which would corrupt year values and numeric lookup keys.
+#' (3) janitor targets column names, not row-level text values.
 #' @param string atomic vector with length greater than or equal to one.
 #' validated with `checkmate::check_atomic(min.len = 1, any.missing = true)`.
-#' @return character vector with normalized lowercase ascii text.
+#' @return character vector with normalized lowercase ascii text, using single
+#' spaces as word separators. `NA` inputs produce `NA` outputs.
 #' @importFrom checkmate check_atomic
 #' @examples
 #' normalize_string("forest! data 2024")
@@ -87,9 +140,17 @@ normalize_string <- function(string) {
 #' @description normalizes text and replaces spaces with underscores for
 #' deterministic filename stems. missing and empty outputs are replaced by
 #' `"unknown"`.
+#'
+#' **why not `janitor::make_clean_names()`?**
+#' (1) janitor prepends `x` to digit-starting tokens (`"2020"` → `"x2020"`),
+#' which would corrupt year-based filename stems and numeric product identifiers.
+#' (2) janitor has no `"unknown"` fallback for `NA` or empty-string inputs.
+#' (3) janitor targets R-identifier column names, not filesystem path stems.
 #' @param filename atomic vector with length greater than or equal to one.
 #' validated with `checkmate::check_atomic(min.len = 1, any.missing = true)`.
-#' @return character vector containing lowercase ascii filename stems.
+#' @return character vector containing lowercase ascii filename stems with
+#' underscores as word separators. `NA` and empty-string inputs return
+#' `"unknown"`.
 #' @importFrom checkmate check_atomic
 #' @importFrom stringr str_replace_all
 #' @examples
