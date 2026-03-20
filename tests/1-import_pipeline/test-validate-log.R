@@ -129,6 +129,114 @@ testthat::test_that("validate_long_dt runs full validation", {
 })
 
 
+# --- validate_year_values ----------------------------------------------------
+
+testthat::test_that("validate_year_values returns no errors for valid single years", {
+  dt <- data.table::data.table(
+    year     = c("2020", "2021", "1900"),
+    value    = c("100", "200", "300"),
+    document = c("doc.xlsx", "doc.xlsx", "doc.xlsx")
+  )
+
+  result <- validate_year_values(dt)
+
+  testthat::expect_true(is.list(result))
+  testthat::expect_true("errors" %in% names(result))
+  testthat::expect_true("data"   %in% names(result))
+  testthat::expect_equal(length(result$errors), 0L)
+})
+
+testthat::test_that("validate_year_values returns no errors for valid year ranges", {
+  dt <- data.table::data.table(
+    year     = c("2020-2021", "2019-2022"),
+    value    = c("100", "200"),
+    document = c("doc.xlsx", "doc.xlsx")
+  )
+
+  result <- validate_year_values(dt)
+
+  testthat::expect_equal(length(result$errors), 0L)
+})
+
+testthat::test_that("validate_year_values flags year below 1900", {
+  dt <- data.table::data.table(
+    year     = c("1800"),
+    value    = c("100"),
+    document = c("doc.xlsx")
+  )
+
+  result <- validate_year_values(dt)
+
+  testthat::expect_true(length(result$errors) > 0L)
+  testthat::expect_true(any(grepl("1800", result$errors)))
+  testthat::expect_true(any(grepl("plausible range", result$errors)))
+})
+
+testthat::test_that("validate_year_values flags year above current year + 1", {
+  dt <- data.table::data.table(
+    year     = c("9999"),
+    value    = c("100"),
+    document = c("doc.xlsx")
+  )
+
+  result <- validate_year_values(dt)
+
+  testthat::expect_true(length(result$errors) > 0L)
+  testthat::expect_true(any(grepl("9999", result$errors)))
+})
+
+testthat::test_that("validate_year_values flags inverted year range", {
+  dt <- data.table::data.table(
+    year     = c("2025-2020"),
+    value    = c("100"),
+    document = c("doc.xlsx")
+  )
+
+  result <- validate_year_values(dt)
+
+  testthat::expect_true(length(result$errors) > 0L)
+  testthat::expect_true(any(grepl("2025-2020", result$errors)))
+  testthat::expect_true(any(grepl("start year greater than end year", result$errors)))
+})
+
+testthat::test_that("validate_year_values flags year range outside plausible bounds", {
+  dt <- data.table::data.table(
+    year     = c("1800-1850"),
+    value    = c("100"),
+    document = c("doc.xlsx")
+  )
+
+  result <- validate_year_values(dt)
+
+  testthat::expect_true(length(result$errors) > 0L)
+  testthat::expect_true(any(grepl("plausible range", result$errors)))
+})
+
+testthat::test_that("validate_year_values skips NA and empty year values", {
+  dt <- data.table::data.table(
+    year     = c(NA_character_, "", "2020"),
+    value    = c("100", "200", "300"),
+    document = c("doc.xlsx", "doc.xlsx", "doc.xlsx")
+  )
+
+  result <- validate_year_values(dt)
+
+  testthat::expect_equal(length(result$errors), 0L)
+})
+
+testthat::test_that("validate_year_values returns unchanged data", {
+  dt <- data.table::data.table(
+    year     = c("2020", "1800"),
+    value    = c("100", "200"),
+    document = c("doc.xlsx", "doc.xlsx")
+  )
+
+  result <- validate_year_values(dt)
+
+  testthat::expect_equal(nrow(result$data), 2L)
+})
+
+
 # --- edge cases: empty input -------------------------------------------------
 
 testthat::test_that("validate_long_dt handles empty data.table", {

@@ -114,9 +114,73 @@ detect_duplicates_dt <- function(dt) {
   return(list(errors = errors, data = dt_work))
 }
 
+#' @title validate year values
+#' @description validate that year values in long-format data fall within a
+#' plausible range (1900 to current year + 1) and that year ranges have a
+#' non-decreasing start-to-end order.
+#' @param dt data table or data frame containing long-format observations with
+#' a `year` column.
+#' @return named list with `errors` as a character vector of validation messages
+#' and `data` as the unchanged data table.
+#' @importFrom checkmate assert_data_frame assert_names
+#' @importFrom data.table as.data.table
+#' @examples
+#' dt_example <- data.frame(
+#'   product = "wheat", variable = "production",
+#'   year = c("2020", "1800", "2025-2020"),
+#'   value = c("100", "200", "300"), document = "doc.xlsx"
+#' )
+#' validate_year_values(dt_example)
+validate_year_values <- function(dt) {
+  dt_work <- ensure_data_table(dt)
+  checkmate::assert_names(colnames(dt_work), must.include = "year")
+
+  current_year <- as.integer(format(Sys.Date(), "%Y"))
+  min_year <- 1900L
+  max_year <- current_year + 1L
+
+  year_values <- unique(dt_work[["year"]])
+  year_values <- year_values[!is.na(year_values) & year_values != ""]
+
+  errors <- character(0)
+
+  for (yr in year_values) {
+    if (grepl("^\\d{4}-\\d{4}$", yr)) {
+      parts <- strsplit(yr, "-", fixed = TRUE)[[1]]
+      start_yr <- as.integer(parts[1])
+      end_yr <- as.integer(parts[2])
+
+      if (start_yr > end_yr) {
+        errors <- c(errors, paste0(
+          "year range '", yr, "' has start year greater than end year"
+        ))
+      }
+
+      if (start_yr < min_year || end_yr > max_year) {
+        errors <- c(errors, paste0(
+          "year range '", yr, "' contains year outside plausible range [",
+          min_year, ", ", max_year, "]"
+        ))
+      }
+    } else if (grepl("^\\d{4}$", yr)) {
+      yr_int <- as.integer(yr)
+      if (yr_int < min_year || yr_int > max_year) {
+        errors <- c(errors, paste0(
+          "year value '", yr, "' is outside plausible range [",
+          min_year, ", ", max_year, "]"
+        ))
+      }
+    }
+  }
+
+  return(list(errors = errors, data = dt_work))
+}
+
+
 #' @title validate long data table
 #' @description run the complete long-table validation pipeline by applying
-#' mandatory field checks and duplicate detection, and return a validated table
+#' mandatory field checks, year value validation, and duplicate detection, and
+#' return a validated table.
 #' @param long_dt data table or data frame containing long-format records.
 #' @param config named list containing `column_required` as a non-empty character
 #' vector.
@@ -143,10 +207,11 @@ validate_long_dt <- function(long_dt, config) {
   )
 
   mandatory_result <- validate_mandatory_fields_dt(long_dt, config)
-  duplicate_result <- detect_duplicates_dt(mandatory_result$data)
+  year_result      <- validate_year_values(mandatory_result$data)
+  duplicate_result <- detect_duplicates_dt(year_result$data)
 
   return(list(
     data = mandatory_result$data,
-    errors = c(mandatory_result$errors, duplicate_result$errors)
+    errors = c(mandatory_result$errors, year_result$errors, duplicate_result$errors)
   ))
 }
