@@ -75,7 +75,7 @@ build_test_config <- function(root_dir = NULL) {
     column_required = c("continent", "country"),
     column_id       = c("product", "variable", "unit", "continent", "country", "footnotes"),
     column_order    = c(
-      "continent", "country", "product", "variable",
+      "hemisphere", "continent", "country", "product", "variable",
       "unit", "year", "value", "notes", "footnotes",
       "yearbook", "document"
     ),

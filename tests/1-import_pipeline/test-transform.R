@@ -58,6 +58,37 @@ testthat::test_that("normalize_key_fields adds missing base columns as NA", {
   testthat::expect_true("country"   %in% names(result))
 })
 
+testthat::test_that("normalize_key_fields normalizes hemisphere when present", {
+  dt <- data.table::data.table(
+    product    = "wheat",
+    variable   = "production",
+    continent  = "Asia",
+    country    = "Japan",
+    hemisphere = "Northern Hemisphere"
+  )
+  config <- build_test_config()
+
+  result <- normalize_key_fields(dt, "wheat", config)
+
+  testthat::expect_true("hemisphere" %in% names(result))
+  testthat::expect_equal(result$hemisphere, "northern hemisphere")
+})
+
+testthat::test_that("normalize_key_fields succeeds when hemisphere column is absent", {
+  dt <- data.table::data.table(
+    product   = "wheat",
+    variable  = "production",
+    continent = "Asia",
+    country   = "Japan"
+  )
+  config <- build_test_config()
+
+  result <- normalize_key_fields(dt, "wheat", config)
+
+  testthat::expect_true(data.table::is.data.table(result))
+  testthat::expect_false("hemisphere" %in% names(result))
+})
+
 
 # --- convert_year_columns ----------------------------------------------------
 

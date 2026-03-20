@@ -204,6 +204,7 @@ load_pipeline_config <- function(
   )
 
   column_order <- c(
+    "hemisphere",
     "continent",
     "country",
     "product",
@@ -218,6 +219,7 @@ load_pipeline_config <- function(
   )
 
   fixed_export_columns <- c(
+    "hemisphere",
     "continent",
     "country",
     "product",
