@@ -3,7 +3,10 @@
 # for processed data and lists workbooks.
 
 if (!exists("get_pipeline_constants", mode = "function", inherits = TRUE)) {
-  source(here::here("scripts", "0-general_pipeline", "01-setup.R"), echo = FALSE)
+  source(
+    here::here("scripts", "0-general_pipeline", "01-setup.R"),
+    echo = FALSE
+  )
 }
 
 
@@ -114,8 +117,16 @@ assert_export_paths_contract <- function(export_result) {
     names(export_result),
     must.include = c("processed_paths", "lists_paths")
   )
-  checkmate::assert_character(export_result$processed_paths, min.len = 1, names = "named")
-  checkmate::assert_character(export_result$lists_paths, min.len = 1, names = "named")
+  checkmate::assert_character(
+    export_result$processed_paths,
+    min.len = 1,
+    names = "named"
+  )
+  checkmate::assert_character(
+    export_result$lists_paths,
+    min.len = 1,
+    names = "named"
+  )
 
   return(invisible(TRUE))
 }
@@ -138,7 +149,9 @@ run_export_pipeline_auto <- function(auto_run, env = .GlobalEnv) {
   }
 
   if (!exists("config", envir = env, inherits = TRUE)) {
-    cli::cli_warn("automatic export pipeline skipped: missing {.val config} in environment")
+    cli::cli_warn(
+      "automatic export pipeline skipped: missing {.val config} in environment"
+    )
     return(invisible(NULL))
   }
 
@@ -168,5 +181,8 @@ run_export_pipeline_auto <- function(auto_run, env = .GlobalEnv) {
 }
 
 run_export_pipeline_auto(
-  auto_run = isTRUE(getOption(get_pipeline_constants()$auto_run_options$export, TRUE))
+  auto_run = isTRUE(getOption(
+    get_pipeline_constants()$auto_run_options$export,
+    TRUE
+  ))
 )

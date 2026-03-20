@@ -51,19 +51,27 @@ extract_file_metadata <- function(file_paths) {
   # extract yearbook and product in a single pass over name_parts to avoid
 
   # iterating twice (mirrors extract_yearbook / extract_product logic inline)
-  metadata_pairs <- vapply(name_parts, function(parts) {
-    yb <- if (length(parts) >= 4) paste(parts[2:4], collapse = "_") else NA_character_
-    pr <- if (length(parts) > 6) {
-      product_parts <- parts[7:length(parts)]
-      product_parts[length(product_parts)] <- fs::path_ext_remove(
-        product_parts[length(product_parts)]
-      )
-      paste(product_parts, collapse = "_")
-    } else {
-      NA_character_
-    }
-    c(yb, pr)
-  }, character(2))
+  metadata_pairs <- vapply(
+    name_parts,
+    function(parts) {
+      yb <- if (length(parts) >= 4) {
+        paste(parts[2:4], collapse = "_")
+      } else {
+        NA_character_
+      }
+      pr <- if (length(parts) > 6) {
+        product_parts <- parts[7:length(parts)]
+        product_parts[length(product_parts)] <- fs::path_ext_remove(
+          product_parts[length(product_parts)]
+        )
+        paste(product_parts, collapse = "_")
+      } else {
+        NA_character_
+      }
+      c(yb, pr)
+    },
+    character(2)
+  )
   yearbook <- metadata_pairs[1L, ]
   product <- metadata_pairs[2L, ]
 

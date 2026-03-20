@@ -2,7 +2,10 @@
 # description: discover, read, transform, and validate all import files.
 
 if (!exists("get_pipeline_constants", mode = "function", inherits = TRUE)) {
-  source(here::here("scripts", "0-general_pipeline", "01-setup.R"), echo = FALSE)
+  source(
+    here::here("scripts", "0-general_pipeline", "01-setup.R"),
+    echo = FALSE
+  )
 }
 
 
@@ -72,7 +75,10 @@ run_import_pipeline <- function(config) {
       read_pipeline_result$read_data_list,
       any.missing = TRUE
     )
-    checkmate::assert_character(read_pipeline_result$errors, any.missing = FALSE)
+    checkmate::assert_character(
+      read_pipeline_result$errors,
+      any.missing = FALSE
+    )
 
     read_data_list <- read_pipeline_result$read_data_list
 
@@ -113,7 +119,10 @@ run_import_pipeline <- function(config) {
       must.include = c("data", "warnings")
     )
     checkmate::assert_data_frame(consolidated_result$data, min.rows = 0)
-    checkmate::assert_character(consolidated_result$warnings, any.missing = FALSE)
+    checkmate::assert_character(
+      consolidated_result$warnings,
+      any.missing = FALSE
+    )
 
     consolidated_data <- consolidated_result$data
 

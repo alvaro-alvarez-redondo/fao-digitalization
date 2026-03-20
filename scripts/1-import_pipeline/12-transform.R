@@ -52,7 +52,11 @@ normalize_key_fields <- function(df, product_name, config) {
   # normalize data-sourced text columns (product is set from file metadata above)
   norm_cols <- c("variable", "continent", "country")
   for (col in norm_cols) {
-    data.table::set(data_dt, j = col, value = normalize_string_impl(data_dt[[col]]))
+    data.table::set(
+      data_dt,
+      j = col,
+      value = normalize_string_impl(data_dt[[col]])
+    )
   }
 
   return(data_dt)
@@ -73,6 +77,12 @@ normalize_key_fields <- function(df, product_name, config) {
 #' convert_year_columns(df_example, config_example)
 convert_year_columns <- function(df, config) {
   clean_names <- gsub("\\.0$", "", colnames(df))
+  clean_names <- sub("^(\\d{4})-\\d{2}$", "\\1", clean_names)
+  clean_names <- sub(
+    "^(\\d{4})-\\d{2}/(\\d{4})-\\d{2}$",
+    "\\1-\\2",
+    clean_names
+  )
 
   if (!identical(clean_names, colnames(df))) {
     data.table::setnames(df, old = colnames(df), new = clean_names)
@@ -320,7 +330,12 @@ transform_single_file <- function(file_row, df_wide, config) {
 #' @importFrom future.apply future_lapply
 #' @examples
 #' # process_files(file_list_dt_example, read_data_list_example, config_example)
-process_files <- function(file_list_dt, read_data_list, config, progressor = NULL) {
+process_files <- function(
+  file_list_dt,
+  read_data_list,
+  config,
+  progressor = NULL
+) {
   assert_or_abort(checkmate::check_data_frame(file_list_dt))
   assert_or_abort(checkmate::check_list(read_data_list))
   assert_or_abort(checkmate::check_list(config, any.missing = FALSE))
@@ -421,7 +436,12 @@ process_files <- function(file_list_dt, read_data_list, config, progressor = NUL
 #' read_data_list_example <- list()
 #' config_example <- list()
 #' transform_files_list(file_list_example, read_data_list_example, config_example)
-transform_files_list <- function(file_list_dt, read_data_list, config, progressor = NULL) {
+transform_files_list <- function(
+  file_list_dt,
+  read_data_list,
+  config,
+  progressor = NULL
+) {
   assert_or_abort(checkmate::check_data_frame(file_list_dt))
   assert_or_abort(checkmate::check_list(read_data_list))
   assert_or_abort(checkmate::check_list(config, any.missing = FALSE))
@@ -438,7 +458,12 @@ transform_files_list <- function(file_list_dt, read_data_list, config, progresso
     return(build_empty_transform_result())
   }
 
-  results <- process_files(file_list_dt, read_data_list, config, progressor = progressor)
+  results <- process_files(
+    file_list_dt,
+    read_data_list,
+    config,
+    progressor = progressor
+  )
 
   if (length(results) == 0) {
     return(build_empty_transform_result())

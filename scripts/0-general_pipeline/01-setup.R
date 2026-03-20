@@ -99,7 +99,10 @@ get_pipeline_constants <- function() {
 #' @examples
 #' config <- load_pipeline_config("fao_data_raw")
 #' names(config)
-load_pipeline_config <- function(dataset_name = get_pipeline_constants()$dataset_default_name, ...) {
+load_pipeline_config <- function(
+  dataset_name = get_pipeline_constants()$dataset_default_name,
+  ...
+) {
   optional_args <- list(...)
 
   inferred_dataset_name <- NULL
@@ -165,7 +168,11 @@ load_pipeline_config <- function(dataset_name = get_pipeline_constants()$dataset
       imports = list(
         raw = raw_imports_dir,
         cleaning = build_path("data", "1-import", "11-clean_imports"),
-        standardization = build_path("data", "1-import", "12-standardize_imports"),
+        standardization = build_path(
+          "data",
+          "1-import",
+          "12-standardize_imports"
+        ),
         harmonization = build_path("data", "1-import", "13-harmonize_imports")
       ),
       exports = list(
@@ -396,15 +403,18 @@ create_required_directories <- function(paths) {
   checkmate::assert_character(all_paths, any.missing = FALSE, min.len = 1)
 
   all_directories <- all_paths |>
-    vapply(\(path_value) {
-      path_file_name <- fs::path_file(path_value)
+    vapply(
+      \(path_value) {
+        path_file_name <- fs::path_file(path_value)
 
-      if (grepl("\\.[a-z0-9]+$", path_file_name)) {
-        return(fs::path_dir(path_value))
-      }
+        if (grepl("\\.[a-z0-9]+$", path_file_name)) {
+          return(fs::path_dir(path_value))
+        }
 
-      path_value
-    }, character(1)) |>
+        path_value
+      },
+      character(1)
+    ) |>
     unique() |>
     sort()
 

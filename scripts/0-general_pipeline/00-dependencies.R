@@ -122,7 +122,11 @@ load_dependencies <- function(packages) {
     min.len = 1
   ))
 
-  attached_packages <- sub("^package:", "", grep("^package:", search(), value = TRUE))
+  attached_packages <- sub(
+    "^package:",
+    "",
+    grep("^package:", search(), value = TRUE)
+  )
   packages_to_load <- setdiff(packages, attached_packages)
 
   if (length(packages_to_load) == 0L) {

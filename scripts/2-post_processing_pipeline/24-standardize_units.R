@@ -430,15 +430,15 @@ aggregate_standardized_rows <- function(dt, value_column = "value") {
   data.table::setnames(result, "agg_value_tmp_", value_column)
 
   if (has_na) {
-    na_counts  <- dt[is.na(get(value_column)), .N, by = group_cols]
+    na_counts <- dt[is.na(get(value_column)), .N, by = group_cols]
 
     if (nrow(na_counts) > 0L) {
       total_counts <- dt[, .N, by = group_cols]
 
-      data.table::setnames(na_counts,  "N", "na_count_tmp_")
+      data.table::setnames(na_counts, "N", "na_count_tmp_")
       data.table::setnames(total_counts, "N", "total_count_tmp_")
 
-      data.table::setkeyv(na_counts,  group_cols)
+      data.table::setkeyv(na_counts, group_cols)
       data.table::setkeyv(total_counts, group_cols)
 
       all_na_groups <- na_counts[total_counts, nomatch = 0L][
@@ -512,8 +512,8 @@ attach_standardize_diagnostics <- function(
   diagnostics$aggregation_enabled <- aggregation_enabled
   if (aggregation_enabled && !is.null(rows_before_aggregation)) {
     diagnostics$rows_before_aggregation <- as.integer(rows_before_aggregation)
-    diagnostics$rows_after_aggregation  <- as.integer(rows_after_aggregation)
-    diagnostics$collapsed_rows_count    <- as.integer(
+    diagnostics$rows_after_aggregation <- as.integer(rows_after_aggregation)
+    diagnostics$collapsed_rows_count <- as.integer(
       rows_before_aggregation - rows_after_aggregation
     )
     diagnostics$aggregated_groups_count <- as.integer(rows_after_aggregation)

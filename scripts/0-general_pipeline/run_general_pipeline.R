@@ -4,7 +4,10 @@
 # required directories.
 
 if (!exists("get_pipeline_constants", mode = "function", inherits = TRUE)) {
-  source(here::here("scripts", "0-general_pipeline", "01-setup.R"), echo = FALSE)
+  source(
+    here::here("scripts", "0-general_pipeline", "01-setup.R"),
+    echo = FALSE
+  )
 }
 
 
@@ -28,8 +31,8 @@ source_general_scripts <- function(script_names) {
   # update this mapping when script contents change.
   sentinel_functions <- list(
     "00-dependencies.R" = "check_dependencies",
-    "01-setup.R"        = "load_pipeline_config",
-    "02-helpers.R"      = "normalize_string"
+    "01-setup.R" = "load_pipeline_config",
+    "02-helpers.R" = "normalize_string"
   )
 
   script_paths <- vapply(
@@ -41,8 +44,10 @@ source_general_scripts <- function(script_names) {
 
   for (i in seq_along(script_names)) {
     sentinel <- sentinel_functions[[script_names[i]]]
-    if (!is.null(sentinel) &&
-        exists(sentinel, mode = "function", envir = .GlobalEnv)) {
+    if (
+      !is.null(sentinel) &&
+        exists(sentinel, mode = "function", envir = .GlobalEnv)
+    ) {
       next
     }
     checkmate::assert_file_exists(script_paths[i])
@@ -65,7 +70,9 @@ source_general_scripts <- function(script_names) {
 #' @examples
 #' config <- run_general_pipeline("fao_data_raw")
 #' names(config)
-run_general_pipeline <- function(dataset_name = get_pipeline_constants()$dataset_default_name) {
+run_general_pipeline <- function(
+  dataset_name = get_pipeline_constants()$dataset_default_name
+) {
   checkmate::assert_string(dataset_name, min.chars = 1)
   pipeline_constants <- get_pipeline_constants()
   general_scripts <- pipeline_constants$script_names$general

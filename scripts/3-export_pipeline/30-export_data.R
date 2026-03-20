@@ -25,7 +25,10 @@ build_processed_export_path <- function(config, object_name) {
 
   processed_dir <- here::here(processed_dir)
 
-  return(fs::path(processed_dir, paste0(normalize_filename(object_name), ".xlsx")))
+  return(fs::path(
+    processed_dir,
+    paste0(normalize_filename(object_name), ".xlsx")
+  ))
 }
 
 
@@ -47,7 +50,12 @@ collect_layer_tables_for_export <- function(
   layer_suffixes = c("raw", "cleaned", "normalized", "harmonized")
 ) {
   checkmate::assert_environment(env)
-  checkmate::assert_character(layer_suffixes, min.len = 1, any.missing = FALSE, unique = TRUE)
+  checkmate::assert_character(
+    layer_suffixes,
+    min.len = 1,
+    any.missing = FALSE,
+    unique = TRUE
+  )
 
   layer_pattern <- paste0("_(", paste(layer_suffixes, collapse = "|"), ")$")
 
@@ -66,7 +74,10 @@ collect_layer_tables_for_export <- function(
     valid_candidate_names <- Filter(is_valid_layer_name, candidate_names)
 
     detected_tables <- purrr::keep(
-      setNames(lapply(valid_candidate_names, get, envir = env, inherits = TRUE), valid_candidate_names),
+      setNames(
+        lapply(valid_candidate_names, get, envir = env, inherits = TRUE),
+        valid_candidate_names
+      ),
       is.data.frame
     )
   } else {
@@ -114,7 +125,9 @@ write_processed_table_fast <- function(data_dt, output_path, overwrite = TRUE) {
   checkmate::assert_flag(overwrite)
 
   if (!overwrite && file.exists(output_path)) {
-    cli::cli_abort("file already exists and overwrite is disabled: {.path {output_path}}")
+    cli::cli_abort(
+      "file already exists and overwrite is disabled: {.path {output_path}}"
+    )
   }
 
   writexl::write_xlsx(data_dt, path = output_path)
@@ -168,15 +181,21 @@ export_processed_data <- function(
     ))
   }
 
-  processed_paths <- purrr::imap_chr(export_tables, function(data_dt, object_name) {
-    output_path <- build_processed_export_path(config = config, object_name = object_name)
+  processed_paths <- purrr::imap_chr(
+    export_tables,
+    function(data_dt, object_name) {
+      output_path <- build_processed_export_path(
+        config = config,
+        object_name = object_name
+      )
 
-    write_processed_table_fast(
-      data_dt = data_dt,
-      output_path = output_path,
-      overwrite = overwrite
-    )
-  })
+      write_processed_table_fast(
+        data_dt = data_dt,
+        output_path = output_path,
+        overwrite = overwrite
+      )
+    }
+  )
 
   return(processed_paths)
 }

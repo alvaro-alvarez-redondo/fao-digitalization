@@ -142,10 +142,13 @@ compute_non_empty_base_rows <- function(read_dt, base_cols) {
     return(logical(nrow(read_dt)))
   }
 
-  keep_row <- Reduce(`|`, lapply(base_cols, function(col) {
-    v <- read_dt[[col]]
-    !is.na(v) & trimws(v) != ""
-  }))
+  keep_row <- Reduce(
+    `|`,
+    lapply(base_cols, function(col) {
+      v <- read_dt[[col]]
+      !is.na(v) & trimws(v) != ""
+    })
+  )
 
   return(keep_row)
 }
@@ -219,7 +222,10 @@ read_excel_sheet <- function(file_path, sheet_name, config) {
     read_dt[, (missing_base) := NA_character_]
   }
 
-  keep_row <- compute_non_empty_base_rows(read_dt = read_dt, base_cols = base_cols)
+  keep_row <- compute_non_empty_base_rows(
+    read_dt = read_dt,
+    base_cols = base_cols
+  )
 
   filtered_dt <- read_dt[keep_row]
   filtered_dt[, variable := sheet_name]
@@ -288,7 +294,8 @@ read_file_sheets <- function(file_path, config) {
 
   combined_data <- data.table::rbindlist(
     lapply(sheets_list, `[[`, "data"),
-    use.names = TRUE, fill = TRUE
+    use.names = TRUE,
+    fill = TRUE
   )
 
   combined_errors <- c(

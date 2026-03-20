@@ -4,7 +4,10 @@
 # preserving independent stage entry points.
 
 if (!exists("get_pipeline_constants", mode = "function", inherits = TRUE)) {
-  source(here::here("scripts", "0-general_pipeline", "01-setup.R"), echo = FALSE)
+  source(
+    here::here("scripts", "0-general_pipeline", "01-setup.R"),
+    echo = FALSE
+  )
 }
 
 #' @title Load cleaning rule payloads
@@ -105,7 +108,9 @@ run_rule_stage_layer_batch <- function(
       )
 
       state$data <- payload_result$data
-      state$audit_tables[[length(state$audit_tables) + 1L]] <- payload_result$audit
+      state$audit_tables[[
+        length(state$audit_tables) + 1L
+      ]] <- payload_result$audit
 
       return(state)
     }
