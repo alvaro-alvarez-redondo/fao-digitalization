@@ -26,6 +26,7 @@ validate_output_column_order <- function(config) {
   ))
 
   target_schema <- c(
+    "hemisphere",
     "continent",
     "country",
     "product",

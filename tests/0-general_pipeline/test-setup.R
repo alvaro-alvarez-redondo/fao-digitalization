@@ -137,3 +137,29 @@ testthat::test_that("create_required_directories excludes audit root tree", {
   testthat::expect_true(dir.exists(file.path(base_dir, "imports", "raw")))
   testthat::expect_false(dir.exists(file.path(base_dir, "audit")))
 })
+
+
+# --- hemisphere column contract -----------------------------------------------
+
+testthat::test_that("column_order includes hemisphere before continent", {
+  config <- load_pipeline_config()
+
+  col_order   <- config$column_order
+  idx_hemi    <- which(col_order == "hemisphere")
+  idx_cont    <- which(col_order == "continent")
+
+  testthat::expect_true(length(idx_hemi) == 1L)
+  testthat::expect_true(idx_hemi < idx_cont)
+})
+
+testthat::test_that("fixed_export_columns includes hemisphere", {
+  config <- load_pipeline_config()
+
+  testthat::expect_true("hemisphere" %in% config$export_config$lists_to_export)
+})
+
+testthat::test_that("audit_columns does not include hemisphere", {
+  config <- load_pipeline_config()
+
+  testthat::expect_false("hemisphere" %in% config$audit_columns)
+})

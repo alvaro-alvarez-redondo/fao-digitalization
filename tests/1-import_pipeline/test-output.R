@@ -64,3 +64,19 @@ testthat::test_that("consolidate_audited_dt enforces column order from config", 
 
   testthat::expect_identical(actual_order, expected_order)
 })
+
+
+# --- hemisphere in target_schema ---------------------------------------------
+
+testthat::test_that("validate_output_column_order requires hemisphere in column_order", {
+  config <- build_test_config()
+
+  testthat::expect_true("hemisphere" %in% config$column_order)
+})
+
+testthat::test_that("validate_output_column_order errors when config column_order omits hemisphere", {
+  config        <- build_test_config()
+  config$column_order <- setdiff(config$column_order, "hemisphere")
+
+  testthat::expect_error(validate_output_column_order(config))
+})
