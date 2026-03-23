@@ -149,11 +149,11 @@ export_results_json <- function(results, output_path) {
       escaped <- gsub("\t", "\\t",  escaped,  fixed = TRUE)  # tabs
       escaped <- gsub("\f", "\\f",  escaped,  fixed = TRUE)  # form-feed
       escaped <- gsub("\b", "\\b",  escaped,  fixed = TRUE)  # backspace
-      # escape remaining C0 control characters. the loop range is 1L:31L —
-      # starting at 1 (not 0) is intentional: rawToChar(as.raw(0)) returns ""
-      # because R's rawToChar() stops at the NUL string terminator, and
-      # passing an empty-string pattern to gsub() raises a "zero-length pattern"
-      # error. NUL bytes cannot appear in normal R character strings, so
+      # escape remaining C0 control characters. the loop range is 1L:31L
+      # (decimal 1-31 = hex \x01-\x1f). cp = 0 (\x00, NUL) is excluded because
+      # rawToChar(as.raw(0)) returns "" — R stops at the NUL string terminator —
+      # and passing an empty-string pattern to gsub() raises a "zero-length
+      # pattern" error. NUL bytes cannot appear in normal R character strings, so
       # skipping cp = 0 is safe. the five code points handled explicitly above
       # (\\b=8, \\t=9, \\n=10, \\f=12, \\r=13) are excluded via setdiff().
       for (cp in setdiff(1L:31L, c(8L, 9L, 10L, 12L, 13L))) {

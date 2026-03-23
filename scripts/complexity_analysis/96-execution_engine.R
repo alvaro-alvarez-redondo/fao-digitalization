@@ -12,7 +12,9 @@
 #' @title run all benchmarks
 #' @description iterates over all benchmark definitions, runs the timing
 #'   harness for each, and returns raw timing data together with fitted
-#'   complexity models.
+#'   complexity models. when `cfg$quiet` is FALSE each benchmark run is wrapped
+#'   in its own `progressr::with_progress()` call so the console shows a
+#'   dedicated 1/T … T/T progress bar (T = number of input sizes) per function.
 #' @param benchmarks named list of benchmark descriptors (from
 #'   `build_benchmark_definitions()`).
 #' @param cfg analysis configuration from `get_big_o_config()`.
@@ -23,10 +25,12 @@
 #'     \item{complexity}{data.table with one row per function, best-fit class,
 #'       adjusted R², and dominant-stage flag}
 #'   }
+#' @importFrom progressr with_progress progressor
 run_all_benchmarks <- function(benchmarks, cfg) {
   quiet       <- cfg$quiet
   input_sizes <- cfg$input_sizes
   n_reps      <- cfg$n_reps
+  n_sizes     <- length(input_sizes)
 
   all_raw        <- vector("list", length(benchmarks))
   all_summary    <- vector("list", length(benchmarks))
@@ -40,13 +44,21 @@ run_all_benchmarks <- function(benchmarks, cfg) {
       message(sprintf("  %s", bm$description))
     }
 
-    raw_dt <- tryCatch(
-      run_benchmark(bm$fn_factory, input_sizes, n_reps = n_reps, quiet = quiet),
-      error = function(e) {
-        warning(sprintf("benchmark '%s' failed: %s", bm$name, conditionMessage(e)))
-        NULL
+    raw_dt <- tryCatch({
+      if (!quiet) {
+        progressr::with_progress({
+          p <- progressr::progressor(steps = n_sizes)
+          run_benchmark(bm$fn_factory, input_sizes, n_reps = n_reps,
+                        quiet = TRUE, progressor = p)
+        })
+      } else {
+        run_benchmark(bm$fn_factory, input_sizes, n_reps = n_reps,
+                      quiet = TRUE, progressor = NULL)
       }
-    )
+    }, error = function(e) {
+      warning(sprintf("benchmark '%s' failed: %s", bm$name, conditionMessage(e)))
+      NULL
+    })
 
     if (is.null(raw_dt)) {
       # record failure row

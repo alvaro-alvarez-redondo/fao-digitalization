@@ -367,7 +367,7 @@ testthat::test_that("export_results_json does not error on strings with tab/newl
 })
 
 testthat::test_that("export_results_json does not error on strings with low C0 control chars (\\x01-\\x1f)", {
-  # exercise the fixed-loop path (cp in setdiff(1L:31L, c(8L,9L,10L,12L,13L)))
+  # exercise the C0-escape loop (cp in setdiff(1L:31L, c(8L,9L,10L,12L,13L)))
   # \x01 (SOH) and \x1f (US) are representative non-printable characters from
   # opposite ends of the loop range; testing both is sufficient to confirm the
   # loop iterates and applies \uXXXX escaping correctly.
@@ -395,4 +395,72 @@ testthat::test_that("export_results_json handles NA r_squared (serialised as nul
 
   raw_text <- paste(readLines(out_path, warn = FALSE), collapse = "\n")
   testthat::expect_true(grepl('"adj_r_squared": null', raw_text, fixed = TRUE))
+})
+
+# ── run_benchmark (progressor integration) ───────────────────────────────────
+
+testthat::test_that("run_benchmark accepts a progressor and calls it once per input size", {
+  sizes   <- c(100L, 200L, 300L)
+  n_calls <- 0L
+
+  # a mock progressor that simply counts calls
+  mock_progressor <- function(msg = NULL) {
+    n_calls <<- n_calls + 1L
+  }
+
+  fn_factory <- function(n) function() Sys.sleep(0)
+
+  result <- run_benchmark(fn_factory, sizes, n_reps = 1L,
+                          quiet = TRUE, progressor = mock_progressor)
+
+  testthat::expect_equal(n_calls, length(sizes))
+})
+
+testthat::test_that("run_benchmark progressor message contains n and fraction", {
+  sizes    <- c(100L, 500L)
+  messages <- character(0L)
+
+  mock_progressor <- function(msg = NULL) {
+    if (!is.null(msg)) messages <<- c(messages, msg)
+  }
+
+  fn_factory <- function(n) function() Sys.sleep(0)
+
+  run_benchmark(fn_factory, sizes, n_reps = 1L,
+                quiet = TRUE, progressor = mock_progressor)
+
+  # each message should mention the size and the i/T fraction
+  testthat::expect_true(any(grepl("100", messages)))
+  testthat::expect_true(any(grepl("500", messages)))
+  testthat::expect_true(any(grepl("1/2", messages)))
+  testthat::expect_true(any(grepl("2/2", messages)))
+})
+
+testthat::test_that("run_benchmark with quiet=TRUE and no progressor emits no messages", {
+  fn_factory <- function(n) function() Sys.sleep(0)
+  sizes      <- c(50L, 100L)
+
+  msgs <- character(0L)
+  withCallingHandlers(
+    run_benchmark(fn_factory, sizes, n_reps = 1L, quiet = TRUE, progressor = NULL),
+    message = function(m) {
+      msgs <<- c(msgs, conditionMessage(m))
+      invokeRestart("muffleMessage")
+    }
+  )
+
+  testthat::expect_length(msgs, 0L)
+})
+
+testthat::test_that("run_benchmark returns correct data.table structure when progressor is used", {
+  sizes <- c(100L, 200L)
+  mock_progressor <- function(msg = NULL) invisible(NULL)
+  fn_factory <- function(n) function() Sys.sleep(0)
+
+  result <- run_benchmark(fn_factory, sizes, n_reps = 2L,
+                          quiet = TRUE, progressor = mock_progressor)
+
+  testthat::expect_true(data.table::is.data.table(result))
+  testthat::expect_true(all(c("n", "rep", "elapsed_s") %in% names(result)))
+  testthat::expect_equal(nrow(result), length(sizes) * 2L)
 })

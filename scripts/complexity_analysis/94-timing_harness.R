@@ -29,14 +29,24 @@ time_fn <- function(fn) {
 #'   the inner function should capture all required inputs for one experiment.
 #' @param input_sizes integer vector of input sizes.
 #' @param n_reps integer number of replications per size.
-#' @param quiet logical — suppress per-size progress messages.
+#' @param quiet logical — suppress per-size progress messages (only applies
+#'   when `progressor` is NULL).
+#' @param progressor optional `progressr::progressor()` function. when supplied,
+#'   one tick is emitted per input size (1/T per step, T = length(input_sizes))
+#'   and per-size `message()` output is suppressed. pass NULL to fall back to
+#'   message-based output controlled by `quiet`.
 #' @return data.table with columns: n (int), rep (int), elapsed_s (dbl).
-run_benchmark <- function(fn_factory, input_sizes, n_reps = 5L, quiet = FALSE) {
+#' @importFrom progressr progressor
+run_benchmark <- function(fn_factory, input_sizes, n_reps = 5L, quiet = FALSE,
+                          progressor = NULL) {
   results <- vector("list", length(input_sizes))
+  n_sizes <- length(input_sizes)
 
   for (i in seq_along(input_sizes)) {
     n_i <- input_sizes[[i]]
-    if (!quiet) {
+    if (!is.null(progressor)) {
+      progressor(sprintf("n = %d  (%d/%d)", n_i, i, n_sizes))
+    } else if (!quiet) {
       message(sprintf("  n = %d ...", n_i))
     }
 

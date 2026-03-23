@@ -106,7 +106,9 @@ options(
 #' @title run Big O analysis
 #' @description top-level entry point. runs the full empirical Big O analysis
 #'   for the WHEP pipeline and produces console output, a JSON summary, and
-#'   runtime plots.
+#'   runtime plots. when `quiet` is FALSE a `progressr` txtprogressbar handler
+#'   is configured and each benchmark function displays its own 1/T … T/T
+#'   progress bar (T = number of input sizes in `cfg$input_sizes`).
 #'
 #' @param cfg list. analysis configuration. defaults to `get_big_o_config()`.
 #'   override individual fields to change input sizes, reps, output location,
@@ -115,7 +117,7 @@ options(
 #'   `cfg$output_dir` when supplied. defaults to `tempdir()/big_o_analysis`.
 #' @param write_plots logical. whether to write PNG plots. overrides
 #'   `cfg$produce_plots` when supplied.
-#' @param quiet logical. suppress progress messages.
+#' @param quiet logical. suppress progress messages and progress bars.
 #'
 #' @return named list:
 #'   \describe{
@@ -125,6 +127,8 @@ options(
 #'     \item{json_path}{character — path of written JSON file}
 #'     \item{plot_paths}{character — paths of written PNG files}
 #'   }
+#'
+#' @importFrom progressr handlers handler_txtprogressbar
 #'
 #' @examples
 #' \dontrun{
@@ -164,6 +168,11 @@ run_big_o_analysis <- function(
     message(sprintf("  n_reps      : %d", cfg$n_reps))
     message(sprintf("  output_dir  : %s", cfg$output_dir))
     message(strrep("─", 70L))
+    progressr::handlers(progressr::handler_txtprogressbar(
+      style = 3,
+      width = 40,
+      clear = FALSE
+    ))
   }
 
   benchmarks <- build_benchmark_definitions(cfg)
