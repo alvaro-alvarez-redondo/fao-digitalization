@@ -1,12 +1,16 @@
 # tests/complexity_analysis/test-big-o-estimation.R
-# unit tests for scripts/complexity_analysis/big_o_estimation.R
+# unit tests for the Big O complexity analysis module.
+#
+# the module is split into modular scripts (91-config.R … 97-reporting.R)
+# sourced by run_complexity_analysis.R. this test file sources the master
+# script, which loads all sub-modules and exposes the full public API.
 #
 # covers: config helpers, synthetic data generators, complexity model fitting,
 # benchmark summary statistics, and JSON serialisation.
 
 source(here::here("tests", "test_helper.R"), echo = FALSE)
 source(
-  here::here("scripts", "complexity_analysis", "big_o_estimation.R"),
+  here::here("scripts", "complexity_analysis", "run_complexity_analysis.R"),
   echo = FALSE
 )
 
@@ -294,4 +298,169 @@ testthat::test_that("fn_factory returns a zero-argument function", {
   fn <- bm$fn_factory(100L)
   testthat::expect_type(fn, "closure")
   testthat::expect_equal(length(formals(fn)), 0L)
+})
+
+
+# ── export_results_json / to_json ─────────────────────────────────────────────
+
+# helper: build a minimal mock results object accepted by export_results_json
+make_mock_results <- function(fn_name = "bench_fn",
+                              stage       = "import",
+                              description = "a benchmark") {
+  complexity_dt <- data.table::data.table(
+    fn_name           = fn_name,
+    stage             = stage,
+    description       = description,
+    best_class        = "O(n)",
+    r_squared         = 0.99,
+    slope_per_n       = 1e-6,
+    dominant_in_stage = TRUE,
+    complexity_rank   = 3L,
+    stage_max_rank    = 3L
+  )
+  list(
+    raw        = data.table::data.table(),
+    summary    = data.table::data.table(),
+    complexity = complexity_dt
+  )
+}
+
+testthat::test_that("export_results_json writes a file without error", {
+  results    <- make_mock_results()
+  out_path   <- tempfile(fileext = ".json")
+  on.exit(unlink(out_path), add = TRUE)
+
+  testthat::expect_no_error(
+    export_results_json(results, out_path)
+  )
+  testthat::expect_true(file.exists(out_path))
+})
+
+testthat::test_that("export_results_json output parses as valid JSON", {
+  results  <- make_mock_results()
+  out_path <- tempfile(fileext = ".json")
+  on.exit(unlink(out_path), add = TRUE)
+
+  export_results_json(results, out_path)
+  raw_text <- paste(readLines(out_path, warn = FALSE), collapse = "\n")
+
+  # jsonlite is available via the project's existing dependencies
+  parsed <- jsonlite::fromJSON(raw_text, simplifyVector = FALSE)
+  testthat::expect_type(parsed, "list")
+  testthat::expect_true("overall_pipeline_class" %in% names(parsed))
+  testthat::expect_true("per_stage"              %in% names(parsed))
+  testthat::expect_true("per_function"           %in% names(parsed))
+})
+
+testthat::test_that("export_results_json does not error on strings with tab/newline control chars", {
+  # descriptions can contain arbitrary text; the serialiser must escape them
+  results  <- make_mock_results(description = "line1\nline2\ttabbed")
+  out_path <- tempfile(fileext = ".json")
+  on.exit(unlink(out_path), add = TRUE)
+
+  testthat::expect_no_error(export_results_json(results, out_path))
+
+  raw_text <- paste(readLines(out_path, warn = FALSE), collapse = "\n")
+  # the embedded newline and tab must appear as JSON escape sequences
+  testthat::expect_true(grepl("\\\\n", raw_text))
+  testthat::expect_true(grepl("\\\\t", raw_text))
+})
+
+testthat::test_that("export_results_json does not error on strings with low C0 control chars (\\x01-\\x1f)", {
+  # exercise the C0-escape loop (cp in setdiff(1L:31L, c(8L,9L,10L,12L,13L)))
+  # \x01 (SOH) and \x1f (US) are representative non-printable characters from
+  # opposite ends of the loop range; testing both is sufficient to confirm the
+  # loop iterates and applies \uXXXX escaping correctly.
+  desc_with_ctrl <- paste0("ctrl", rawToChar(as.raw(1L)), "and",
+                            rawToChar(as.raw(31L)), "end")
+  results  <- make_mock_results(description = desc_with_ctrl)
+  out_path <- tempfile(fileext = ".json")
+  on.exit(unlink(out_path), add = TRUE)
+
+  testthat::expect_no_error(export_results_json(results, out_path))
+
+  raw_text <- paste(readLines(out_path, warn = FALSE), collapse = "\n")
+  # \x01 → \u0001, \x1f → \u001f
+  testthat::expect_true(grepl("\\\\u0001", raw_text))
+  testthat::expect_true(grepl("\\\\u001f", raw_text))
+})
+
+testthat::test_that("export_results_json handles NA r_squared (serialised as null)", {
+  results    <- make_mock_results()
+  results$complexity[, r_squared := NA_real_]
+  out_path   <- tempfile(fileext = ".json")
+  on.exit(unlink(out_path), add = TRUE)
+
+  testthat::expect_no_error(export_results_json(results, out_path))
+
+  raw_text <- paste(readLines(out_path, warn = FALSE), collapse = "\n")
+  testthat::expect_true(grepl('"adj_r_squared": null', raw_text, fixed = TRUE))
+})
+
+# ── run_benchmark (progressor integration) ───────────────────────────────────
+
+testthat::test_that("run_benchmark accepts a progressor and calls it once per input size", {
+  sizes   <- c(100L, 200L, 300L)
+  n_calls <- 0L
+
+  # a mock progressor that simply counts calls
+  mock_progressor <- function(msg = NULL) {
+    n_calls <<- n_calls + 1L
+  }
+
+  fn_factory <- function(n) function() Sys.sleep(0)
+
+  result <- run_benchmark(fn_factory, sizes, n_reps = 1L,
+                          quiet = TRUE, progressor = mock_progressor)
+
+  testthat::expect_equal(n_calls, length(sizes))
+})
+
+testthat::test_that("run_benchmark progressor message contains n and fraction", {
+  sizes    <- c(100L, 500L)
+  messages <- character(0L)
+
+  mock_progressor <- function(msg = NULL) {
+    if (!is.null(msg)) messages <<- c(messages, msg)
+  }
+
+  fn_factory <- function(n) function() Sys.sleep(0)
+
+  run_benchmark(fn_factory, sizes, n_reps = 1L,
+                quiet = TRUE, progressor = mock_progressor)
+
+  # each message should mention the size and the i/T fraction
+  testthat::expect_true(any(grepl("100", messages)))
+  testthat::expect_true(any(grepl("500", messages)))
+  testthat::expect_true(any(grepl("1/2", messages)))
+  testthat::expect_true(any(grepl("2/2", messages)))
+})
+
+testthat::test_that("run_benchmark with quiet=TRUE and no progressor emits no messages", {
+  fn_factory <- function(n) function() Sys.sleep(0)
+  sizes      <- c(50L, 100L)
+
+  msgs <- character(0L)
+  withCallingHandlers(
+    run_benchmark(fn_factory, sizes, n_reps = 1L, quiet = TRUE, progressor = NULL),
+    message = function(m) {
+      msgs <<- c(msgs, conditionMessage(m))
+      invokeRestart("muffleMessage")
+    }
+  )
+
+  testthat::expect_length(msgs, 0L)
+})
+
+testthat::test_that("run_benchmark returns correct data.table structure when progressor is used", {
+  sizes <- c(100L, 200L)
+  mock_progressor <- function(msg = NULL) invisible(NULL)
+  fn_factory <- function(n) function() Sys.sleep(0)
+
+  result <- run_benchmark(fn_factory, sizes, n_reps = 2L,
+                          quiet = TRUE, progressor = mock_progressor)
+
+  testthat::expect_true(data.table::is.data.table(result))
+  testthat::expect_true(all(c("n", "rep", "elapsed_s") %in% names(result)))
+  testthat::expect_equal(nrow(result), length(sizes) * 2L)
 })
