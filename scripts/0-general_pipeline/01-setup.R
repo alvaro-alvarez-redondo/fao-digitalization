@@ -26,19 +26,19 @@ get_pipeline_constants <- function() {
   }
 
   constants <- list(
-    dataset_default_name = "fao_data_raw",
+    dataset_default_name = "whep_data_raw",
     timestamp_format_utc = "%Y-%m-%dT%H:%M:%SZ",
     na_placeholder = "..NA_INTERNAL..",
     na_match_key = "..NA_MATCH_KEY..",
     auto_run_options = list(
-      pipeline = "fao.run_pipeline.auto",
-      general = "fao.run_general_pipeline.auto",
-      import = "fao.run_import_pipeline.auto",
-      post_processing = "fao.run_post_processing_pipeline.auto",
-      export = "fao.run_export_pipeline.auto"
+      pipeline = "whep.run_pipeline.auto",
+      general = "whep.run_general_pipeline.auto",
+      import = "whep.run_import_pipeline.auto",
+      post_processing = "whep.run_post_processing_pipeline.auto",
+      export = "whep.run_export_pipeline.auto"
     ),
     toggle_options = list(
-      drop_na_values = "fao.drop_na_values"
+      drop_na_values = "whep.drop_na_values"
     ),
     script_names = list(
       general = c("00-dependencies.R", "01-setup.R", "02-helpers.R"),
@@ -50,11 +50,11 @@ get_pipeline_constants <- function() {
       )
     ),
     object_names = list(
-      raw = "fao_data_raw",
-      wide_raw = "fao_data_wide_raw",
-      cleaned = "fao_data_cleaned",
-      normalized = "fao_data_normalized",
-      harmonized = "fao_data_harmonized",
+      raw = "whep_data_raw",
+      wide_raw = "whep_data_wide_raw",
+      cleaned = "whep_data_cleaned",
+      normalized = "whep_data_normalized",
+      harmonized = "whep_data_harmonized",
       export_paths = "export_paths",
       collected_reading_errors = "collected_reading_errors",
       collected_errors = "collected_errors",
@@ -81,7 +81,7 @@ get_pipeline_constants <- function() {
 #' audit directories and audit workbook names with the
 #' `{dataset_name}_audit.xlsx` convention. when `null` or empty, the function
 #' attempts to derive a name from `data` attributes in `...` and falls back to
-#' `fao_data_raw`.
+#' `whep_data_raw`.
 #' @param ... optional values. if a named argument `data` is provided and has a
 #' `dataset_name` attribute, it is used as a fallback source for dataset naming.
 #' @return named list with `project_root`, `dataset_name`, `paths`, `files`,
@@ -97,7 +97,7 @@ get_pipeline_constants <- function() {
 #' @importFrom cli cli_abort
 #' @importFrom purrr walk
 #' @examples
-#' config <- load_pipeline_config("fao_data_raw")
+#' config <- load_pipeline_config("whep_data_raw")
 #' names(config)
 load_pipeline_config <- function(
   dataset_name = get_pipeline_constants()$dataset_default_name,
@@ -191,9 +191,9 @@ load_pipeline_config <- function(
   )
 
   files <- list(
-    raw_data = "fao_data_raw.xlsx",
-    wide_raw_data = "fao_data_wide_raw.xlsx",
-    long_raw_data = "fao_data_long_raw.xlsx"
+    raw_data = "whep_data_raw.xlsx",
+    wide_raw_data = "whep_data_wide_raw.xlsx",
+    long_raw_data = "whep_data_long_raw.xlsx"
   )
 
   columns <- list(
@@ -246,7 +246,7 @@ load_pipeline_config <- function(
     data_suffix = ".xlsx",
     list_suffix = "_unique.xlsx",
     lists_to_export = fixed_export_columns,
-    lists_workbook_name = "fao_unique_lists_raw",
+    lists_workbook_name = "whep_unique_lists_raw",
     export_layers = c("harmonized"),
     styles = list(
       error_highlight = list(

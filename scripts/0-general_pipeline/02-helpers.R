@@ -146,7 +146,7 @@ coerce_numeric_safe <- function(x) {
 #' when the input has fewer than four elements.
 #' @importFrom checkmate check_character
 #' @examples
-#' extract_yearbook(c("fao", "yb", "2020", "2021", "file.xlsx"))
+#' extract_yearbook(c("whep", "yb", "2020", "2021", "file.xlsx"))
 extract_yearbook <- function(parts) {
   assert_or_abort(checkmate::check_character(
     parts,
@@ -370,7 +370,7 @@ generate_export_path <- function(
 #' `function(item, index, total_steps)` returning a character scalar progress
 #' message.
 #' @param enable_progress logical scalar indicating whether progress updates are
-#' emitted. defaults to `getOption("fao.progress.enabled", TRUE)`.
+#' emitted. defaults to `getOption("whep.progress.enabled", TRUE)`.
 #' @return list with one element per input item, matching `purrr::map()`
 #' semantics.
 #' @importFrom checkmate check_atomic_vector check_flag check_function check_list check_string
@@ -384,7 +384,7 @@ map_with_progress <- function(
   ...,
   message_template = NULL,
   message_fn = NULL,
-  enable_progress = getOption("fao.progress.enabled", TRUE)
+  enable_progress = getOption("whep.progress.enabled", TRUE)
 ) {
   list_check_result <- checkmate::check_list(x, min.len = 0, any.missing = TRUE)
   atomic_check_result <- checkmate::check_atomic_vector(
@@ -513,7 +513,7 @@ save_pipeline_checkpoint <- function(result, checkpoint_name, config) {
   assert_or_abort(checkmate::check_string(checkpoint_name, min.chars = 1))
   assert_or_abort(checkmate::check_list(config, min.len = 1))
 
-  if (!isTRUE(getOption("fao.checkpointing.enabled", FALSE))) {
+  if (!isTRUE(getOption("whep.checkpointing.enabled", FALSE))) {
     return(invisible(NULL))
   }
 
@@ -544,7 +544,7 @@ load_pipeline_checkpoint <- function(checkpoint_name, config) {
   assert_or_abort(checkmate::check_string(checkpoint_name, min.chars = 1))
   assert_or_abort(checkmate::check_list(config, min.len = 1))
 
-  if (!isTRUE(getOption("fao.checkpointing.enabled", FALSE))) {
+  if (!isTRUE(getOption("whep.checkpointing.enabled", FALSE))) {
     return(NULL)
   }
 
@@ -589,7 +589,7 @@ clear_pipeline_checkpoints <- function(config) {
 
 #' @title Drop rows where value column is NA
 #' @description Removes rows from a `data.table` where the specified value
-#' column is `NA`. Controlled by the `fao.drop_na_values` option (default
+#' column is `NA`. Controlled by the `whep.drop_na_values` option (default
 #' `TRUE`). When the option is `FALSE`, the data is returned unchanged.
 #' @param dt `data.table` to filter.
 #' @param value_column Character scalar column name to check for `NA` values.
@@ -600,7 +600,7 @@ drop_na_value_rows <- function(dt, value_column = "value") {
   checkmate::assert_data_frame(dt, min.rows = 0)
   checkmate::assert_string(value_column, min.chars = 1)
 
-  if (!isTRUE(getOption("fao.drop_na_values", TRUE))) {
+  if (!isTRUE(getOption("whep.drop_na_values", TRUE))) {
     return(dt)
   }
 

@@ -1,11 +1,14 @@
 options(
-  fao.run_post_processing_pipeline.auto = FALSE,
-  fao.run_pipeline.auto = FALSE,
-  fao.checkpointing.enabled = FALSE
+  whep.run_post_processing_pipeline.auto = FALSE,
+  whep.run_pipeline.auto = FALSE,
+  whep.checkpointing.enabled = FALSE
 )
 
 source(here::here("scripts", "0-general_pipeline", "01-setup.R"), echo = FALSE)
-source(here::here("scripts", "0-general_pipeline", "02-helpers.R"), echo = FALSE)
+source(
+  here::here("scripts", "0-general_pipeline", "02-helpers.R"),
+  echo = FALSE
+)
 
 
 # --- get_pipeline_constants caching ---
@@ -25,7 +28,7 @@ testthat::test_that("get_pipeline_constants returns cached result on repeated ca
 # --- Checkpointing functions ---
 
 testthat::test_that("save_pipeline_checkpoint returns NULL when checkpointing is disabled", {
-  options(fao.checkpointing.enabled = FALSE)
+  options(whep.checkpointing.enabled = FALSE)
 
   config <- list(paths = list(data = list(root = tempdir())))
   result <- save_pipeline_checkpoint(
@@ -38,7 +41,7 @@ testthat::test_that("save_pipeline_checkpoint returns NULL when checkpointing is
 })
 
 testthat::test_that("load_pipeline_checkpoint returns NULL when checkpointing is disabled", {
-  options(fao.checkpointing.enabled = FALSE)
+  options(whep.checkpointing.enabled = FALSE)
 
   config <- list(paths = list(data = list(root = tempdir())))
   result <- load_pipeline_checkpoint(
@@ -50,7 +53,7 @@ testthat::test_that("load_pipeline_checkpoint returns NULL when checkpointing is
 })
 
 testthat::test_that("save and load checkpoint round-trips data when enabled", {
-  withr::local_options(fao.checkpointing.enabled = TRUE)
+  withr::local_options(whep.checkpointing.enabled = TRUE)
 
   config <- list(paths = list(data = list(root = tempdir())))
   test_data <- list(value = 42, name = "test")
@@ -78,7 +81,7 @@ testthat::test_that("save and load checkpoint round-trips data when enabled", {
 })
 
 testthat::test_that("load_pipeline_checkpoint returns NULL for missing checkpoint", {
-  withr::local_options(fao.checkpointing.enabled = TRUE)
+  withr::local_options(whep.checkpointing.enabled = TRUE)
 
   config <- list(paths = list(data = list(root = tempdir())))
   result <- load_pipeline_checkpoint(
@@ -90,7 +93,7 @@ testthat::test_that("load_pipeline_checkpoint returns NULL for missing checkpoin
 })
 
 testthat::test_that("clear_pipeline_checkpoints removes checkpoint directory", {
-  withr::local_options(fao.checkpointing.enabled = TRUE)
+  withr::local_options(whep.checkpointing.enabled = TRUE)
 
   config <- list(paths = list(data = list(root = tempdir())))
   test_data <- list(value = 42)

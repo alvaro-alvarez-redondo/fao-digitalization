@@ -46,13 +46,13 @@ testthat::test_that("has_read_errors detects errors correctly", {
 # --- read_excel_sheet --------------------------------------------------------
 
 testthat::test_that("read_excel_sheet reads a valid xlsx file", {
-  root_dir <- build_temp_dir("fao-read-sheet-")
+  root_dir <- build_temp_dir("whep-read-sheet-")
   file_path <- file.path(root_dir, "test.xlsx")
 
   test_data <- data.frame(
     continent = c("Asia", "Europe"),
-    country   = c("Japan", "France"),
-    value     = c("100", "200"),
+    country = c("Japan", "France"),
+    value = c("100", "200"),
     stringsAsFactors = FALSE
   )
 
@@ -69,11 +69,11 @@ testthat::test_that("read_excel_sheet reads a valid xlsx file", {
   testthat::expect_true(data.table::is.data.table(result))
   testthat::expect_true(nrow(result) > 0)
   testthat::expect_true("continent" %in% names(result))
-  testthat::expect_true("country"   %in% names(result))
+  testthat::expect_true("country" %in% names(result))
 })
 
 testthat::test_that("read_excel_sheet handles file with missing required columns gracefully", {
-  root_dir <- build_temp_dir("fao-read-missing-cols-")
+  root_dir <- build_temp_dir("whep-read-missing-cols-")
   file_path <- file.path(root_dir, "test_missing.xlsx")
 
   test_data <- data.frame(
@@ -99,24 +99,32 @@ testthat::test_that("read_excel_sheet handles file with missing required columns
 # --- read_file_sheets --------------------------------------------------------
 
 testthat::test_that("read_file_sheets reads all sheets from a file", {
-  root_dir <- build_temp_dir("fao-read-sheets-")
+  root_dir <- build_temp_dir("whep-read-sheets-")
   file_path <- file.path(root_dir, "multi_sheet.xlsx")
 
   wb <- openxlsx::createWorkbook()
   openxlsx::addWorksheet(wb, "Sheet1")
-  openxlsx::writeData(wb, "Sheet1", data.frame(
-    continent = "Asia",
-    country = "Japan",
-    value = "100",
-    stringsAsFactors = FALSE
-  ))
+  openxlsx::writeData(
+    wb,
+    "Sheet1",
+    data.frame(
+      continent = "Asia",
+      country = "Japan",
+      value = "100",
+      stringsAsFactors = FALSE
+    )
+  )
   openxlsx::addWorksheet(wb, "Sheet2")
-  openxlsx::writeData(wb, "Sheet2", data.frame(
-    continent = "Europe",
-    country = "France",
-    value = "200",
-    stringsAsFactors = FALSE
-  ))
+  openxlsx::writeData(
+    wb,
+    "Sheet2",
+    data.frame(
+      continent = "Europe",
+      country = "France",
+      value = "200",
+      stringsAsFactors = FALSE
+    )
+  )
   openxlsx::saveWorkbook(wb, file_path, overwrite = TRUE)
 
   config <- build_test_config()
@@ -141,13 +149,13 @@ testthat::test_that("read_pipeline_files returns empty results for empty file li
 })
 
 testthat::test_that("read_pipeline_files reads single xlsx file", {
-  root_dir <- build_temp_dir("fao-pipeline-read-")
+  root_dir <- build_temp_dir("whep-pipeline-read-")
   file_path <- file.path(root_dir, "test.xlsx")
 
   test_data <- data.frame(
     continent = c("Asia", "Europe"),
-    country   = c("Japan", "France"),
-    value     = c("100", "200"),
+    country = c("Japan", "France"),
+    value = c("100", "200"),
     stringsAsFactors = FALSE
   )
 
@@ -167,7 +175,7 @@ testthat::test_that("read_pipeline_files reads single xlsx file", {
 # --- edge cases: malformed files ---------------------------------------------
 
 testthat::test_that("read_pipeline_files handles corrupted file gracefully", {
-  root_dir <- build_temp_dir("fao-read-corrupted-")
+  root_dir <- build_temp_dir("whep-read-corrupted-")
   file_path <- file.path(root_dir, "corrupted.xlsx")
 
   # write random bytes (not a valid Excel file)

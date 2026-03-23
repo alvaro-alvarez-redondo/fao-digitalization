@@ -1,6 +1,6 @@
 options(
-  fao.run_post_processing_pipeline.auto = FALSE,
-  fao.run_pipeline.auto = FALSE
+  whep.run_post_processing_pipeline.auto = FALSE,
+  whep.run_pipeline.auto = FALSE
 )
 
 source(

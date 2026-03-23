@@ -68,7 +68,7 @@ source_general_scripts <- function(script_names) {
 #' @importFrom progressr handlers handler_txtprogressbar with_progress progressor
 #' @importFrom checkmate assert_string
 #' @examples
-#' config <- run_general_pipeline("fao_data_raw")
+#' config <- run_general_pipeline("whep_data_raw")
 #' names(config)
 run_general_pipeline <- function(
   dataset_name = get_pipeline_constants()$dataset_default_name

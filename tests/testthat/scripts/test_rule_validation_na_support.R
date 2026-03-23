@@ -1,5 +1,5 @@
 options(
-  fao.run_post_processing_pipeline.auto = FALSE
+  whep.run_post_processing_pipeline.auto = FALSE
 )
 
 source(

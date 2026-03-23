@@ -1,5 +1,5 @@
 options(
-  fao.run_post_processing_pipeline.auto = FALSE
+  whep.run_post_processing_pipeline.auto = FALSE
 )
 
 source(
@@ -12,7 +12,7 @@ source(
 )
 
 testthat::test_that("generate_post_processing_rule_templates writes clean and harmonize templates", {
-  root_dir <- tempfile("fao-template-generation-")
+  root_dir <- tempfile("whep-template-generation-")
   dir.create(root_dir, recursive = TRUE)
 
   audit_root_dir <- file.path(root_dir, "data", "2-post_processing")

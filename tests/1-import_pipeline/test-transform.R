@@ -4,7 +4,10 @@
 source(here::here("tests", "test_helper.R"), echo = FALSE)
 source(here::here("scripts", "1-import_pipeline", "10-file_io.R"), echo = FALSE)
 source(here::here("scripts", "1-import_pipeline", "11-reading.R"), echo = FALSE)
-source(here::here("scripts", "1-import_pipeline", "12-transform.R"), echo = FALSE)
+source(
+  here::here("scripts", "1-import_pipeline", "12-transform.R"),
+  echo = FALSE
+)
 
 
 # --- identify_year_columns ---------------------------------------------------
@@ -12,10 +15,10 @@ source(here::here("scripts", "1-import_pipeline", "12-transform.R"), echo = FALS
 testthat::test_that("identify_year_columns detects yyyy columns", {
   df <- data.table::data.table(
     continent = "x",
-    country   = "y",
-    `2020`    = "1",
-    `2021`    = "2",
-    value     = "3"
+    country = "y",
+    `2020` = "1",
+    `2021` = "2",
+    value = "3"
   )
   config <- build_test_config()
   result <- identify_year_columns(df, config)
@@ -46,7 +49,7 @@ testthat::test_that("identify_year_columns returns empty for non-year columns", 
 
 testthat::test_that("normalize_key_fields adds missing base columns as NA", {
   dt <- data.table::data.table(
-    product  = c("wheat", "rice"),
+    product = c("wheat", "rice"),
     variable = c("production", "trade")
   )
   config <- build_test_config()
@@ -55,15 +58,15 @@ testthat::test_that("normalize_key_fields adds missing base columns as NA", {
 
   testthat::expect_true(data.table::is.data.table(result))
   testthat::expect_true("continent" %in% names(result))
-  testthat::expect_true("country"   %in% names(result))
+  testthat::expect_true("country" %in% names(result))
 })
 
 testthat::test_that("normalize_key_fields normalizes hemisphere when present", {
   dt <- data.table::data.table(
-    product    = "wheat",
-    variable   = "production",
-    continent  = "Asia",
-    country    = "Japan",
+    product = "wheat",
+    variable = "production",
+    continent = "Asia",
+    country = "Japan",
     hemisphere = "Northern Hemisphere"
   )
   config <- build_test_config()
@@ -76,10 +79,10 @@ testthat::test_that("normalize_key_fields normalizes hemisphere when present", {
 
 testthat::test_that("normalize_key_fields succeeds when hemisphere column is absent", {
   dt <- data.table::data.table(
-    product   = "wheat",
-    variable  = "production",
+    product = "wheat",
+    variable = "production",
     continent = "Asia",
-    country   = "Japan"
+    country = "Japan"
   )
   config <- build_test_config()
 
@@ -95,15 +98,18 @@ testthat::test_that("normalize_key_fields succeeds when hemisphere column is abs
 testthat::test_that("convert_year_columns sanitizes column names", {
   dt <- data.table::data.table(
     continent = "Asia",
-    `2020`    = "100",
-    `2021`    = "200"
+    `2020` = "100",
+    `2021` = "200"
   )
   config <- build_test_config()
 
   result <- convert_year_columns(dt, config)
 
   testthat::expect_true(data.table::is.data.table(result))
-  testthat::expect_true(all(names(result) == make.names(names(result), unique = TRUE) | grepl("^\\d{4}", names(result))))
+  testthat::expect_true(all(
+    names(result) == make.names(names(result), unique = TRUE) |
+      grepl("^\\d{4}", names(result))
+  ))
 })
 
 
@@ -112,22 +118,22 @@ testthat::test_that("convert_year_columns sanitizes column names", {
 testthat::test_that("reshape_to_long converts wide to long format", {
   dt <- data.table::data.table(
     continent = c("Asia", "Europe"),
-    country   = c("Japan", "France"),
-    product   = c("wheat", "rice"),
-    variable  = c("production", "trade"),
-    unit      = c("tonnes", "tonnes"),
+    country = c("Japan", "France"),
+    product = c("wheat", "rice"),
+    variable = c("production", "trade"),
+    unit = c("tonnes", "tonnes"),
     footnotes = c(NA_character_, NA_character_),
-    `2020`    = c("100", "200"),
-    `2021`    = c("300", "400")
+    `2020` = c("100", "200"),
+    `2021` = c("300", "400")
   )
 
   config <- build_test_config()
   result <- reshape_to_long(dt, config)
 
   testthat::expect_true(data.table::is.data.table(result))
-  testthat::expect_true("year"  %in% names(result))
+  testthat::expect_true("year" %in% names(result))
   testthat::expect_true("value" %in% names(result))
-  testthat::expect_equal(nrow(result), 4L)  # 2 rows * 2 years
+  testthat::expect_equal(nrow(result), 4L) # 2 rows * 2 years
 })
 
 
@@ -136,14 +142,19 @@ testthat::test_that("reshape_to_long converts wide to long format", {
 testthat::test_that("add_metadata appends document, notes, yearbook columns", {
   dt <- data.table::data.table(
     continent = "Asia",
-    country   = "Japan",
-    year      = "2020",
-    value     = "100"
+    country = "Japan",
+    year = "2020",
+    value = "100"
   )
 
   config <- build_test_config()
 
-  result <- add_metadata(dt, "fao_yb_2020_2021_a_b_wheat.xlsx", "yb_2020_2021", config)
+  result <- add_metadata(
+    dt,
+    "whep_yb_2020_2021_a_b_wheat.xlsx",
+    "yb_2020_2021",
+    config
+  )
 
   testthat::expect_true("document" %in% names(result))
   testthat::expect_true("yearbook" %in% names(result))
@@ -197,33 +208,33 @@ testthat::test_that("transform_files_list drops NA value rows before binding", {
 
   file_list_dt <- data.table::data.table(
     file_name = c("file_a.xlsx", "file_b.xlsx"),
-    yearbook  = c("yb_2024", "yb_2024"),
-    product   = c("wheat", "rice")
+    yearbook = c("yb_2024", "yb_2024"),
+    product = c("wheat", "rice")
   )
 
   wide_a <- data.table::data.table(
-    product   = "wheat",
-    variable  = "production",
-    unit      = "tonnes",
+    product = "wheat",
+    variable = "production",
+    unit = "tonnes",
     continent = "Asia",
-    country   = "Japan",
+    country = "Japan",
     footnotes = NA_character_,
-    `2020`    = "100",
-    `2021`    = NA_character_
+    `2020` = "100",
+    `2021` = NA_character_
   )
   wide_b <- data.table::data.table(
-    product   = "rice",
-    variable  = "trade",
-    unit      = "tonnes",
+    product = "rice",
+    variable = "trade",
+    unit = "tonnes",
     continent = "Europe",
-    country   = "France",
+    country = "France",
     footnotes = NA_character_,
-    `2020`    = NA_character_,
-    `2021`    = "200"
+    `2020` = NA_character_,
+    `2021` = "200"
   )
   read_data_list <- list(wide_a, wide_b)
 
-  withr::with_options(list(fao.drop_na_values = TRUE), {
+  withr::with_options(list(whep.drop_na_values = TRUE), {
     result <- transform_files_list(file_list_dt, read_data_list, config)
     testthat::expect_true(all(!is.na(result$long_raw$value)))
     testthat::expect_equal(nrow(result$long_raw), 2L)
@@ -237,18 +248,24 @@ testthat::test_that("transform_file_dt filters NA value rows from long output", 
   config <- build_test_config()
 
   wide_dt <- data.table::data.table(
-    product   = "wheat",
-    variable  = "production",
-    unit      = "tonnes",
+    product = "wheat",
+    variable = "production",
+    unit = "tonnes",
     continent = "Asia",
-    country   = "Japan",
+    country = "Japan",
     footnotes = NA_character_,
-    `2020`    = "100",
-    `2021`    = NA_character_
+    `2020` = "100",
+    `2021` = NA_character_
   )
 
-  withr::with_options(list(fao.drop_na_values = TRUE), {
-    result <- transform_file_dt(wide_dt, "test.xlsx", "yb_2024", "wheat", config)
+  withr::with_options(list(whep.drop_na_values = TRUE), {
+    result <- transform_file_dt(
+      wide_dt,
+      "test.xlsx",
+      "yb_2024",
+      "wheat",
+      config
+    )
     testthat::expect_true(all(!is.na(result$long_raw$value)))
     testthat::expect_equal(nrow(result$long_raw), 1L)
   })
@@ -260,10 +277,10 @@ testthat::test_that("transform_file_dt filters NA value rows from long output", 
 testthat::test_that("reshape_to_long converts data.frame input to data.table", {
   df <- data.frame(
     continent = c("Asia", "Europe"),
-    country   = c("Japan", "France"),
-    product   = c("wheat", "rice"),
-    variable  = c("production", "trade"),
-    unit      = c("tonnes", "tonnes"),
+    country = c("Japan", "France"),
+    product = c("wheat", "rice"),
+    variable = c("production", "trade"),
+    unit = c("tonnes", "tonnes"),
     footnotes = c(NA_character_, NA_character_),
     check.names = FALSE,
     stringsAsFactors = FALSE

@@ -1,5 +1,5 @@
 options(
-  fao.run_general_pipeline.auto = FALSE
+  whep.run_general_pipeline.auto = FALSE
 )
 
 source(here::here("scripts", "0-general_pipeline", "01-setup.R"), echo = FALSE)
@@ -22,7 +22,7 @@ testthat::test_that("resolve_audit_root_dir returns configured scalar or NULL", 
 })
 
 testthat::test_that("create_required_directories handles generic path lists without audit structure", {
-  base_dir <- build_temp_test_paths("fao_directory_contracts_generic")
+  base_dir <- build_temp_test_paths("whep_directory_contracts_generic")
   paths <- list(
     exports = list(
       lists = file.path(base_dir, "lists"),
@@ -35,12 +35,15 @@ testthat::test_that("create_required_directories handles generic path lists with
   testthat::expect_true(dir.exists(file.path(base_dir, "lists")))
   testthat::expect_true(dir.exists(file.path(base_dir, "reports")))
   testthat::expect_true(
-    all(c(file.path(base_dir, "lists"), file.path(base_dir, "reports")) %in% created_directories)
+    all(
+      c(file.path(base_dir, "lists"), file.path(base_dir, "reports")) %in%
+        created_directories
+    )
   )
 })
 
 testthat::test_that("create_required_directories excludes audit root tree when configured", {
-  base_dir <- build_temp_test_paths("fao_directory_contracts_audit")
+  base_dir <- build_temp_test_paths("whep_directory_contracts_audit")
   paths <- list(
     data = list(
       imports = list(
@@ -49,7 +52,11 @@ testthat::test_that("create_required_directories excludes audit root tree when c
       audit = list(
         audit_root_dir = file.path(base_dir, "audit"),
         audit_file_path = file.path(base_dir, "audit", "dataset", "audit.xlsx"),
-        raw_imports_mirror_dir = file.path(base_dir, "audit", "raw_imports_mirror")
+        raw_imports_mirror_dir = file.path(
+          base_dir,
+          "audit",
+          "raw_imports_mirror"
+        )
       )
     )
   )
@@ -58,12 +65,15 @@ testthat::test_that("create_required_directories excludes audit root tree when c
 
   testthat::expect_true(dir.exists(file.path(base_dir, "imports", "raw")))
   testthat::expect_false(dir.exists(file.path(base_dir, "audit")))
-  testthat::expect_false(any(startsWith(created_directories, file.path(base_dir, "audit"))))
+  testthat::expect_false(any(startsWith(
+    created_directories,
+    file.path(base_dir, "audit")
+  )))
 })
 
 
 testthat::test_that("ensure_directories_exist creates sorted deterministic directories", {
-  base_dir <- build_temp_test_paths("fao_ensure_directories")
+  base_dir <- build_temp_test_paths("whep_ensure_directories")
   directories <- c(
     file.path(base_dir, "z_dir"),
     file.path(base_dir, "a_dir"),
@@ -77,7 +87,7 @@ testthat::test_that("ensure_directories_exist creates sorted deterministic direc
 })
 
 testthat::test_that("delete_directory_if_exists removes existing directory", {
-  base_dir <- build_temp_test_paths("fao_delete_directories")
+  base_dir <- build_temp_test_paths("whep_delete_directories")
   ensure_directories_exist(base_dir, recurse = TRUE)
 
   deleted <- delete_directory_if_exists(base_dir)

@@ -145,7 +145,7 @@ reshape_to_long <- function(df, config) {
 #' @description append file-level metadata fields (`document`, `notes`,
 #' `yearbook`) to long-format data using `data.table::set()` for zero-overhead
 #' column assignment.
-#' @param fao_data_long_raw data table in long format (as returned by
+#' @param whep_data_long_raw data table in long format (as returned by
 #' `reshape_to_long()`).
 #' @param file_name character scalar source file name.
 #' @param yearbook character scalar yearbook label.
@@ -158,9 +158,9 @@ reshape_to_long <- function(df, config) {
 #' df_example <- data.frame(country = "x", year = "2020", value = "1")
 #' config_example <- list(defaults = list(notes_value = NA_character_))
 #' add_metadata(df_example, "file.xlsx", "yearbook_a", config_example)
-add_metadata <- function(fao_data_long_raw, file_name, yearbook, config) {
+add_metadata <- function(whep_data_long_raw, file_name, yearbook, config) {
   notes_value <- config$defaults$notes_value
-  data_dt <- ensure_data_table(fao_data_long_raw)
+  data_dt <- ensure_data_table(whep_data_long_raw)
 
   data.table::set(data_dt, j = "document", value = file_name)
   data.table::set(data_dt, j = "notes", value = notes_value)
@@ -193,12 +193,12 @@ transform_file_dt <- function(df, file_name, yearbook, product_name, config) {
     normalize_key_fields(product_name, config) |>
     convert_year_columns(config)
 
-  fao_data_long_raw <- df_norm |>
+  whep_data_long_raw <- df_norm |>
     reshape_to_long(config) |>
     add_metadata(file_name, yearbook, config) |>
     drop_na_value_rows()
 
-  transform_result <- list(wide_raw = df_norm, long_raw = fao_data_long_raw)
+  transform_result <- list(wide_raw = df_norm, long_raw = whep_data_long_raw)
   assert_transform_result_contract(transform_result)
 
   return(transform_result)

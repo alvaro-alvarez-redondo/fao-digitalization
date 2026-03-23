@@ -1,12 +1,15 @@
 if (!exists("get_pipeline_constants", mode = "function", inherits = TRUE)) {
-  source(here::here("scripts", "0-general_pipeline", "01-setup.R"), echo = FALSE)
+  source(
+    here::here("scripts", "0-general_pipeline", "01-setup.R"),
+    echo = FALSE
+  )
 }
 
 #' @title Run full project pipeline
 #' @description Runs the general, import, post-processing, and export pipeline
 #'   scripts in deterministic sequence.
 #'
-#' @param show_view Logical scalar. If `TRUE`, display `fao_data_raw` in the
+#' @param show_view Logical scalar. If `TRUE`, display `whep_data_raw` in the
 #'   RStudio viewer when the object exists.
 #' @param pipeline_root Character scalar. Root folder containing pipeline
 #'   scripts.
@@ -193,6 +196,8 @@ maybe_view_pipeline_output <- function(show_view) {
   return(invisible(TRUE))
 }
 
-if (isTRUE(getOption(get_pipeline_constants()$auto_run_options$pipeline, TRUE))) {
+if (
+  isTRUE(getOption(get_pipeline_constants()$auto_run_options$pipeline, TRUE))
+) {
   run_pipeline()
 }

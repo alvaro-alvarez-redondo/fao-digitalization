@@ -1,15 +1,23 @@
 testthat::test_that("preflight flags invalid file naming patterns", {
-  root_dir <- tempfile("fao-preflight-")
+  root_dir <- tempfile("whep-preflight-")
   dir.create(root_dir, recursive = TRUE)
 
   cleaning_dir <- file.path(root_dir, "data", "1-import", "11-clean_imports")
-  harmonization_dir <- file.path(root_dir, "data", "1-import", "13-harmonize_imports")
+  harmonization_dir <- file.path(
+    root_dir,
+    "data",
+    "1-import",
+    "13-harmonize_imports"
+  )
   audit_root_dir <- file.path(root_dir, "data", "2-post_processing")
 
   dir.create(cleaning_dir, recursive = TRUE)
   dir.create(harmonization_dir, recursive = TRUE)
   dir.create(file.path(audit_root_dir, "templates"), recursive = TRUE)
-  dir.create(file.path(audit_root_dir, "post_processing_diagnostics"), recursive = TRUE)
+  dir.create(
+    file.path(audit_root_dir, "post_processing_diagnostics"),
+    recursive = TRUE
+  )
 
   file.create(file.path(cleaning_dir, "bad_clean_name.xlsx"))
   file.create(file.path(harmonization_dir, "bad_harmonize_name.xlsx"))
@@ -34,21 +42,33 @@ testthat::test_that("preflight flags invalid file naming patterns", {
   testthat::expect_false(result$checks$cleaning_pattern_ok)
   testthat::expect_false(result$checks$harmonize_pattern_ok)
   testthat::expect_true(any(grepl("clean stage", result$issues, fixed = TRUE)))
-  testthat::expect_true(any(grepl("harmonize stage", result$issues, fixed = TRUE)))
+  testthat::expect_true(any(grepl(
+    "harmonize stage",
+    result$issues,
+    fixed = TRUE
+  )))
 })
 
 testthat::test_that("preflight detects column convention mismatch", {
-  root_dir <- tempfile("fao-preflight-")
+  root_dir <- tempfile("whep-preflight-")
   dir.create(root_dir, recursive = TRUE)
 
   cleaning_dir <- file.path(root_dir, "data", "1-import", "11-clean_imports")
-  harmonization_dir <- file.path(root_dir, "data", "1-import", "13-harmonize_imports")
+  harmonization_dir <- file.path(
+    root_dir,
+    "data",
+    "1-import",
+    "13-harmonize_imports"
+  )
   audit_root_dir <- file.path(root_dir, "data", "2-post_processing")
 
   dir.create(cleaning_dir, recursive = TRUE)
   dir.create(harmonization_dir, recursive = TRUE)
   dir.create(file.path(audit_root_dir, "templates"), recursive = TRUE)
-  dir.create(file.path(audit_root_dir, "post_processing_diagnostics"), recursive = TRUE)
+  dir.create(
+    file.path(audit_root_dir, "post_processing_diagnostics"),
+    recursive = TRUE
+  )
 
   file.create(file.path(cleaning_dir, "clean_rules.xlsx"))
   file.create(file.path(harmonization_dir, "harmonize_rules.xlsx"))
@@ -71,7 +91,11 @@ testthat::test_that("preflight detects column convention mismatch", {
   )
 
   testthat::expect_false(result$passed)
-  testthat::expect_true(any(grepl("missing expected columns", result$issues, fixed = TRUE)))
+  testthat::expect_true(any(grepl(
+    "missing expected columns",
+    result$issues,
+    fixed = TRUE
+  )))
 })
 
 testthat::test_that("assert_post_processing_preflight aborts with stage details", {

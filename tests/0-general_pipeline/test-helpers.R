@@ -7,7 +7,10 @@ source(here::here("tests", "test_helper.R"), echo = FALSE)
 # --- normalize_string_impl ---------------------------------------------------
 
 testthat::test_that("normalize_string_impl converts to lowercase ascii", {
-  testthat::expect_identical(normalize_string_impl("Hello World"), "hello world")
+  testthat::expect_identical(
+    normalize_string_impl("Hello World"),
+    "hello world"
+  )
   testthat::expect_identical(normalize_string_impl("UPPER"), "upper")
 })
 
@@ -33,8 +36,13 @@ testthat::test_that("normalize_string_impl preserves NA values", {
 
 testthat::test_that("normalize_string_impl matches normalize_string output", {
   test_inputs <- c(
-    "Hello World", "café résumé", "a-b_c!d", "  leading  ",
-    "UPPER", "test@#$123", "a   b  c"
+    "Hello World",
+    "café résumé",
+    "a-b_c!d",
+    "  leading  ",
+    "UPPER",
+    "test@#$123",
+    "a   b  c"
   )
   testthat::expect_identical(
     normalize_string_impl(test_inputs),
@@ -74,7 +82,10 @@ testthat::test_that("normalize_string preserves NA values", {
 # --- normalize_filename ------------------------------------------------------
 
 testthat::test_that("normalize_filename replaces spaces with underscores", {
-  testthat::expect_identical(normalize_filename("food balance sheet"), "food_balance_sheet")
+  testthat::expect_identical(
+    normalize_filename("food balance sheet"),
+    "food_balance_sheet"
+  )
 })
 
 testthat::test_that("normalize_filename replaces empty/NA with unknown", {
@@ -107,14 +118,14 @@ testthat::test_that("coerce_numeric_safe returns NA for non-numeric", {
 # --- extract_yearbook --------------------------------------------------------
 
 testthat::test_that("extract_yearbook returns combined tokens", {
-  parts <- c("fao", "yb", "2020", "2021", "file.xlsx")
+  parts <- c("whep", "yb", "2020", "2021", "file.xlsx")
   result <- extract_yearbook(parts)
 
   testthat::expect_identical(result, "yb_2020_2021")
 })
 
 testthat::test_that("extract_yearbook returns NA for short input", {
-  parts <- c("fao", "yb")
+  parts <- c("whep", "yb")
   result <- extract_yearbook(parts)
 
   testthat::expect_true(is.na(result))
@@ -167,7 +178,10 @@ testthat::test_that("ensure_data_table returns identity for data.table input", {
   dt <- data.table::data.table(a = 1:3)
   result <- ensure_data_table(dt)
 
-  testthat::expect_identical(data.table::address(result), data.table::address(dt))
+  testthat::expect_identical(
+    data.table::address(result),
+    data.table::address(dt)
+  )
 })
 
 
@@ -223,7 +237,11 @@ testthat::test_that("validate_export_import errors on empty data", {
 
 testthat::test_that("get_config_string retrieves nested config value", {
   config <- list(paths = list(data = list(exports = list(processed = "/tmp"))))
-  result <- get_config_string(config, c("paths", "data", "exports", "processed"), "field")
+  result <- get_config_string(
+    config,
+    c("paths", "data", "exports", "processed"),
+    "field"
+  )
 
   testthat::expect_identical(result, "/tmp")
 })
@@ -274,7 +292,7 @@ testthat::test_that("assign_environment_values errors on unnamed values", {
 # --- checkpoint functions ----------------------------------------------------
 
 testthat::test_that("save_pipeline_checkpoint returns NULL when disabled", {
-  withr::local_options(fao.checkpointing.enabled = FALSE)
+  withr::local_options(whep.checkpointing.enabled = FALSE)
 
   config <- list(paths = list(data = list(root = tempdir())))
   result <- save_pipeline_checkpoint(
@@ -287,7 +305,7 @@ testthat::test_that("save_pipeline_checkpoint returns NULL when disabled", {
 })
 
 testthat::test_that("load_pipeline_checkpoint returns NULL when disabled", {
-  withr::local_options(fao.checkpointing.enabled = FALSE)
+  withr::local_options(whep.checkpointing.enabled = FALSE)
 
   config <- list(paths = list(data = list(root = tempdir())))
   result <- load_pipeline_checkpoint(
@@ -299,7 +317,7 @@ testthat::test_that("load_pipeline_checkpoint returns NULL when disabled", {
 })
 
 testthat::test_that("checkpoint round-trips data when enabled", {
-  withr::local_options(fao.checkpointing.enabled = TRUE)
+  withr::local_options(whep.checkpointing.enabled = TRUE)
 
   config <- list(paths = list(data = list(root = tempdir())))
   test_data <- list(value = 42, name = "test")
@@ -327,7 +345,7 @@ testthat::test_that("checkpoint round-trips data when enabled", {
 })
 
 testthat::test_that("load_pipeline_checkpoint returns NULL for missing checkpoint", {
-  withr::local_options(fao.checkpointing.enabled = TRUE)
+  withr::local_options(whep.checkpointing.enabled = TRUE)
 
   config <- list(paths = list(data = list(root = tempdir())))
   result <- load_pipeline_checkpoint(
@@ -339,7 +357,7 @@ testthat::test_that("load_pipeline_checkpoint returns NULL for missing checkpoin
 })
 
 testthat::test_that("clear_pipeline_checkpoints removes directory", {
-  withr::local_options(fao.checkpointing.enabled = TRUE)
+  withr::local_options(whep.checkpointing.enabled = TRUE)
 
   config <- list(paths = list(data = list(root = tempdir())))
   checkpoint_dir <- fs::path(here::here(), "data", ".checkpoints")
@@ -386,7 +404,12 @@ testthat::test_that("map_with_progress handles empty input", {
 testthat::test_that("generate_export_path builds correct paths", {
   config <- build_test_config()
 
-  processed_path <- generate_export_path(config, "food balance", "processed", use_here = FALSE)
+  processed_path <- generate_export_path(
+    config,
+    "food balance",
+    "processed",
+    use_here = FALSE
+  )
 
   testthat::expect_match(basename(processed_path), "food_balance\\.xlsx$")
 })
@@ -424,10 +447,10 @@ testthat::test_that("format_elapsed_time rejects invalid input", {
 testthat::test_that("drop_na_value_rows removes rows where value is NA", {
   dt <- data.table::data.table(
     country = c("Japan", "France", "Italy"),
-    value   = c("100", NA_character_, "300")
+    value = c("100", NA_character_, "300")
   )
 
-  withr::with_options(list(fao.drop_na_values = TRUE), {
+  withr::with_options(list(whep.drop_na_values = TRUE), {
     result <- drop_na_value_rows(dt)
     testthat::expect_equal(nrow(result), 2L)
     testthat::expect_true(all(!is.na(result$value)))
@@ -437,10 +460,10 @@ testthat::test_that("drop_na_value_rows removes rows where value is NA", {
 testthat::test_that("drop_na_value_rows skips filtering when option is FALSE", {
   dt <- data.table::data.table(
     country = c("Japan", "France"),
-    value   = c("100", NA_character_)
+    value = c("100", NA_character_)
   )
 
-  withr::with_options(list(fao.drop_na_values = FALSE), {
+  withr::with_options(list(whep.drop_na_values = FALSE), {
     result <- drop_na_value_rows(dt)
     testthat::expect_equal(nrow(result), 2L)
   })
@@ -449,10 +472,10 @@ testthat::test_that("drop_na_value_rows skips filtering when option is FALSE", {
 testthat::test_that("drop_na_value_rows defaults to TRUE when option is unset", {
   dt <- data.table::data.table(
     country = c("Japan", "France"),
-    value   = c("100", NA_character_)
+    value = c("100", NA_character_)
   )
 
-  withr::with_options(list(fao.drop_na_values = NULL), {
+  withr::with_options(list(whep.drop_na_values = NULL), {
     result <- drop_na_value_rows(dt)
     testthat::expect_equal(nrow(result), 1L)
   })
@@ -461,7 +484,7 @@ testthat::test_that("drop_na_value_rows defaults to TRUE when option is unset", 
 testthat::test_that("drop_na_value_rows returns unchanged dt when no NAs", {
   dt <- data.table::data.table(
     country = c("Japan", "France"),
-    value   = c("100", "200")
+    value = c("100", "200")
   )
 
   result <- drop_na_value_rows(dt)
@@ -471,7 +494,7 @@ testthat::test_that("drop_na_value_rows returns unchanged dt when no NAs", {
 testthat::test_that("drop_na_value_rows works with custom column name", {
   dt <- data.table::data.table(
     country = c("Japan", "France", "Italy"),
-    amount  = c("100", NA_character_, "300")
+    amount = c("100", NA_character_, "300")
   )
 
   result <- drop_na_value_rows(dt, value_column = "amount")
@@ -481,7 +504,7 @@ testthat::test_that("drop_na_value_rows works with custom column name", {
 testthat::test_that("drop_na_value_rows returns dt when column not found", {
   dt <- data.table::data.table(
     country = c("Japan", "France"),
-    value   = c("100", "200")
+    value = c("100", "200")
   )
 
   result <- drop_na_value_rows(dt, value_column = "nonexistent")
@@ -497,10 +520,10 @@ testthat::test_that("drop_na_value_rows handles empty data.table", {
 testthat::test_that("drop_na_value_rows is idempotent", {
   dt <- data.table::data.table(
     country = c("Japan", "France", "Italy"),
-    value   = c("100", NA_character_, "300")
+    value = c("100", NA_character_, "300")
   )
 
-  first_pass  <- drop_na_value_rows(dt)
+  first_pass <- drop_na_value_rows(dt)
   second_pass <- drop_na_value_rows(first_pass)
   testthat::expect_equal(nrow(second_pass), 2L)
   testthat::expect_identical(first_pass, second_pass)
@@ -509,7 +532,7 @@ testthat::test_that("drop_na_value_rows is idempotent", {
 testthat::test_that("drop_na_value_rows uses explicit row subsetting for data.frame input", {
   df <- data.frame(
     country = c("Japan", "France", "Italy"),
-    value   = c("100", NA_character_, "300"),
+    value = c("100", NA_character_, "300"),
     stringsAsFactors = FALSE
   )
 

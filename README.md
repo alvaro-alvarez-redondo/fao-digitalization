@@ -1,12 +1,12 @@
-# FAO Digitalization Pipeline
+# WHEP Digitalization Pipeline
 
 ## 1. Project Title
 
-FAO Digitalization Pipeline
+WHEP Digitalization Pipeline
 
 ## 2. Technical Description
 
-This repository is a script-oriented R pipeline that processes FAO source workbooks through deterministic stages:
+This repository is a script-oriented R pipeline that processes WHEP source workbooks through deterministic stages:
 
 1. General bootstrap (dependency checks, configuration construction, directory preparation)
 2. Import (file discovery, read, transformation, validation)
@@ -48,11 +48,11 @@ renv::snapshot()
 source(here::here("scripts", "run_pipeline.R"), local = TRUE)
 
 options(
-  fao.run_pipeline.auto = FALSE,
-  fao.run_general_pipeline.auto = FALSE,
-  fao.run_import_pipeline.auto = FALSE,
-  fao.run_post_processing_pipeline.auto = FALSE,
-  fao.run_export_pipeline.auto = FALSE
+  whep.run_pipeline.auto = FALSE,
+  whep.run_general_pipeline.auto = FALSE,
+  whep.run_import_pipeline.auto = FALSE,
+  whep.run_post_processing_pipeline.auto = FALSE,
+  whep.run_export_pipeline.auto = FALSE
 )
 
 run_pipeline(
@@ -134,7 +134,7 @@ When parallel backends are active, these stages run in parallel:
 For long-running pipelines, optional RDS checkpointing provides crash recovery:
 
 ```r
-options(fao.checkpointing.enabled = TRUE)
+options(whep.checkpointing.enabled = TRUE)
 ```
 
 When enabled:

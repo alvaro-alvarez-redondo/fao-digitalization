@@ -12,14 +12,14 @@ testthat::test_that("get_pipeline_constants returns a named list with required k
   testthat::expect_true(is.list(constants))
   testthat::expect_true("dataset_default_name" %in% names(constants))
   testthat::expect_true("timestamp_format_utc" %in% names(constants))
-  testthat::expect_true("na_placeholder"       %in% names(constants))
-  testthat::expect_true("na_match_key"         %in% names(constants))
-  testthat::expect_true("auto_run_options"     %in% names(constants))
-  testthat::expect_true("object_names"         %in% names(constants))
+  testthat::expect_true("na_placeholder" %in% names(constants))
+  testthat::expect_true("na_match_key" %in% names(constants))
+  testthat::expect_true("auto_run_options" %in% names(constants))
+  testthat::expect_true("object_names" %in% names(constants))
 })
 
 testthat::test_that("get_pipeline_constants returns identical result on repeated calls", {
-  first  <- get_pipeline_constants()
+  first <- get_pipeline_constants()
   second <- get_pipeline_constants()
 
   testthat::expect_identical(first, second)
@@ -41,7 +41,10 @@ testthat::test_that("load_pipeline_config builds a valid config object", {
 testthat::test_that("load_pipeline_config accepts custom dataset_name", {
   config <- load_pipeline_config(dataset_name = "custom_dataset")
 
-  testthat::expect_true(grepl("custom_dataset", config$paths$data$audit$audit_file_name))
+  testthat::expect_true(grepl(
+    "custom_dataset",
+    config$paths$data$audit$audit_file_name
+  ))
 })
 
 
@@ -63,7 +66,7 @@ testthat::test_that("resolve_audit_root_dir returns configured value", {
 # --- ensure_directories_exist ------------------------------------------------
 
 testthat::test_that("ensure_directories_exist creates directories in sorted order", {
-  base_dir <- build_temp_dir("fao-dir-sorted-")
+  base_dir <- build_temp_dir("whep-dir-sorted-")
   dirs <- c(
     file.path(base_dir, "z_dir"),
     file.path(base_dir, "a_dir"),
@@ -86,7 +89,7 @@ testthat::test_that("ensure_directories_exist handles empty input", {
 # --- delete_directory_if_exists ----------------------------------------------
 
 testthat::test_that("delete_directory_if_exists removes existing directory", {
-  dir_path <- build_temp_dir("fao-delete-")
+  dir_path <- build_temp_dir("whep-delete-")
   testthat::expect_true(dir.exists(dir_path))
 
   deleted <- delete_directory_if_exists(dir_path)
@@ -105,10 +108,10 @@ testthat::test_that("delete_directory_if_exists returns FALSE for non-existent d
 # --- create_required_directories ---------------------------------------------
 
 testthat::test_that("create_required_directories creates nested structures", {
-  base_dir <- build_temp_dir("fao-required-dirs-")
+  base_dir <- build_temp_dir("whep-required-dirs-")
   paths <- list(
     exports = list(
-      lists    = file.path(base_dir, "lists"),
+      lists = file.path(base_dir, "lists"),
       workbook = file.path(base_dir, "reports", "summary.xlsx")
     )
   )
@@ -120,14 +123,18 @@ testthat::test_that("create_required_directories creates nested structures", {
 })
 
 testthat::test_that("create_required_directories excludes audit root tree", {
-  base_dir <- build_temp_dir("fao-required-audit-")
+  base_dir <- build_temp_dir("whep-required-audit-")
   paths <- list(
     data = list(
       imports = list(raw = file.path(base_dir, "imports", "raw")),
-      audit   = list(
-        audit_root_dir       = file.path(base_dir, "audit"),
-        audit_file_path      = file.path(base_dir, "audit", "dataset", "audit.xlsx"),
-        raw_imports_mirror_dir = file.path(base_dir, "audit", "raw_imports_mirror")
+      audit = list(
+        audit_root_dir = file.path(base_dir, "audit"),
+        audit_file_path = file.path(base_dir, "audit", "dataset", "audit.xlsx"),
+        raw_imports_mirror_dir = file.path(
+          base_dir,
+          "audit",
+          "raw_imports_mirror"
+        )
       )
     )
   )
@@ -144,9 +151,9 @@ testthat::test_that("create_required_directories excludes audit root tree", {
 testthat::test_that("column_order includes hemisphere before continent", {
   config <- load_pipeline_config()
 
-  col_order   <- config$column_order
-  idx_hemi    <- which(col_order == "hemisphere")
-  idx_cont    <- which(col_order == "continent")
+  col_order <- config$column_order
+  idx_hemi <- which(col_order == "hemisphere")
+  idx_cont <- which(col_order == "continent")
 
   testthat::expect_true(length(idx_hemi) == 1L)
   testthat::expect_true(idx_hemi < idx_cont)

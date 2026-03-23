@@ -85,7 +85,7 @@ testthat::test_that("get_stage_source_value_column returns stage-specific column
 # --- read_rule_table ---------------------------------------------------------
 
 testthat::test_that("read_rule_table reads CSV rule files", {
-  root_dir <- build_temp_dir("fao-read-rules-")
+  root_dir <- build_temp_dir("whep-read-rules-")
   file_path <- file.path(root_dir, "rules.csv")
 
   rules <- data.frame(
@@ -105,7 +105,7 @@ testthat::test_that("read_rule_table reads CSV rule files", {
 })
 
 testthat::test_that("read_rule_table reads Excel rule files", {
-  root_dir <- build_temp_dir("fao-read-rules-xlsx-")
+  root_dir <- build_temp_dir("whep-read-rules-xlsx-")
   file_path <- file.path(root_dir, "rules.xlsx")
 
   rules <- data.frame(

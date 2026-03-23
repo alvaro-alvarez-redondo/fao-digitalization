@@ -2,8 +2,14 @@
 # unit tests for scripts/3-export_pipeline/31-export_lists.R
 
 source(here::here("tests", "test_helper.R"), echo = FALSE)
-source(here::here("scripts", "3-export_pipeline", "30-export_data.R"), echo = FALSE)
-source(here::here("scripts", "3-export_pipeline", "31-export_lists.R"), echo = FALSE)
+source(
+  here::here("scripts", "3-export_pipeline", "30-export_data.R"),
+  echo = FALSE
+)
+source(
+  here::here("scripts", "3-export_pipeline", "31-export_lists.R"),
+  echo = FALSE
+)
 
 
 # --- get_lists_sheet_order ---------------------------------------------------
@@ -19,8 +25,8 @@ testthat::test_that("get_lists_sheet_order returns fixed order", {
 
 testthat::test_that("build_layer_tables_by_sheet enforces fixed sheet keys", {
   layer_tables <- list(
-    fao_data_raw = data.frame(country = c("a", "b")),
-    fao_data_harmonized = data.frame(country = c("a", "c"))
+    whep_data_raw = data.frame(country = c("a", "b")),
+    whep_data_harmonized = data.frame(country = c("a", "c"))
   )
 
   result <- build_layer_tables_by_sheet(layer_tables)
@@ -261,6 +267,6 @@ testthat::test_that("export_lists excludes value/year columns", {
   )
 
   testthat::expect_true("country" %in% names(output_paths))
-  testthat::expect_false("value"   %in% names(output_paths))
-  testthat::expect_false("year"    %in% names(output_paths))
+  testthat::expect_false("value" %in% names(output_paths))
+  testthat::expect_false("year" %in% names(output_paths))
 })

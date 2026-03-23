@@ -1,5 +1,5 @@
 options(
-  fao.run_post_processing_pipeline.auto = FALSE
+  whep.run_post_processing_pipeline.auto = FALSE
 )
 
 source(
@@ -32,7 +32,7 @@ source(
 )
 
 testthat::test_that("clean and harmonize layers apply deterministic rule payloads", {
-  root_dir <- tempfile("fao-clean-harmonize-")
+  root_dir <- tempfile("whep-clean-harmonize-")
   dir.create(root_dir, recursive = TRUE)
 
   clean_dir <- file.path(root_dir, "data", "1-import", "11-clean_imports")
@@ -149,7 +149,7 @@ testthat::test_that("stage-prefixed schemas are accepted by coerce_rule_schema",
 
 
 testthat::test_that("clean layer auto-creates missing rule-referenced columns", {
-  root_dir <- tempfile("fao-clean-missing-cols-")
+  root_dir <- tempfile("whep-clean-missing-cols-")
   dir.create(root_dir, recursive = TRUE)
 
   clean_dir <- file.path(root_dir, "data", "1-import", "11-clean_imports")
@@ -208,7 +208,7 @@ testthat::test_that("clean layer auto-creates missing rule-referenced columns", 
 
 
 testthat::test_that("clean stage applies optional source rewrites", {
-  root_dir <- tempfile("fao-clean-source-rewrite-")
+  root_dir <- tempfile("whep-clean-source-rewrite-")
   dir.create(root_dir, recursive = TRUE)
 
   clean_dir <- file.path(root_dir, "data", "1-import", "11-clean_imports")
@@ -266,7 +266,7 @@ testthat::test_that("clean stage applies optional source rewrites", {
 
 
 testthat::test_that("when source and target columns are identical target rewrite has precedence", {
-  root_dir <- tempfile("fao-clean-same-column-")
+  root_dir <- tempfile("whep-clean-same-column-")
   dir.create(root_dir, recursive = TRUE)
 
   clean_dir <- file.path(root_dir, "data", "1-import", "11-clean_imports")
@@ -322,7 +322,7 @@ testthat::test_that("when source and target columns are identical target rewrite
 
 
 testthat::test_that("harmonize stage applies optional source rewrites", {
-  root_dir <- tempfile("fao-harmonize-source-rewrite-")
+  root_dir <- tempfile("whep-harmonize-source-rewrite-")
   dir.create(root_dir, recursive = TRUE)
 
   clean_dir <- file.path(root_dir, "data", "1-import", "11-clean_imports")
@@ -380,7 +380,7 @@ testthat::test_that("harmonize stage applies optional source rewrites", {
 
 
 testthat::test_that("clean stage blank source rewrite assigns NA on matched rows", {
-  root_dir <- tempfile("fao-clean-source-blank-")
+  root_dir <- tempfile("whep-clean-source-blank-")
   dir.create(root_dir, recursive = TRUE)
 
   clean_dir <- file.path(root_dir, "data", "1-import", "11-clean_imports")
