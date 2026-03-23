@@ -814,9 +814,16 @@ export_results_json <- function(results, output_path) {
       escaped <- gsub("\t", "\\t",  escaped,  fixed = TRUE)  # tabs
       escaped <- gsub("\f", "\\f",  escaped,  fixed = TRUE)  # form-feed
       escaped <- gsub("\b", "\\b",  escaped,  fixed = TRUE)  # backspace
-      # escape remaining C0 control characters (\x00-\x1f)
-      for (cp in setdiff(0L:31L, c(8L, 9L, 10L, 12L, 13L))) {
-        escaped <- gsub(rawToChar(as.raw(cp)),
+      # escape remaining C0 control characters (\x01-\x1f, excluding those
+      # handled explicitly above).  NUL (\x00, cp = 0) is intentionally
+      # excluded from the range: rawToChar(as.raw(0)) returns "" (R stops at
+      # the NUL terminator), and passing an empty-string pattern to gsub()
+      # raises a "zero-length pattern" error.  NUL bytes cannot appear in
+      # normal R character strings, so skipping cp = 0 is safe.
+      for (cp in setdiff(1L:31L, c(8L, 9L, 10L, 12L, 13L))) {
+        chr <- rawToChar(as.raw(cp))
+        if (!nzchar(chr)) next  # safety guard: never pass "" to gsub()
+        escaped <- gsub(chr,
                         sprintf("\\u%04x", cp),
                         escaped, fixed = TRUE)
       }
@@ -829,10 +836,14 @@ export_results_json <- function(results, output_path) {
                     "\n", pad, "]"))
     }
     if (is.list(x)) {
-      if (!is.null(names(x))) {
+      nms <- names(x)
+      # treat as a JSON object when every element has a non-empty name; fall
+      # back to a JSON array otherwise (handles NULL names, zero-length x, or
+      # partially named lists where some names are empty strings).
+      if (!is.null(nms) && length(nms) == length(x) && all(nzchar(nms))) {
         pairs <- mapply(function(k, v) {
           paste0(pad2, '"', k, '": ', to_json(v, indent + 1L))
-        }, names(x), x, SIMPLIFY = TRUE, USE.NAMES = FALSE)
+        }, nms, x, SIMPLIFY = TRUE, USE.NAMES = FALSE)
         return(paste0("{\n",
                       paste(pairs, collapse = ",\n"),
                       "\n", pad, "}"))

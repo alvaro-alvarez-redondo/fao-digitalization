@@ -295,3 +295,100 @@ testthat::test_that("fn_factory returns a zero-argument function", {
   testthat::expect_type(fn, "closure")
   testthat::expect_equal(length(formals(fn)), 0L)
 })
+
+
+# ── export_results_json / to_json ─────────────────────────────────────────────
+
+# helper: build a minimal mock results object accepted by export_results_json
+make_mock_results <- function(fn_name = "bench_fn",
+                              stage       = "import",
+                              description = "a benchmark") {
+  complexity_dt <- data.table::data.table(
+    fn_name           = fn_name,
+    stage             = stage,
+    description       = description,
+    best_class        = "O(n)",
+    r_squared         = 0.99,
+    slope_per_n       = 1e-6,
+    dominant_in_stage = TRUE,
+    complexity_rank   = 3L,
+    stage_max_rank    = 3L
+  )
+  list(
+    raw        = data.table::data.table(),
+    summary    = data.table::data.table(),
+    complexity = complexity_dt
+  )
+}
+
+testthat::test_that("export_results_json writes a file without error", {
+  results    <- make_mock_results()
+  out_path   <- tempfile(fileext = ".json")
+  on.exit(unlink(out_path), add = TRUE)
+
+  testthat::expect_no_error(
+    export_results_json(results, out_path)
+  )
+  testthat::expect_true(file.exists(out_path))
+})
+
+testthat::test_that("export_results_json output parses as valid JSON", {
+  results  <- make_mock_results()
+  out_path <- tempfile(fileext = ".json")
+  on.exit(unlink(out_path), add = TRUE)
+
+  export_results_json(results, out_path)
+  raw_text <- paste(readLines(out_path, warn = FALSE), collapse = "\n")
+
+  # jsonlite is available via the project's existing dependencies
+  parsed <- jsonlite::fromJSON(raw_text, simplifyVector = FALSE)
+  testthat::expect_type(parsed, "list")
+  testthat::expect_true("overall_pipeline_class" %in% names(parsed))
+  testthat::expect_true("per_stage"              %in% names(parsed))
+  testthat::expect_true("per_function"           %in% names(parsed))
+})
+
+testthat::test_that("export_results_json does not error on strings with tab/newline control chars", {
+  # descriptions can contain arbitrary text; the serialiser must escape them
+  results  <- make_mock_results(description = "line1\nline2\ttabbed")
+  out_path <- tempfile(fileext = ".json")
+  on.exit(unlink(out_path), add = TRUE)
+
+  testthat::expect_no_error(export_results_json(results, out_path))
+
+  raw_text <- paste(readLines(out_path, warn = FALSE), collapse = "\n")
+  # the embedded newline and tab must appear as JSON escape sequences
+  testthat::expect_true(grepl("\\\\n", raw_text))
+  testthat::expect_true(grepl("\\\\t", raw_text))
+})
+
+testthat::test_that("export_results_json does not error on strings with low C0 control chars (\\x01-\\x1f)", {
+  # exercise the fixed-loop path (cp in setdiff(1L:31L, c(8L,9L,10L,12L,13L)))
+  # \x01 (SOH) and \x1f (US) are representative non-printable characters from
+  # opposite ends of the loop range; testing both is sufficient to confirm the
+  # loop iterates and applies \uXXXX escaping correctly.
+  desc_with_ctrl <- paste0("ctrl", rawToChar(as.raw(1L)), "and",
+                            rawToChar(as.raw(31L)), "end")
+  results  <- make_mock_results(description = desc_with_ctrl)
+  out_path <- tempfile(fileext = ".json")
+  on.exit(unlink(out_path), add = TRUE)
+
+  testthat::expect_no_error(export_results_json(results, out_path))
+
+  raw_text <- paste(readLines(out_path, warn = FALSE), collapse = "\n")
+  # \x01 → \u0001, \x1f → \u001f
+  testthat::expect_true(grepl("\\\\u0001", raw_text))
+  testthat::expect_true(grepl("\\\\u001f", raw_text))
+})
+
+testthat::test_that("export_results_json handles NA r_squared (serialised as null)", {
+  results    <- make_mock_results()
+  results$complexity[, r_squared := NA_real_]
+  out_path   <- tempfile(fileext = ".json")
+  on.exit(unlink(out_path), add = TRUE)
+
+  testthat::expect_no_error(export_results_json(results, out_path))
+
+  raw_text <- paste(readLines(out_path, warn = FALSE), collapse = "\n")
+  testthat::expect_true(grepl('"adj_r_squared": null', raw_text, fixed = TRUE))
+})
