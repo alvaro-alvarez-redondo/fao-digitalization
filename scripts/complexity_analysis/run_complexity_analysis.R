@@ -33,12 +33,12 @@
 # prevent any pipeline stage from auto-executing when its runner script is
 # loaded transitively
 options(
-  whep.run_pipeline.auto            = FALSE,
-  whep.run_general_pipeline.auto    = FALSE,
-  whep.run_import_pipeline.auto     = FALSE,
+  whep.run_pipeline.auto = FALSE,
+  whep.run_general_pipeline.auto = FALSE,
+  whep.run_import_pipeline.auto = FALSE,
   whep.run_post_processing_pipeline.auto = FALSE,
-  whep.run_export_pipeline.auto     = FALSE,
-  whep.checkpointing.enabled        = FALSE
+  whep.run_export_pipeline.auto = FALSE,
+  whep.checkpointing.enabled = FALSE
 )
 
 # resolve the project root regardless of working directory
@@ -63,7 +63,11 @@ options(
       invisible(TRUE)
     },
     error = function(e) {
-      warning(sprintf("failed to source %s: %s", relative_path, conditionMessage(e)))
+      warning(sprintf(
+        "failed to source %s: %s",
+        relative_path,
+        conditionMessage(e)
+      ))
       invisible(FALSE)
     }
   )
@@ -83,8 +87,12 @@ options(
 # ── source modular complexity-analysis sub-scripts ───────────────────────────
 
 .source_complexity_script <- function(filename) {
-  abs_path <- file.path(.big_o_project_root,
-                        "scripts", "complexity_analysis", filename)
+  abs_path <- file.path(
+    .big_o_project_root,
+    "scripts",
+    "complexity_analysis",
+    filename
+  )
   if (!file.exists(abs_path)) {
     stop(sprintf("complexity analysis module not found: %s", abs_path))
   }
@@ -147,13 +155,17 @@ options(
 #' results <- run_big_o_analysis(output_dir = "~/analysis/big_o")
 #' }
 run_big_o_analysis <- function(
-  cfg        = get_big_o_config(),
+  cfg = get_big_o_config(),
   output_dir = NULL,
   write_plots = NULL,
-  quiet       = FALSE
+  quiet = FALSE
 ) {
-  if (!is.null(output_dir)) cfg$output_dir    <- output_dir
-  if (!is.null(write_plots)) cfg$produce_plots <- write_plots
+  if (!is.null(output_dir)) {
+    cfg$output_dir <- output_dir
+  }
+  if (!is.null(write_plots)) {
+    cfg$produce_plots <- write_plots
+  }
   cfg$quiet <- quiet
 
   if (is.null(cfg$output_dir)) {
@@ -164,7 +176,10 @@ run_big_o_analysis <- function(
   if (!quiet) {
     message(strrep("─", 70L))
     message("  WHEP Pipeline — Empirical Big O Analysis")
-    message(sprintf("  input_sizes : %s", paste(cfg$input_sizes, collapse = ", ")))
+    message(sprintf(
+      "  input_sizes : %s",
+      paste(cfg$input_sizes, collapse = ", ")
+    ))
     message(sprintf("  n_reps      : %d", cfg$n_reps))
     message(sprintf("  output_dir  : %s", cfg$output_dir))
     message(strrep("─", 70L))
@@ -176,16 +191,16 @@ run_big_o_analysis <- function(
   }
 
   benchmarks <- build_benchmark_definitions(cfg)
-  results    <- run_all_benchmarks(benchmarks, cfg)
+  results <- run_all_benchmarks(benchmarks, cfg)
 
   print_complexity_report(results$complexity)
 
-  json_path  <- file.path(cfg$output_dir, "big_o_summary.json")
+  json_path <- file.path(cfg$output_dir, "big_o_summary.json")
   export_results_json(results, json_path)
 
   plot_paths <- character(0L)
   if (isTRUE(cfg$produce_plots)) {
-    plots_dir  <- file.path(cfg$output_dir, "plots")
+    plots_dir <- file.path(cfg$output_dir, "plots")
     plot_paths <- write_complexity_plots(results, plots_dir)
   }
 
@@ -195,24 +210,18 @@ run_big_o_analysis <- function(
     message(strrep("─", 70L))
   }
 
-  results$json_path  <- json_path
+  results$json_path <- json_path
   results$plot_paths <- plot_paths
   return(invisible(results))
 }
 
-
-# ── auto-run guard ────────────────────────────────────────────────────────────
-# run_big_o_analysis() is NOT called automatically when this script is sourced.
-# invoke it explicitly:
-#
-#   results <- run_big_o_analysis()
-#
-# or with a custom config:
-#
-#   results <- run_big_o_analysis(
-#     cfg = utils::modifyList(get_big_o_config(), list(
-#       input_sizes = c(500L, 2000L, 10000L),
-#       n_reps      = 10L,
-#       output_dir  = "~/big_o_out"
-#     ))
-#   )
+run_big_o_analysis(
+  cfg = utils::modifyList(
+    get_big_o_config(),
+    list(
+      input_sizes = c(500L, 2000L, 10000L, 50000L, 200000L),
+      n_reps = 10L,
+      output_dir = "~/big_o_out"
+    )
+  )
+)
