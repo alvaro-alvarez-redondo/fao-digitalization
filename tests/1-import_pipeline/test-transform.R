@@ -136,8 +136,49 @@ testthat::test_that("reshape_to_long converts wide to long format", {
   testthat::expect_equal(nrow(result), 4L) # 2 rows * 2 years
 })
 
+testthat::test_that("reshape_to_long preserves hemisphere column when present", {
+  dt <- data.table::data.table(
+    hemisphere = c("northern", "southern"),
+    continent = c("Asia", "Europe"),
+    country = c("Japan", "France"),
+    product = c("wheat", "rice"),
+    variable = c("production", "trade"),
+    unit = c("tonnes", "tonnes"),
+    footnotes = c(NA_character_, NA_character_),
+    `2020` = c("100", "200"),
+    `2021` = c("300", "400")
+  )
 
-# --- add_metadata ------------------------------------------------------------
+  config <- build_test_config()
+  result <- reshape_to_long(dt, config)
+
+  testthat::expect_true(data.table::is.data.table(result))
+  testthat::expect_true("hemisphere" %in% names(result))
+  testthat::expect_equal(sort(unique(result$hemisphere)), c("northern", "southern"))
+  testthat::expect_equal(nrow(result), 4L) # 2 rows * 2 years
+})
+
+testthat::test_that("reshape_to_long succeeds when hemisphere column is absent", {
+  dt <- data.table::data.table(
+    continent = c("Asia", "Europe"),
+    country = c("Japan", "France"),
+    product = c("wheat", "rice"),
+    variable = c("production", "trade"),
+    unit = c("tonnes", "tonnes"),
+    footnotes = c(NA_character_, NA_character_),
+    `2020` = c("100", "200"),
+    `2021` = c("300", "400")
+  )
+
+  config <- build_test_config()
+  result <- reshape_to_long(dt, config)
+
+  testthat::expect_true(data.table::is.data.table(result))
+  testthat::expect_false("hemisphere" %in% names(result))
+  testthat::expect_equal(nrow(result), 4L) # 2 rows * 2 years
+})
+
+
 
 testthat::test_that("add_metadata appends document, notes, yearbook columns", {
   dt <- data.table::data.table(

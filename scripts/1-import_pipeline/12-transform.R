@@ -123,6 +123,12 @@ convert_year_columns <- function(df, config) {
 reshape_to_long <- function(df, config) {
   column_id <- config$column_id
   data_dt <- ensure_data_table(df)
+
+  # only keep id columns that are actually present in the data; this allows
+  # optional columns like "hemisphere" to be carried through when present
+  # without causing errors in files that legitimately omit them
+  column_id <- intersect(column_id, colnames(data_dt))
+
   year_cols <- identify_year_columns(data_dt, config)
 
   if (length(year_cols) == 0) {
