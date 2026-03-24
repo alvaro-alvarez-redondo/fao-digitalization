@@ -157,3 +157,50 @@ testthat::test_that("build_post_processing_diagnostics creates stage summaries",
   testthat::expect_true(is.list(result))
   testthat::expect_true("clean" %in% names(result))
 })
+
+
+# --- persist_post_processing_audit -------------------------------------------
+
+testthat::test_that("persist_post_processing_audit writes aggregate_standardized_rows excel", {
+  config <- build_test_config()
+  dir.create(
+    file.path(config$paths$data$audit$audit_root_dir, "post_processing_diagnostics"),
+    recursive = TRUE,
+    showWarnings = FALSE
+  )
+
+  clean_audit <- data.table::data.table(
+    rule_file_identifier = character(0),
+    column_source = character(0),
+    value_source_raw = character(0),
+    column_target = character(0),
+    value_target_raw = character(0),
+    value_target = character(0),
+    affected_rows = integer(0)
+  )
+  harmonize_audit <- data.table::data.table(
+    rule_file_identifier = character(0),
+    column_source = character(0),
+    value_source_raw = character(0),
+    column_target = character(0),
+    value_target_raw = character(0),
+    value_target = character(0),
+    affected_rows = integer(0)
+  )
+  standardize_rows <- data.table::data.table(
+    area = c("CountryA", "CountryB"),
+    product = c("wheat", "rice"),
+    unit = c("t", "t"),
+    value = c(100, 200)
+  )
+
+  output_paths <- persist_post_processing_audit(
+    clean_audit_dt = clean_audit,
+    harmonize_audit_dt = harmonize_audit,
+    standardize_rows_dt = standardize_rows,
+    config = config
+  )
+
+  testthat::expect_true("aggregate_standardized_rows" %in% names(output_paths))
+  testthat::expect_true(file.exists(output_paths[["aggregate_standardized_rows"]]))
+})
