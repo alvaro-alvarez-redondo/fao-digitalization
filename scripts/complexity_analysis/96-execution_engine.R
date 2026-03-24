@@ -27,47 +27,69 @@
 #'   }
 #' @importFrom progressr with_progress progressor
 run_all_benchmarks <- function(benchmarks, cfg) {
-  quiet       <- cfg$quiet
+  quiet <- cfg$quiet
   input_sizes <- cfg$input_sizes
-  n_reps      <- cfg$n_reps
-  n_sizes     <- length(input_sizes)
+  n_reps <- cfg$n_reps
+  n_sizes <- length(input_sizes)
 
-  all_raw        <- vector("list", length(benchmarks))
-  all_summary    <- vector("list", length(benchmarks))
+  all_raw <- vector("list", length(benchmarks))
+  all_summary <- vector("list", length(benchmarks))
   complexity_rows <- vector("list", length(benchmarks))
 
   for (i in seq_along(benchmarks)) {
     bm <- benchmarks[[i]]
     if (!quiet) {
-      message(sprintf("\n[%d/%d] %s  (%s)",
-                      i, length(benchmarks), bm$name, bm$stage))
+      message(sprintf(
+        "\n[%d/%d] %s  (%s)",
+        i,
+        length(benchmarks),
+        bm$name,
+        bm$stage
+      ))
       message(sprintf("  %s", bm$description))
     }
 
-    raw_dt <- tryCatch({
-      if (!quiet) {
-        progressr::with_progress({
-          p <- progressr::progressor(steps = n_sizes)
-          run_benchmark(bm$fn_factory, input_sizes, n_reps = n_reps,
-                        quiet = TRUE, progressor = p)
-        })
-      } else {
-        run_benchmark(bm$fn_factory, input_sizes, n_reps = n_reps,
-                      quiet = TRUE, progressor = NULL)
+    raw_dt <- tryCatch(
+      {
+        if (!quiet) {
+          progressr::with_progress({
+            p <- progressr::progressor(steps = n_sizes)
+            run_benchmark(
+              bm$fn_factory,
+              input_sizes,
+              n_reps = n_reps,
+              quiet = TRUE,
+              progressor = p
+            )
+          })
+        } else {
+          run_benchmark(
+            bm$fn_factory,
+            input_sizes,
+            n_reps = n_reps,
+            quiet = TRUE,
+            progressor = NULL
+          )
+        }
+      },
+      error = function(e) {
+        warning(sprintf(
+          "benchmark '%s' failed: %s",
+          bm$name,
+          conditionMessage(e)
+        ))
+        NULL
       }
-    }, error = function(e) {
-      warning(sprintf("benchmark '%s' failed: %s", bm$name, conditionMessage(e)))
-      NULL
-    })
+    )
 
     if (is.null(raw_dt)) {
       # record failure row
       complexity_rows[[i]] <- data.table::data.table(
-        fn_name     = bm$name,
-        stage       = bm$stage,
+        fn_name = bm$name,
+        stage = bm$stage,
         description = bm$description,
-        best_class  = "ERROR",
-        r_squared   = NA_real_,
+        best_class = "ERROR",
+        r_squared = NA_real_,
         slope_per_n = NA_real_
       )
       next
@@ -83,29 +105,39 @@ run_all_benchmarks <- function(benchmarks, cfg) {
     fit <- fit_complexity_model(summ_dt$n, summ_dt$median_s)
 
     if (!quiet) {
-      message(sprintf("  → best fit: %s  (adj. R² = %.4f)",
-                      fit$best_class,
-                      if (is.na(fit$best_r2)) NaN else fit$best_r2))
+      message(sprintf(
+        "  → best fit: %s  (adj. R² = %.4f)",
+        fit$best_class,
+        if (is.na(fit$best_r2)) NaN else fit$best_r2
+      ))
     }
 
     complexity_rows[[i]] <- data.table::data.table(
-      fn_name     = bm$name,
-      stage       = bm$stage,
+      fn_name = bm$name,
+      stage = bm$stage,
       description = bm$description,
-      best_class  = fit$best_class,
-      r_squared   = fit$best_r2,
+      best_class = fit$best_class,
+      r_squared = fit$best_r2,
       slope_per_n = fit$slope_per_n
     )
   }
 
-  raw_combined     <- data.table::rbindlist(all_raw,     fill = TRUE)
+  raw_combined <- data.table::rbindlist(all_raw, fill = TRUE)
   summary_combined <- data.table::rbindlist(all_summary, fill = TRUE)
-  complexity_dt    <- data.table::rbindlist(complexity_rows, fill = TRUE)
+  complexity_dt <- data.table::rbindlist(complexity_rows, fill = TRUE)
 
   # flag each function's overall pipeline complexity contribution
   # (worst-fitting class within each stage drives the stage complexity)
-  complexity_order <- c("O(1)", "O(log n)", "O(n)", "O(n log n)",
-                        "O(n^2)", "O(n^3)", "unknown", "ERROR")
+  complexity_order <- c(
+    "O(1)",
+    "O(log n)",
+    "O(n)",
+    "O(n log n)",
+    "O(n^2)",
+    "O(n^3)",
+    "unknown",
+    "ERROR"
+  )
   complexity_dt[,
     complexity_rank := match(best_class, complexity_order, nomatch = 7L)
   ]
@@ -120,8 +152,8 @@ run_all_benchmarks <- function(benchmarks, cfg) {
   complexity_dt[, stage_max_rank := NULL]
 
   list(
-    raw        = raw_combined,
-    summary    = summary_combined,
+    raw = raw_combined,
+    summary = summary_combined,
     complexity = complexity_dt
   )
 }
