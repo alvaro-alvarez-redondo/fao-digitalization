@@ -102,6 +102,7 @@ build_test_config <- function(root_dir = NULL) {
     ),
     column_required = c("continent", "country"),
     column_id = c(
+      "hemisphere",
       "product",
       "variable",
       "unit",

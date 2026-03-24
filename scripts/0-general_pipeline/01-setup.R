@@ -198,7 +198,7 @@ load_pipeline_config <- function(
 
   columns <- list(
     base = c("continent", "country", "unit", "footnotes"),
-    id = c("product", "variable", "unit", "continent", "country", "footnotes"),
+    id = c("hemisphere", "product", "variable", "unit", "continent", "country", "footnotes"),
     value = c("year", "value"),
     system = c("notes", "yearbook", "document")
   )
