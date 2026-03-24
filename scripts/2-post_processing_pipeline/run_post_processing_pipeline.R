@@ -183,7 +183,7 @@ run_post_processing_pipeline_batch <- function(
     audit_output_path <- persist_post_processing_audit(
       clean_audit_dt = clean_audit,
       harmonize_audit_dt = harmonize_audit,
-      standardize_rows_dt = data.table::as.data.table(normalized_dt),
+      standardize_rows_dt = attr(normalized_dt, "aggregated_source_rows"),
       config = config
     )
 
