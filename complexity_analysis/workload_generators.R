@@ -1,23 +1,19 @@
-# script: 92-synthetic_data
-# description: synthetic data generators for the Big O complexity analysis
-#   module. all functions produce self-contained in-memory objects and perform
-#   no I/O. safe to call from any benchmark closure.
+# complexity_analysis/workload_generators.R
+# description: workload generation layer for the Big O complexity analysis
+#   module. all generators produce self-contained in-memory objects and perform
+#   no I/O. safe to call from any benchmark closure or test.
 #
-# sourced by: run_complexity_analysis.R
+# sourced by: complexity_analysis/run_analysis.R
 
-# ── 2. synthetic data generators ────────────────────────────────────────────
+# ── workload generators ──────────────────────────────────────────────────────
 
-#' @title sample product labels
+# sample label pools (package-private)
 .products     <- c("cereals", "oilseeds", "pulses", "fruits", "vegetables",
                    "sugar", "roots", "cotton", "tobacco", "fibres")
-#' @title sample variable labels
 .variables    <- c("production", "yield", "area_harvested", "import_quantity",
                    "export_quantity", "feed", "seed", "stock_variation")
-#' @title sample unit labels
 .units        <- c("tonnes", "kg_ha", "ha", "usd", "1000_usd", "head")
-#' @title sample continent labels
 .continents   <- c("asia", "europe", "africa", "americas", "oceania")
-#' @title sample country pool
 .countries    <- paste0("country_", formatC(1:80, width = 2, flag = "0"))
 
 #' @title make synthetic wide-format data table
@@ -61,8 +57,8 @@ make_wide_dt <- function(n, n_years = 10L) {
 #'   duplicates of another row (for duplicate-detection benchmarks).
 #' @return data.table with full long-format schema.
 make_long_dt <- function(n, na_fraction = 0.0, dup_fraction = 0.0) {
-  n_dup   <- as.integer(floor(n * dup_fraction))
-  n_orig  <- n - n_dup
+  n_dup  <- as.integer(floor(n * dup_fraction))
+  n_orig <- n - n_dup
 
   dt <- data.table::data.table(
     product   = sample(.products,   n_orig, replace = TRUE),
@@ -107,8 +103,8 @@ make_numeric_string_vec <- function(n) {
 
 #' @title make a minimal pipeline config for benchmarking
 #' @description returns a minimal config list containing only the fields
-#'   required by the benchmarked functions. does NOT create directories or
-#'   perform any I/O.
+#'   required by the benchmarked functions. performs no I/O and does not
+#'   create any directories.
 #' @return named list (subset of full pipeline config).
 make_benchmark_config <- function() {
   col_order <- c(
