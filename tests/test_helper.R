@@ -105,6 +105,7 @@ build_test_config <- function(root_dir = NULL) {
       "product",
       "variable",
       "unit",
+      "hemisphere",
       "continent",
       "country",
       "footnotes"
