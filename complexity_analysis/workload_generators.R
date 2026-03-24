@@ -1,11 +1,11 @@
-# script: 92-synthetic_data
-# description: synthetic data generators for the Big O complexity analysis
-#   module. all functions produce self-contained in-memory objects and perform
-#   no I/O. safe to call from any benchmark closure.
+# module: workload_generators
+# description: synthetic workload generators for the complexity analysis module.
+#   all functions produce self-contained in-memory objects and perform no I/O.
+#   safe to call from any benchmark closure.
 #
-# sourced by: run_complexity_analysis.R
+# sourced by: run_analysis.R
 
-# ── 2. synthetic data generators ────────────────────────────────────────────
+# ── synthetic workload generators ────────────────────────────────────────────
 
 #' @title sample product labels
 .products     <- c("cereals", "oilseeds", "pulses", "fruits", "vegetables",
