@@ -61,6 +61,14 @@ normalize_key_fields <- function(df, product_name, config) {
     }
   }
 
+  if ("footnotes" %in% colnames(data_dt)) {
+    data.table::set(
+      data_dt,
+      j = "footnotes",
+      value = clean_footnote_impl(data_dt[["footnotes"]])
+    )
+  }
+
   return(data_dt)
 }
 

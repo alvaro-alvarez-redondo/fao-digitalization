@@ -79,6 +79,55 @@ testthat::test_that("normalize_string preserves NA values", {
 })
 
 
+# --- clean_footnote ----------------------------------------------------------
+
+testthat::test_that("clean_footnote converts to lowercase ascii", {
+  testthat::expect_identical(clean_footnote("Note A"), "note a")
+  testthat::expect_identical(clean_footnote("UPPER CASE"), "upper case")
+})
+
+testthat::test_that("clean_footnote handles accented characters", {
+  result <- clean_footnote("données révisées")
+  testthat::expect_true(grepl("^[a-z0-9 ;/*()\\.\\-,#%:]+$", result))
+})
+
+testthat::test_that("clean_footnote preserves footnote-safe special characters", {
+  input <- "note 1/ official data (revised); 50% estimate #2 * marker"
+  result <- clean_footnote(input)
+  testthat::expect_true(grepl(";", result, fixed = TRUE))
+  testthat::expect_true(grepl("/", result, fixed = TRUE))
+  testthat::expect_true(grepl("(", result, fixed = TRUE))
+  testthat::expect_true(grepl(")", result, fixed = TRUE))
+  testthat::expect_true(grepl("%", result, fixed = TRUE))
+  testthat::expect_true(grepl("#", result, fixed = TRUE))
+  testthat::expect_true(grepl("*", result, fixed = TRUE))
+})
+
+testthat::test_that("clean_footnote removes characters not in footnotes", {
+  result <- clean_footnote("note! @value")
+  testthat::expect_false(grepl("!", result, fixed = TRUE))
+  testthat::expect_false(grepl("@", result, fixed = TRUE))
+})
+
+testthat::test_that("clean_footnote squishes and trims whitespace", {
+  testthat::expect_identical(clean_footnote("  note  "), "note")
+})
+
+testthat::test_that("clean_footnote preserves NA values", {
+  result <- clean_footnote(c("note", NA_character_))
+  testthat::expect_true(is.na(result[2]))
+})
+
+testthat::test_that("clean_footnote differs from normalize_string on special chars", {
+  input <- "note 1/ data; (revised)"
+  fn_result <- clean_footnote(input)
+  ns_result <- normalize_string(input)
+  # normalize_string strips /, ;, (, ) but clean_footnote keeps them
+  testthat::expect_true(grepl(";", fn_result, fixed = TRUE))
+  testthat::expect_false(grepl(";", ns_result, fixed = TRUE))
+})
+
+
 # --- normalize_filename ------------------------------------------------------
 
 testthat::test_that("normalize_filename replaces spaces with underscores", {
