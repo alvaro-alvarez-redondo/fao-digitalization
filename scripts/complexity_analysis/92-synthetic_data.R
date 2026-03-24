@@ -117,14 +117,22 @@ make_benchmark_config <- function() {
   )
   list(
     column_required = c("product", "variable", "unit", "continent", "country"),
+<<<<<<< HEAD
     column_id       = c("hemisphere", "product", "variable", "unit",
+=======
+    column_id       = c("product", "variable", "unit", "hemisphere",
+>>>>>>> 72888f686daaf7dad5df0e347aa5082ae6e1fcce
                         "continent", "country", "footnotes"),
     column_order    = col_order,
     defaults        = list(notes_value = NA_character_),
     columns = list(
       mandatory = c("product", "variable", "unit", "value"),
       base      = c("continent", "country", "unit", "footnotes"),
+<<<<<<< HEAD
       id        = c("hemisphere", "product", "variable", "unit",
+=======
+      id        = c("product", "variable", "unit", "hemisphere",
+>>>>>>> 72888f686daaf7dad5df0e347aa5082ae6e1fcce
                     "continent", "country", "footnotes"),
       value     = c("year", "value")
     )

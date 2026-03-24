@@ -83,6 +83,39 @@ normalize_string <- function(string) {
   normalize_string_impl(string)
 }
 
+#' @title fast internal footnote string normalization
+#' @description converts footnote text to lowercase ascii and removes characters
+#' that are not alphanumeric, spaces, or footnote-safe punctuation
+#' (`;`, `/`, `*`, `(`, `)`, `.`, `,`, `-`, `#`, `%`, `:`).
+#' unlike `normalize_string_impl`, this preserves the special characters
+#' commonly found in footnotes (reference markers, separators, parenthetical
+#' labels). skips input validation for performance in hot paths.
+#' @param x atomic vector to normalize. coerced to character internally.
+#' @return character vector with normalized lowercase ascii footnote text.
+#' @importFrom stringi stri_trans_general stri_replace_all_regex stri_trim_both
+clean_footnote_impl <- function(x) {
+  out <- stringi::stri_trans_general(x, "Latin-ASCII; Lower")
+  out <- stringi::stri_replace_all_regex(out, "[^a-z0-9 ;/*()\\.\\-,#%:]+", " ")
+  stringi::stri_trim_both(out)
+}
+
+#' @title normalize footnote text into lowercase ascii
+#' @description converts footnote text to lowercase ascii, removing characters
+#' that are not alphanumeric, spaces, or common footnote punctuation while
+#' preserving reference markers (`;`, `/`, `*`, `(`, `)`, `.`, `,`, `-`, `#`,
+#' `%`, `:`). use this instead of `normalize_string()` for footnotes columns to
+#' avoid stripping meaningful symbols.
+#' @param x atomic vector with length greater than or equal to one. validated
+#' with `checkmate::assert_atomic_vector(min.len = 1, any.missing = TRUE)`.
+#' @return character vector with normalized lowercase ascii footnote text.
+#' @importFrom checkmate assert_atomic_vector
+#' @examples
+#' clean_footnote("Note 1/ Official data (revised); 50% estimate")
+clean_footnote <- function(x) {
+  checkmate::assert_atomic_vector(x, min.len = 1, any.missing = TRUE)
+  clean_footnote_impl(x)
+}
+
 #' @title normalize file-friendly names
 #' @description normalizes text and replaces spaces with underscores for
 #' deterministic filename stems. missing and empty outputs are replaced by

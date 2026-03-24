@@ -232,21 +232,27 @@ build_post_processing_diagnostics <- function(
 #' @title Persist post-processing audit workbooks
 #' @description Writes deterministic Excel outputs under
 #' `audit_root_dir/post_processing_diagnostics` using a single rule-summary
-#' workbook with one sheet per stage.
+#' workbook with one sheet per stage, and a separate workbook containing the
+#' post-standardization aggregated rows.
 #' @param clean_audit_dt Clean-stage audit table.
 #' @param harmonize_audit_dt Harmonize-stage audit table.
+#' @param standardize_rows_dt Data.table of rows after post-standardization
+#'   aggregation (output of `aggregate_standardized_rows()`).
 #' @param config Named configuration list.
-#' @return Named character vector containing `rule_summary` workbook path.
+#' @return Named character vector containing `rule_summary` and
+#'   `aggregate_standardized_rows` workbook paths.
 #' @importFrom checkmate assert_data_frame assert_list
 #' @importFrom fs path
 #' @importFrom writexl write_xlsx
 persist_post_processing_audit <- function(
   clean_audit_dt,
   harmonize_audit_dt,
+  standardize_rows_dt,
   config
 ) {
   checkmate::assert_data_frame(clean_audit_dt, min.rows = 0)
   checkmate::assert_data_frame(harmonize_audit_dt, min.rows = 0)
+  checkmate::assert_data_frame(standardize_rows_dt, min.rows = 0)
   checkmate::assert_list(config, min.len = 1)
 
   diagnostics <- build_post_processing_diagnostics(
@@ -262,6 +268,10 @@ persist_post_processing_audit <- function(
     rule_summary = fs::path(
       diagnostics_dir,
       "post_processing_audit_rule_summary.xlsx"
+    ),
+    aggregate_standardized_rows = fs::path(
+      diagnostics_dir,
+      "post_processing_aggregate_standardized_rows.xlsx"
     )
   )
 
@@ -271,6 +281,11 @@ persist_post_processing_audit <- function(
       harmonize = data.table::as.data.table(diagnostics$harmonize_rule_summary)
     ),
     path = output_paths[["rule_summary"]]
+  )
+
+  writexl::write_xlsx(
+    data.table::as.data.table(standardize_rows_dt),
+    path = output_paths[["aggregate_standardized_rows"]]
   )
 
   return(output_paths)

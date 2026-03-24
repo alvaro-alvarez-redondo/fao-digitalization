@@ -404,6 +404,60 @@ testthat::test_that("aggregate_standardized_rows handles mixed column types", {
 })
 
 
+# --- extract_aggregated_rows -------------------------------------------------
+
+testthat::test_that("extract_aggregated_rows returns only rows from duplicate groups", {
+  dt <- data.table::data.table(
+    product = c("wheat", "wheat", "rice"),
+    unit = c("kg", "kg", "kg"),
+    value = c(10, 20, 5)
+  )
+
+  result <- extract_aggregated_rows(dt, "value")
+
+  testthat::expect_s3_class(result, "data.table")
+  testthat::expect_equal(nrow(result), 2L)
+  testthat::expect_true(all(result$product == "wheat"))
+})
+
+testthat::test_that("extract_aggregated_rows returns empty table when no duplicates", {
+  dt <- data.table::data.table(
+    product = c("wheat", "rice"),
+    unit = c("kg", "kg"),
+    value = c(10, 5)
+  )
+
+  result <- extract_aggregated_rows(dt, "value")
+
+  testthat::expect_equal(nrow(result), 0L)
+  testthat::expect_identical(names(result), c("product", "unit", "value"))
+})
+
+testthat::test_that("extract_aggregated_rows returns empty table for empty input", {
+  dt <- data.table::data.table(
+    product = character(0),
+    unit = character(0),
+    value = numeric(0)
+  )
+
+  result <- extract_aggregated_rows(dt, "value")
+
+  testthat::expect_equal(nrow(result), 0L)
+})
+
+testthat::test_that("extract_aggregated_rows preserves column order", {
+  dt <- data.table::data.table(
+    product = c("wheat", "wheat"),
+    value = c(10, 20),
+    unit = c("kg", "kg")
+  )
+
+  result <- extract_aggregated_rows(dt, "value")
+
+  testthat::expect_identical(names(result), c("product", "value", "unit"))
+})
+
+
 # --- attach_standardize_diagnostics aggregation fields -----------------------
 
 testthat::test_that("attach_standardize_diagnostics includes aggregation fields", {

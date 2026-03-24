@@ -61,6 +61,14 @@ normalize_key_fields <- function(df, product_name, config) {
     }
   }
 
+  if ("footnotes" %in% colnames(data_dt)) {
+    data.table::set(
+      data_dt,
+      j = "footnotes",
+      value = clean_footnote_impl(data_dt[["footnotes"]])
+    )
+  }
+
   return(data_dt)
 }
 
@@ -135,9 +143,14 @@ reshape_to_long <- function(df, config) {
     cli::cli_abort("no year columns were identified for reshaping")
   }
 
+  # restrict id.vars to columns that are actually present in the data so that
+  # optional columns (e.g. "hemisphere") do not cause melt() to error when the
+  # source file legitimately omits them.
+  available_id <- intersect(column_id, colnames(data_dt))
+
   long_dt <- data.table::melt(
     data = data_dt,
-    id.vars = column_id,
+    id.vars = available_id,
     measure.vars = year_cols,
     variable.name = "year",
     value.name = "value",

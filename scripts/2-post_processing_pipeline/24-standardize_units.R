@@ -458,6 +458,48 @@ aggregate_standardized_rows <- function(dt, value_column = "value") {
   return(result)
 }
 
+#' @title Extract rows that will be aggregated
+#' @description Returns only the rows from a pre-aggregation data.table that
+#' belong to duplicate groups — i.e. the rows that `aggregate_standardized_rows()`
+#' will collapse by summing. Groups are defined by all columns except
+#' `value_column`. If there are no duplicates, returns an empty data.table with
+#' the same schema.
+#' @param dt `data.table` before aggregation.
+#' @param value_column Character scalar name of the numeric column to sum.
+#' @return `data.table` containing only rows from duplicate groups, with the
+#'   same column order and schema as `dt`.
+#' @importFrom checkmate assert_data_table assert_string
+#' @importFrom data.table setkeyv anyDuplicated
+extract_aggregated_rows <- function(dt, value_column = "value") {
+  checkmate::assert_data_table(dt)
+  checkmate::assert_string(value_column, min.chars = 1)
+
+  if (!value_column %in% names(dt)) {
+    cli::cli_abort("value column {.val {value_column}} not found in data")
+  }
+
+  if (nrow(dt) == 0L) {
+    return(dt)
+  }
+
+  group_cols <- setdiff(names(dt), value_column)
+
+  if (length(group_cols) == 0L || anyDuplicated(dt, by = group_cols) == 0L) {
+    return(dt[0L, ])
+  }
+
+  counts <- dt[, .N, by = group_cols]
+  dup_groups <- counts[N > 1L]
+  dup_groups[, N := NULL]
+
+  data.table::setkeyv(dt, group_cols)
+  data.table::setkeyv(dup_groups, group_cols)
+
+  result <- dt[dup_groups, nomatch = 0L]
+  data.table::setcolorder(result, names(dt))
+  return(result)
+}
+
 #' @title Attach standardize layer diagnostics
 #' @description Creates and attaches standardized diagnostics payload to the
 #' standardized dataset.
@@ -608,9 +650,15 @@ run_standardize_units_layer_batch <- function(
   )
 
   rows_before_aggregation <- nrow(apply_result$data)
+  aggregated_source_rows_dt <- data.table::as.data.table(apply_result$data)[0L, ]
   if (aggregate_after_standardize && rows_before_aggregation > 0L) {
+    pre_agg_dt <- data.table::as.data.table(apply_result$data)
+    aggregated_source_rows_dt <- extract_aggregated_rows(
+      pre_agg_dt,
+      value_column = value_column
+    )
     apply_result$data <- aggregate_standardized_rows(
-      data.table::as.data.table(apply_result$data),
+      pre_agg_dt,
       value_column = value_column
     )
   }
@@ -627,6 +675,8 @@ run_standardize_units_layer_batch <- function(
     rows_before_aggregation = as.integer(rows_before_aggregation),
     rows_after_aggregation = as.integer(rows_after_aggregation)
   )
+
+  attr(normalized_dt, "aggregated_source_rows") <- aggregated_source_rows_dt
 
   return(normalized_dt)
 }
