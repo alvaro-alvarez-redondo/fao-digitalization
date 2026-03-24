@@ -448,3 +448,45 @@ testthat::test_that("attach_standardize_diagnostics omits aggregation counts whe
   testthat::expect_false(diag$aggregation_enabled)
   testthat::expect_null(diag$rows_before_aggregation)
 })
+
+testthat::test_that("attach_standardize_diagnostics reports aggregation-skipped message when no rules", {
+  dt <- data.table::data.table(product = "wheat", value = 10)
+
+  result <- attach_standardize_diagnostics(
+    standardized_dt = dt,
+    cleaned_rows_count = 2L,
+    matched_count = 0L,
+    unmatched_count = 1L,
+    rules_count = 0L,
+    rule_sources = character(0),
+    aggregation_enabled = TRUE
+  )
+
+  diag <- attr(result, "layer_diagnostics")$standardize_units
+
+  testthat::expect_match(diag$messages, "aggregation skipped")
+})
+
+
+# --- run_standardize_units_layer_batch no-rules guard ------------------------
+
+testthat::test_that("run_standardize_units_layer_batch preserves duplicate rows when no rules loaded", {
+  cfg <- build_test_config()
+
+  cleaned_dt <- data.table::data.table(
+    product   = c("wheat", "wheat"),
+    unit      = c("kg", "kg"),
+    variable  = c("production", "production"),
+    value     = c(10, 20)
+  )
+
+  result <- run_standardize_units_layer_batch(
+    cleaned_dt = cleaned_dt,
+    config = cfg
+  )
+
+  testthat::expect_identical(nrow(result), 2L)
+
+  diag <- attr(result, "layer_diagnostics")$standardize_units
+  testthat::expect_match(diag$messages, "aggregation skipped")
+})

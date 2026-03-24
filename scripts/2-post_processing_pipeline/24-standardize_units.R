@@ -520,7 +520,7 @@ attach_standardize_diagnostics <- function(
   }
 
   if (rules_count == 0L) {
-    diagnostics$messages <- "no numeric standardization rules found"
+    diagnostics$messages <- "no numeric standardization rules found; row aggregation skipped"
     diagnostics$potential_warnings <- diagnostics$messages
   } else {
     diagnostics$potential_warnings <- character(0)
@@ -576,7 +576,9 @@ load_units_standardization_rules <- function(config) {
 #' @param aggregate_after_standardize Logical scalar toggle for post-
 #' standardization row aggregation. When `TRUE` (default), rows that are
 #' identical on every column except `value_column` are collapsed by summing
-#' the numeric measure.
+#' the numeric measure. Aggregation is only applied when at least one
+#' standardization rule is loaded; if no rules are present the data is
+#' returned unchanged regardless of this flag.
 #' @return standardized data.table with diagnostics attached.
 #' @importFrom checkmate assert_data_frame assert_list assert_string
 #'  assert_flag
@@ -608,7 +610,8 @@ run_standardize_units_layer_batch <- function(
   )
 
   rows_before_aggregation <- nrow(apply_result$data)
-  if (aggregate_after_standardize && rows_before_aggregation > 0L) {
+  has_rules <- nrow(layer_payload$layer_rules) > 0L
+  if (aggregate_after_standardize && rows_before_aggregation > 0L && has_rules) {
     apply_result$data <- aggregate_standardized_rows(
       data.table::as.data.table(apply_result$data),
       value_column = value_column
