@@ -8,7 +8,7 @@ test_dirs <- c(
   here::here("tests", "1-import_pipeline"),
   here::here("tests", "2-post_processing_pipeline"),
   here::here("tests", "3-export_pipeline"),
-  here::here("tests", "complexity_analysis")
+  here::here("tests", "perf")
 )
 
 for (test_dir in test_dirs) {

@@ -1,24 +1,25 @@
-# tests/complexity_analysis/test-big-o-estimation.R
-# unit tests for the Big O complexity analysis module.
+# tests/perf/test-big-o-estimation.R
+# unit tests for the perf module.
 #
-# the module is split into modular scripts (91-config.R … 97-reporting.R)
-# sourced by run_complexity_analysis.R. this test file sources the master
-# script, which loads all sub-modules and exposes the full public API.
+# the module is split into modular scripts (p0-config.R … p7-reporting.R)
+# sourced by perf/run_perf.R. this test file
+# sources the master script, which loads all sub-modules and exposes the
+# full public API.
 #
 # covers: config helpers, synthetic data generators, complexity model fitting,
 # benchmark summary statistics, and JSON serialisation.
 
 source(here::here("tests", "test_helper.R"), echo = FALSE)
 source(
-  here::here("scripts", "complexity_analysis", "run_complexity_analysis.R"),
+  here::here("perf", "run_perf.R"),
   echo = FALSE
 )
 
 
-# ── get_big_o_config ──────────────────────────────────────────────────────────
+# ── get_analysis_config ──────────────────────────────────────────────────────────
 
-testthat::test_that("get_big_o_config returns a list with all required fields", {
-  cfg <- get_big_o_config()
+testthat::test_that("get_analysis_config returns a list with all required fields", {
+  cfg <- get_analysis_config()
 
   testthat::expect_type(cfg, "list")
   testthat::expect_true("input_sizes"   %in% names(cfg))
@@ -31,14 +32,14 @@ testthat::test_that("get_big_o_config returns a list with all required fields", 
   testthat::expect_true("quiet"         %in% names(cfg))
 })
 
-testthat::test_that("get_big_o_config input_sizes are positive integers", {
-  cfg <- get_big_o_config()
+testthat::test_that("get_analysis_config input_sizes are positive integers", {
+  cfg <- get_analysis_config()
   testthat::expect_true(all(cfg$input_sizes > 0L))
   testthat::expect_true(is.integer(cfg$input_sizes))
 })
 
-testthat::test_that("get_big_o_config fractions are in [0, 1]", {
-  cfg <- get_big_o_config()
+testthat::test_that("get_analysis_config fractions are in [0, 1]", {
+  cfg <- get_analysis_config()
   testthat::expect_true(cfg$na_fraction  >= 0 & cfg$na_fraction  <= 1)
   testthat::expect_true(cfg$dup_fraction >= 0 & cfg$dup_fraction <= 1)
 })
@@ -258,7 +259,7 @@ testthat::test_that("summarise_benchmark output is sorted by n", {
 # ── build_benchmark_definitions ───────────────────────────────────────────────
 
 testthat::test_that("build_benchmark_definitions returns a named list", {
-  cfg  <- utils::modifyList(get_big_o_config(), list(
+  cfg  <- utils::modifyList(get_analysis_config(), list(
     input_sizes = c(100L, 200L),
     n_reps      = 1L
   ))
@@ -270,7 +271,7 @@ testthat::test_that("build_benchmark_definitions returns a named list", {
 })
 
 testthat::test_that("each benchmark definition has required fields", {
-  cfg  <- utils::modifyList(get_big_o_config(), list(
+  cfg  <- utils::modifyList(get_analysis_config(), list(
     input_sizes = c(100L),
     n_reps      = 1L
   ))
@@ -287,7 +288,7 @@ testthat::test_that("each benchmark definition has required fields", {
 })
 
 testthat::test_that("fn_factory returns a zero-argument function", {
-  cfg  <- utils::modifyList(get_big_o_config(), list(
+  cfg  <- utils::modifyList(get_analysis_config(), list(
     input_sizes = c(100L),
     n_reps      = 1L
   ))
