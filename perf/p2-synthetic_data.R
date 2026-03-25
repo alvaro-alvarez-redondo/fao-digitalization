@@ -1,9 +1,9 @@
-# module:      ca2-synthetic_data
-# description: self-contained synthetic data generators for the complexity
-#   analysis module. all functions produce in-memory objects and perform no I/O
+# module:      p2-synthetic_data
+# description: self-contained synthetic data generators for the perf
+#   module. all functions produce in-memory objects and perform no I/O
 #   or global state mutations. safe to call from any benchmark closure.
 #
-# sourced by:  complexity_analysis/run_complexity_analysis.R
+# sourced by:  perf/run_perf.R
 
 # ── 2. synthetic data generators ────────────────────────────────────────────
 

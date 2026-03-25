@@ -1,14 +1,14 @@
-# module:      ca6-execution_engine
-# description: execution orchestration for the complexity analysis module.
+# module:      p6-execution_engine
+# description: execution orchestration for the perf module.
 #   provides per-stage analysis (run_stage_analysis), global aggregation
 #   (run_all_stages), and the backward-compatible flat runner
 #   (run_all_benchmarks) that accepts a pre-built benchmark catalogue.
 #
-# depends on:  ca3-complexity_models.R  (fit_complexity_model, .complexity_order)
-#              ca4-timing_harness.R     (run_benchmark, summarise_benchmark)
-#              ca5-workload_generators.R (build_stage_benchmarks,
+# depends on:  p3-complexity_models.R  (fit_complexity_model, .complexity_order)
+#              p4-timing_harness.R     (run_benchmark, summarise_benchmark)
+#              p5-workload_generators.R (build_stage_benchmarks,
 #                                        build_benchmark_definitions)
-# sourced by:  complexity_analysis/run_complexity_analysis.R
+# sourced by:  perf/run_perf.R
 
 # ── 6. execution engine ──────────────────────────────────────────────────────
 

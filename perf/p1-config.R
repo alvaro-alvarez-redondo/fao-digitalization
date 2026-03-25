@@ -1,10 +1,9 @@
-# module:      ca1-config
-# description: analysis configuration for the complexity analysis module.
+# module:      p1-config
+# description: analysis configuration for the perf module.
 #   defines get_analysis_config(), the single source of truth for all tunable
-#   parameters used across all analysis stages. get_big_o_config() is provided
-#   as a backward-compatible alias so existing callers are unaffected.
+#   parameters used across all analysis stages.
 #
-# sourced by:  complexity_analysis/run_complexity_analysis.R
+# sourced by:  perf/run_perf.R
 
 # ── 1. analysis configuration ────────────────────────────────────────────────
 
@@ -49,7 +48,7 @@ get_analysis_config <- function() {
     qs_path = file.path(
       "data", "2-post_processing",
       "post_processing_diagnostics",
-      "complexity_analysis_complete.qs"
+      "perf_complete.qs"
     ),
 
     # whether to produce PNG plot files
@@ -59,10 +58,3 @@ get_analysis_config <- function() {
     quiet = FALSE
   )
 }
-
-#' @title backward-compatible alias for get_analysis_config
-#' @description returns the default analysis configuration. this alias exists
-#'   so that code and tests written against the previous `get_big_o_config()`
-#'   API continue to work without modification.
-#' @return named list of analysis parameters (see `get_analysis_config()`).
-get_big_o_config <- function() get_analysis_config()

@@ -1,13 +1,11 @@
-# module:      ca8-reporting
-# description: reporting, visualisation, and persistence for the complexity
-#   analysis module. provides console printers for per-stage and global
+# module:      p8-reporting
+# description: reporting, visualisation, and persistence for the perf
+#   module. provides console printers for per-stage and global
 #   diagnostics, a structured JSON exporter, per-stage PNG plot writer, and
-#   a function to persist the full analysis object to a .qs file. backward-
-#   compatible aliases (print_complexity_report, export_results_json,
-#   write_complexity_plots) are provided so existing callers are unaffected.
+#   a function to persist the full analysis object to a .qs file.
 #
 # depends on:  (no intra-module deps — operates on result lists and data.tables)
-# sourced by:  complexity_analysis/run_complexity_analysis.R
+# sourced by:  perf/run_perf.R
 
 # ── 8. reporting and persistence ─────────────────────────────────────────────
 

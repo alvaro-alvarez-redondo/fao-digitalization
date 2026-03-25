@@ -1,10 +1,10 @@
-# module:      ca4-timing_harness
-# description: wall-clock timing harness for the complexity analysis module.
+# module:      p4-timing_harness
+# description: wall-clock timing harness for the perf module.
 #   provides low-level timing (time_fn), the per-size benchmark loop
 #   (run_benchmark), and the per-n summary statistics aggregator
 #   (summarise_benchmark).
 #
-# sourced by:  complexity_analysis/run_complexity_analysis.R
+# sourced by:  perf/run_perf.R
 
 # ── 4. timing harness ────────────────────────────────────────────────────────
 

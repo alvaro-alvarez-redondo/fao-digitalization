@@ -1,10 +1,10 @@
-# module:      ca3-complexity_models
-# description: complexity model fitting for the complexity analysis module.
+# module:      p3-complexity_models
+# description: complexity model fitting for the perf module.
 #   defines the candidate model set and the fitting routine that selects the
 #   best model by adjusted R². also provides complexity ranking helpers used
 #   by the execution engine and stage diagnostics.
 #
-# sourced by:  complexity_analysis/run_complexity_analysis.R
+# sourced by:  perf/run_perf.R
 
 # ── 3. complexity model fitting ──────────────────────────────────────────────
 

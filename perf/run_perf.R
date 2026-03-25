@@ -1,6 +1,6 @@
-# module:      run_complexity_analysis
-# description: single entry-point for the WHEP pipeline complexity analysis
-#   framework. sources all sub-modules in order (ca1 … ca8), loads the
+# module:      run_perf
+# description: single entry-point for the WHEP pipeline performance analysis
+#   framework. sources all sub-modules in order (p1 … p8), loads the
 #   pipeline helper functions required by the benchmark closures, and exposes
 #   run_big_o_analysis() as the sole public API.
 #
@@ -11,7 +11,7 @@
 #   object to the configured .qs path.
 #
 # usage:
-#   source(here::here("complexity_analysis", "run_complexity_analysis.R"))
+#   source(here::here("perf", "run_perf.R"))
 #   result <- run_big_o_analysis()
 
 # ── prevent pipeline auto-execution ─────────────────────────────────────────
@@ -27,7 +27,7 @@ options(
 
 # ── resolve project root ─────────────────────────────────────────────────────
 
-.ca_project_root <- tryCatch(
+.perf_project_root <- tryCatch(
   here::here(),
   error = function(e) {
     normalizePath(file.path(getwd(), ".."), mustWork = FALSE)
@@ -37,7 +37,7 @@ options(
 # ── helpers ───────────────────────────────────────────────────────────────────
 
 .source_pipeline_script <- function(relative_path) {
-  abs_path <- file.path(.ca_project_root, "scripts", relative_path)
+  abs_path <- file.path(.perf_project_root, "scripts", relative_path)
   if (!file.exists(abs_path)) {
     warning(sprintf("pipeline script not found, skipping: %s", abs_path))
     return(invisible(FALSE))
@@ -51,10 +51,10 @@ options(
   )
 }
 
-.source_ca_script <- function(filename) {
-  abs_path <- file.path(.ca_project_root, "complexity_analysis", filename)
+.source_perf_script <- function(filename) {
+  abs_path <- file.path(.perf_project_root, "perf", filename)
   if (!file.exists(abs_path)) {
-    stop(sprintf("complexity analysis sub-module not found: %s", abs_path))
+    stop(sprintf("perf sub-module not found: %s", abs_path))
   }
   source(abs_path, echo = FALSE, local = FALSE)
   invisible(TRUE)
@@ -70,16 +70,16 @@ options(
 .source_pipeline_script("2-post_processing_pipeline/24-standardize_units.R")
 .source_pipeline_script("3-export_pipeline/31-export_lists.R")
 
-# ── load complexity analysis sub-modules (ca1 … ca8) ─────────────────────────
+# ── load perf sub-modules (p1 … p8) ──────────────────────────────────────────
 
-.source_ca_script("ca1-config.R")
-.source_ca_script("ca2-synthetic_data.R")
-.source_ca_script("ca3-complexity_models.R")
-.source_ca_script("ca4-timing_harness.R")
-.source_ca_script("ca5-workload_generators.R")
-.source_ca_script("ca6-execution_engine.R")
-.source_ca_script("ca7-stage_diagnostics.R")
-.source_ca_script("ca8-reporting.R")
+.source_perf_script("p1-config.R")
+.source_perf_script("p2-synthetic_data.R")
+.source_perf_script("p3-complexity_models.R")
+.source_perf_script("p4-timing_harness.R")
+.source_perf_script("p5-workload_generators.R")
+.source_perf_script("p6-execution_engine.R")
+.source_perf_script("p7-stage_diagnostics.R")
+.source_perf_script("p8-reporting.R")
 
 # ── main entry point ──────────────────────────────────────────────────────────
 
@@ -97,7 +97,7 @@ options(
 #'   `get_analysis_config()`. override specific fields with
 #'   `utils::modifyList(get_analysis_config(), list(...))`.
 #' @param output_dir character scalar. base directory for JSON and plots.
-#'   overrides `cfg$output_dir`. defaults to `tempdir()/complexity_analysis`.
+#'   overrides `cfg$output_dir`. defaults to `tempdir()/perf`.
 #' @param write_plots logical. whether to produce PNG plots. overrides
 #'   `cfg$produce_plots`.
 #' @param quiet logical. suppress all progress messages and progress bars.
@@ -124,7 +124,7 @@ run_big_o_analysis <- function(
   cfg$quiet <- quiet
 
   if (is.null(cfg$output_dir)) {
-    cfg$output_dir <- file.path(tempdir(), "complexity_analysis")
+    cfg$output_dir <- file.path(tempdir(), "perf")
   }
 
   start_time <- proc.time()[["elapsed"]]
@@ -134,7 +134,7 @@ run_big_o_analysis <- function(
       style = 3L, width = 40L, clear = FALSE
     ))
     message(strrep("\u2500", 70L))
-    message("  WHEP Pipeline \u2014 Complexity Analysis Framework")
+    message("  WHEP Pipeline \u2014 Performance Analysis Framework")
     message(sprintf("  stages      : %s", paste(cfg$stages, collapse = ", ")))
     message(sprintf("  input_sizes : %s", paste(cfg$input_sizes, collapse = ", ")))
     message(sprintf("  n_reps      : %d", cfg$n_reps))
@@ -168,7 +168,7 @@ run_big_o_analysis <- function(
   }
 
   # ── JSON export ───────────────────────────────────────────────────────────
-  json_path <- file.path(cfg$output_dir, "complexity_summary.json")
+  json_path <- file.path(cfg$output_dir, "perf_summary.json")
   export_analysis_json(all_results, json_path)
 
   # ── plots ─────────────────────────────────────────────────────────────────
