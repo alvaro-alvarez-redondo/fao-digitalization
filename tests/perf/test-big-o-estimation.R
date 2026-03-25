@@ -1,7 +1,7 @@
 # tests/perf/test-big-o-estimation.R
 # unit tests for the perf module.
 #
-# the module is split into modular scripts (p1-config.R … p8-reporting.R)
+# the module is split into modular scripts (p0-config.R … p7-reporting.R)
 # sourced by perf/run_perf.R. this test file
 # sources the master script, which loads all sub-modules and exposes the
 # full public API.

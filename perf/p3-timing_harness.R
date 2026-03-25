@@ -1,4 +1,4 @@
-# module:      p4-timing_harness
+# module:      p3-timing_harness
 # description: wall-clock timing harness for the perf module.
 #   provides low-level timing (time_fn), the per-size benchmark loop
 #   (run_benchmark), and the per-n summary statistics aggregator

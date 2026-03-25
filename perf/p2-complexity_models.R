@@ -1,4 +1,4 @@
-# module:      p3-complexity_models
+# module:      p2-complexity_models
 # description: complexity model fitting for the perf module.
 #   defines the candidate model set and the fitting routine that selects the
 #   best model by adjusted R². also provides complexity ranking helpers used

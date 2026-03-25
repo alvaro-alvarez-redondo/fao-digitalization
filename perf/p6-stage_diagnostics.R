@@ -1,11 +1,11 @@
-# module:      p7-stage_diagnostics
+# module:      p6-stage_diagnostics
 # description: stage-level and global complexity diagnostics for the
 #   perf module. transforms raw benchmark results into
 #   structured, human-readable diagnostic objects: ranked bottlenecks,
 #   scaling behaviour descriptions, actionable optimization signals, and a
 #   unified global view across all stages.
 #
-# depends on:  p3-complexity_models.R  (.complexity_order)
+# depends on:  p2-complexity_models.R  (.complexity_order)
 # sourced by:  perf/run_perf.R
 
 # ── 7. stage diagnostics ─────────────────────────────────────────────────────

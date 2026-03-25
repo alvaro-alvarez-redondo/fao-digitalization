@@ -1,10 +1,10 @@
-# module:      p5-workload_generators
+# module:      p4-workload_generators
 # description: stage-organised benchmark descriptor catalogue. benchmark
 #   closures are self-contained: they capture all inputs via the fn_factory
 #   pattern and perform no I/O or global state mutations. functions are grouped
 #   by pipeline stage so the execution engine can run each stage independently.
 #
-# depends on:  p2-synthetic_data.R
+# depends on:  p1-synthetic_data.R
 # sourced by:  perf/run_perf.R
 
 # ── 5. workload generators ────────────────────────────────────────────────────

@@ -70,16 +70,16 @@ options(
 .source_pipeline_script("2-post_processing_pipeline/24-standardize_units.R")
 .source_pipeline_script("3-export_pipeline/31-export_lists.R")
 
-# ── load perf sub-modules (p1 … p8) ──────────────────────────────────────────
+# ── load perf sub-modules (p0 … p7) ──────────────────────────────────────────
 
-.source_perf_script("p1-config.R")
-.source_perf_script("p2-synthetic_data.R")
-.source_perf_script("p3-complexity_models.R")
-.source_perf_script("p4-timing_harness.R")
-.source_perf_script("p5-workload_generators.R")
-.source_perf_script("p6-execution_engine.R")
-.source_perf_script("p7-stage_diagnostics.R")
-.source_perf_script("p8-reporting.R")
+.source_perf_script("p0-config.R")
+.source_perf_script("p1-synthetic_data.R")
+.source_perf_script("p2-complexity_models.R")
+.source_perf_script("p3-timing_harness.R")
+.source_perf_script("p4-workload_generators.R")
+.source_perf_script("p5-execution_engine.R")
+.source_perf_script("p6-stage_diagnostics.R")
+.source_perf_script("p7-reporting.R")
 
 # ── main entry point ──────────────────────────────────────────────────────────
 

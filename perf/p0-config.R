@@ -1,4 +1,4 @@
-# module:      p1-config
+# module:      p0-config
 # description: analysis configuration for the perf module.
 #   defines get_analysis_config(), the single source of truth for all tunable
 #   parameters used across all analysis stages.

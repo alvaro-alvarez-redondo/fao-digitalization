@@ -1,4 +1,4 @@
-# module:      p8-reporting
+# module:      p7-reporting
 # description: reporting, visualisation, and persistence for the perf
 #   module. provides console printers for per-stage and global
 #   diagnostics, a structured JSON exporter, per-stage PNG plot writer, and
