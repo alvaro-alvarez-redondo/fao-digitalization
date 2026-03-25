@@ -1,16 +1,17 @@
 # tests/complexity_analysis/test-big-o-estimation.R
 # unit tests for the Big O complexity analysis module.
 #
-# the module is split into modular scripts (91-config.R … 97-reporting.R)
-# sourced by run_complexity_analysis.R. this test file sources the master
-# script, which loads all sub-modules and exposes the full public API.
+# the module is split into modular scripts (ca1-config.R … ca8-reporting.R)
+# sourced by complexity_analysis/run_complexity_analysis.R. this test file
+# sources the master script, which loads all sub-modules and exposes the
+# full public API.
 #
 # covers: config helpers, synthetic data generators, complexity model fitting,
 # benchmark summary statistics, and JSON serialisation.
 
 source(here::here("tests", "test_helper.R"), echo = FALSE)
 source(
-  here::here("scripts", "complexity_analysis", "run_complexity_analysis.R"),
+  here::here("complexity_analysis", "run_complexity_analysis.R"),
   echo = FALSE
 )
 

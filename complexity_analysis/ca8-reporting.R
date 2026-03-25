@@ -112,7 +112,7 @@ print_global_report <- function(global_diagnostic) {
 
 #' @title print flat complexity report (backward-compatible)
 #' @description prints the flat complexity report format from the original
-#'   `scripts/complexity_analysis/97-reporting.R`. accepts the `complexity_dt`
+#'   `97-reporting.R` in the legacy scripts. accepts the `complexity_dt`
 #'   data.table produced by `run_all_benchmarks()`.
 #' @param complexity_dt data.table from `run_all_benchmarks()$complexity`.
 #' @return invisible(NULL)
@@ -296,7 +296,7 @@ export_analysis_json <- function(results, output_path) {
 
 #' @title backward-compatible alias for export_analysis_json
 #' @description wraps `export_analysis_json()` under the original name used by
-#'   `scripts/complexity_analysis/97-reporting.R` so existing callers and tests
+#'   the legacy `97-reporting.R` script so existing callers and tests
 #'   are unaffected.
 #' @param results list from `run_all_stages()` or `run_all_benchmarks()`.
 #' @param output_path character scalar — destination file path.
@@ -391,7 +391,7 @@ write_stage_plots <- function(results, plots_dir) {
 
 #' @title backward-compatible alias for write_stage_plots
 #' @description wraps `write_stage_plots()` under the name used by the original
-#'   `scripts/complexity_analysis/97-reporting.R`.
+#'   legacy `97-reporting.R` script.
 #' @param results list with `summary` and `complexity` data.tables.
 #' @param plots_dir character scalar — directory for PNG output.
 #' @return invisible character vector — paths of produced plot files.
