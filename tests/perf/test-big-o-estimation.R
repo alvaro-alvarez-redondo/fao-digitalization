@@ -1,17 +1,17 @@
 # tests/perf/test-big-o-estimation.R
 # unit tests for the perf module.
 #
-# the module is split into modular scripts (p0-config.R … p7-reporting.R)
-# sourced by perf/run_perf.R. this test file
+# the module is split into modular scripts (p0-dependencies.R ... p9-orchestration.R)
+# sourced by perf/p9-orchestration.R. this test file
 # sources the master script, which loads all sub-modules and exposes the
 # full public API.
 #
 # covers: config helpers, synthetic data generators, complexity model fitting,
-# benchmark summary statistics, and JSON serialisation.
+# benchmark summary statistics, and Markdown serialisation.
 
 source(here::here("tests", "test_helper.R"), echo = FALSE)
 source(
-  here::here("perf", "run_perf.R"),
+  here::here("perf", "p9-orchestration.R"),
   echo = FALSE
 )
 
@@ -302,11 +302,11 @@ testthat::test_that("fn_factory returns a zero-argument function", {
 })
 
 
-# ── export_results_json / to_json ─────────────────────────────────────────────
+# ── export_results_markdown / build_analysis_markdown ────────────────────────
 
-# helper: build a minimal mock results object accepted by export_results_json
+# helper: build a minimal mock results object accepted by export_results_markdown
 make_mock_results <- function(fn_name = "bench_fn",
-                              stage       = "import",
+                              stage       = "1-import",
                               description = "a benchmark") {
   complexity_dt <- data.table::data.table(
     fn_name           = fn_name,
@@ -326,76 +326,122 @@ make_mock_results <- function(fn_name = "bench_fn",
   )
 }
 
-testthat::test_that("export_results_json writes a file without error", {
+make_mock_results_with_runtime <- function() {
+  complexity_dt <- data.table::data.table(
+    fn_name           = c("bench_hot", "bench_cool"),
+    stage             = c("1-import", "1-import"),
+    description       = c("hot path", "support path"),
+    best_class        = c("O(n^2)", "O(n)"),
+    r_squared         = c(0.97, 0.95),
+    slope_per_n       = c(2e-6, 8e-7),
+    dominant_in_stage = c(TRUE, FALSE),
+    complexity_rank   = c(5L, 3L),
+    stage_max_rank    = c(5L, 5L)
+  )
+
+  summary_dt <- data.table::data.table(
+    fn_name   = rep(c("bench_hot", "bench_cool"), each = 3L),
+    stage     = rep("1-import", 6L),
+    n         = rep(c(100L, 1000L, 5000L), 2L),
+    median_s  = c(0.5, 1.0, 1.5, 0.2, 0.3, 0.5),
+    mean_s    = c(0.5, 1.0, 1.5, 0.2, 0.3, 0.5),
+    sd_s      = 0,
+    min_s     = c(0.5, 1.0, 1.5, 0.2, 0.3, 0.5),
+    max_s     = c(0.5, 1.0, 1.5, 0.2, 0.3, 0.5),
+    n_reps    = 1L
+  )
+
+  list(
+    raw        = data.table::data.table(),
+    summary    = summary_dt,
+    complexity = complexity_dt
+  )
+}
+
+testthat::test_that("export_results_markdown writes a file without error", {
   results    <- make_mock_results()
-  out_path   <- tempfile(fileext = ".json")
-  on.exit(unlink(out_path), add = TRUE)
+  out_dir    <- tempfile("perf_reports_")
+  on.exit(unlink(out_dir, recursive = TRUE), add = TRUE)
 
   testthat::expect_no_error(
-    export_results_json(results, out_path)
+    export_results_markdown(results, out_dir)
   )
-  testthat::expect_true(file.exists(out_path))
+
+  testthat::expect_true(file.exists(file.path(out_dir, "perf_whep-digitalization.md")))
+  testthat::expect_true(file.exists(file.path(out_dir, "perf_0-general_pipeline.md")))
+  testthat::expect_true(file.exists(file.path(out_dir, "perf_1-import_pipeline.md")))
+  testthat::expect_true(file.exists(file.path(out_dir, "perf_2-post_processing_pipeline.md")))
+  testthat::expect_true(file.exists(file.path(out_dir, "perf_3-export_pipeline.md")))
 })
 
-testthat::test_that("export_results_json output parses as valid JSON", {
+testthat::test_that("export_results_markdown output contains expected sections", {
   results  <- make_mock_results()
-  out_path <- tempfile(fileext = ".json")
-  on.exit(unlink(out_path), add = TRUE)
+  out_dir  <- tempfile("perf_reports_")
+  on.exit(unlink(out_dir, recursive = TRUE), add = TRUE)
 
-  export_results_json(results, out_path)
-  raw_text <- paste(readLines(out_path, warn = FALSE), collapse = "\n")
+  export_results_markdown(results, out_dir)
+  pipeline_path <- file.path(out_dir, "perf_1-import_pipeline.md")
+  general_path <- file.path(out_dir, "perf_whep-digitalization.md")
 
-  # jsonlite is available via the project's existing dependencies
-  parsed <- jsonlite::fromJSON(raw_text, simplifyVector = FALSE)
-  testthat::expect_type(parsed, "list")
-  testthat::expect_true("overall_pipeline_class" %in% names(parsed))
-  testthat::expect_true("per_stage"              %in% names(parsed))
-  testthat::expect_true("per_function"           %in% names(parsed))
+  raw_lines <- readLines(pipeline_path, warn = FALSE)
+  raw_text <- paste(raw_lines, collapse = "\n")
+  general_lines <- readLines(general_path, warn = FALSE)
+
+  testthat::expect_true(any(grepl("^# Pipeline Performance Report: perf_1-import_pipeline$", raw_lines)))
+  testthat::expect_true(any(grepl("^## Function-Level Performance Matrix$", raw_lines)))
+  testthat::expect_true(any(grepl("^## Runtime Share Distribution \\(ASCII\\)$", raw_lines)))
+  testthat::expect_true(any(grepl("^```text$", raw_lines)))
+  testthat::expect_true(grepl("\\| Function\\s+\\| Description\\s+\\| Complexity\\s+\\| adj\\.R2\\s+\\| Slope per n\\s+\\| Estimated runtime \\(sample n\\)\\s+\\| Relative impact\\s+\\| Indicator\\s+\\| Bottleneck\\s+\\|", raw_text))
+  testthat::expect_false(grepl("Impact bar", raw_text, fixed = TRUE))
+  testthat::expect_true(any(grepl("^# General Project Performance$", general_lines)))
+  testthat::expect_true(any(grepl("^## Pipeline Summary$", general_lines)))
 })
 
-testthat::test_that("export_results_json does not error on strings with tab/newline control chars", {
-  # descriptions can contain arbitrary text; the serialiser must escape them
+testthat::test_that("export_results_markdown preserves strings with tab/newline control chars", {
   results  <- make_mock_results(description = "line1\nline2\ttabbed")
-  out_path <- tempfile(fileext = ".json")
-  on.exit(unlink(out_path), add = TRUE)
+  out_dir <- tempfile("perf_reports_")
+  on.exit(unlink(out_dir, recursive = TRUE), add = TRUE)
 
-  testthat::expect_no_error(export_results_json(results, out_path))
+  testthat::expect_no_error(export_results_markdown(results, out_dir))
 
-  raw_text <- paste(readLines(out_path, warn = FALSE), collapse = "\n")
-  # the embedded newline and tab must appear as JSON escape sequences
-  testthat::expect_true(grepl("\\\\n", raw_text))
-  testthat::expect_true(grepl("\\\\t", raw_text))
+  raw_text <- paste(readLines(file.path(out_dir, "perf_1-import_pipeline.md"), warn = FALSE), collapse = "\n")
+  testthat::expect_true(grepl("line1", raw_text, fixed = TRUE))
+  testthat::expect_true(grepl("line2", raw_text, fixed = TRUE))
+  testthat::expect_true(grepl("tabbed", raw_text, fixed = TRUE))
 })
 
-testthat::test_that("export_results_json does not error on strings with low C0 control chars (\\x01-\\x1f)", {
-  # exercise the C0-escape loop (cp in setdiff(1L:31L, c(8L,9L,10L,12L,13L)))
-  # \x01 (SOH) and \x1f (US) are representative non-printable characters from
-  # opposite ends of the loop range; testing both is sufficient to confirm the
-  # loop iterates and applies \uXXXX escaping correctly.
-  desc_with_ctrl <- paste0("ctrl", rawToChar(as.raw(1L)), "and",
-                            rawToChar(as.raw(31L)), "end")
-  results  <- make_mock_results(description = desc_with_ctrl)
-  out_path <- tempfile(fileext = ".json")
-  on.exit(unlink(out_path), add = TRUE)
-
-  testthat::expect_no_error(export_results_json(results, out_path))
-
-  raw_text <- paste(readLines(out_path, warn = FALSE), collapse = "\n")
-  # \x01 → \u0001, \x1f → \u001f
-  testthat::expect_true(grepl("\\\\u0001", raw_text))
-  testthat::expect_true(grepl("\\\\u001f", raw_text))
-})
-
-testthat::test_that("export_results_json handles NA r_squared (serialised as null)", {
+testthat::test_that("build_analysis_markdown handles NA r_squared", {
   results    <- make_mock_results()
   results$complexity[, r_squared := NA_real_]
-  out_path   <- tempfile(fileext = ".json")
-  on.exit(unlink(out_path), add = TRUE)
+  lines <- build_analysis_markdown(results)
+  testthat::expect_true(any(grepl("N/A", lines, fixed = TRUE)))
+})
 
-  testthat::expect_no_error(export_results_json(results, out_path))
+testthat::test_that("prepare_reporting_metrics computes stage and function impact metrics", {
+  results <- make_mock_results_with_runtime()
+  metrics <- prepare_reporting_metrics(results)
 
-  raw_text <- paste(readLines(out_path, warn = FALSE), collapse = "\n")
-  testthat::expect_true(grepl('"adj_r_squared": null', raw_text, fixed = TRUE))
+  testthat::expect_true(data.table::is.data.table(metrics$stage_summary))
+  testthat::expect_equal(metrics$stage_summary$function_count[[1L]], 2L)
+  testthat::expect_equal(metrics$stage_summary$expensive_function_count[[1L]], 1L)
+  testthat::expect_equal(round(metrics$stage_summary$expensive_function_pct[[1L]], 1), 50.0)
+
+  hot_impact <- metrics$function_metrics[fn_name == "bench_hot", relative_impact][[1L]]
+  testthat::expect_equal(round(hot_impact, 2), 0.75)
+  testthat::expect_true(all(c(100L, 1000L, 5000L) %in% metrics$sample_n_values))
+})
+
+testthat::test_that("build_analysis_markdown includes chart-ready and projection sections", {
+  results <- make_mock_results_with_runtime()
+  lines <- build_analysis_markdown(results)
+  raw_text <- paste(lines, collapse = "\n")
+
+  testthat::expect_true(any(grepl("^## Chart Data: Function Complexities$", lines)))
+  testthat::expect_true(any(grepl("^## Chart Data: Stage Runtime Proportions$", lines)))
+  testthat::expect_true(any(grepl("^## Chart Data: Slope per n and Relative Impact$", lines)))
+  testthat::expect_true(any(grepl("^## Runtime Projections by Sample n$", lines)))
+  testthat::expect_true(grepl("75.0%", raw_text, fixed = TRUE))
+  testthat::expect_true(grepl("!!! (critical)", raw_text, fixed = TRUE))
 })
 
 # ── run_benchmark (progressor integration) ───────────────────────────────────
