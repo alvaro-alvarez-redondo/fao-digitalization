@@ -14,12 +14,16 @@
 #' config_example <- list(column_order = c("country", "year", "value"))
 #' identify_year_columns(df_example, config_example)
 identify_year_columns <- function(df, config) {
-  candidate_cols <- setdiff(
-    colnames(df),
-    setdiff(config$column_order, c("year", "value"))
-  )
+  all_cols <- names(df)
+  if (length(all_cols) == 0L) {
+    return(character(0))
+  }
 
-  year_columns <- candidate_cols[grepl("^\\d{4}(-\\d{4})?$", candidate_cols)]
+  non_year_cols <- setdiff(config$column_order, c("year", "value"))
+  candidate_cols <- all_cols[!all_cols %in% non_year_cols]
+  year_pattern <- get_pipeline_constants()$patterns$year_column
+
+  year_columns <- candidate_cols[grepl(year_pattern, candidate_cols, perl = TRUE)]
 
   return(year_columns)
 }
@@ -40,28 +44,31 @@ identify_year_columns <- function(df, config) {
 #' normalize_key_fields(df_example, "crops", config_example)
 normalize_key_fields <- function(df, product_name, config) {
   data_dt <- ensure_data_table(df)
+  data_dt_names <- names(data_dt)
   base_cols <- config$column_required
-  missing_cols <- setdiff(base_cols, colnames(data_dt))
+  missing_cols <- setdiff(base_cols, data_dt_names)
 
   if (length(missing_cols) > 0) {
     data_dt[, (missing_cols) := NA_character_]
+    data_dt_names <- names(data_dt)
   }
 
-  data_dt[, product := normalize_string_impl(product_name)]
+  data.table::set(
+    data_dt,
+    j = "product",
+    value = normalize_string_impl(product_name)
+  )
 
   # normalize data-sourced text columns (product is set from file metadata above)
-  norm_cols <- c("variable", "hemisphere", "continent", "country")
-  for (col in norm_cols) {
-    if (col %in% colnames(data_dt)) {
-      data.table::set(
-        data_dt,
-        j = col,
-        value = normalize_string_impl(data_dt[[col]])
-      )
-    }
+  norm_cols <- intersect(
+    c("variable", "hemisphere", "continent", "country"),
+    data_dt_names
+  )
+  if (length(norm_cols) > 0L) {
+    data_dt[, (norm_cols) := lapply(.SD, normalize_string_impl), .SDcols = norm_cols]
   }
 
-  if ("footnotes" %in% colnames(data_dt)) {
+  if ("footnotes" %in% data_dt_names) {
     data.table::set(
       data_dt,
       j = "footnotes",
@@ -99,6 +106,7 @@ convert_year_columns <- function(df, config) {
   }
 
   year_cols <- identify_year_columns(df, config)
+  attr(df, "whep_year_columns") <- year_cols
 
   if (length(year_cols) > 0) {
     non_char_cols <- year_cols[
@@ -129,24 +137,22 @@ convert_year_columns <- function(df, config) {
 #' config_example <- list(column_id = "country", column_order = c("country", "year", "value"))
 #' reshape_to_long(df_example, config_example)
 reshape_to_long <- function(df, config) {
-  column_id <- config$column_id
   data_dt <- ensure_data_table(df)
+  data_dt_names <- names(data_dt)
 
-  # only keep id columns that are actually present in the data; this allows
-  # optional columns like "hemisphere" to be carried through when present
-  # without causing errors in files that legitimately omit them
-  column_id <- intersect(column_id, colnames(data_dt))
-
-  year_cols <- identify_year_columns(data_dt, config)
+  year_cols <- attr(data_dt, "whep_year_columns", exact = TRUE)
+  if (is.null(year_cols) || !all(year_cols %in% data_dt_names)) {
+    year_cols <- identify_year_columns(data_dt, config)
+  }
 
   if (length(year_cols) == 0) {
     cli::cli_abort("no year columns were identified for reshaping")
   }
 
   # restrict id.vars to columns that are actually present in the data so that
-  # optional columns (e.g. "hemisphere") do not cause melt() to error when the
-  # source file legitimately omits them.
-  available_id <- intersect(column_id, colnames(data_dt))
+  # optional columns (e.g. "hemisphere") are carried through when present but
+  # do not error when absent.
+  available_id <- intersect(config$column_id, data_dt_names)
 
   long_dt <- data.table::melt(
     data = data_dt,

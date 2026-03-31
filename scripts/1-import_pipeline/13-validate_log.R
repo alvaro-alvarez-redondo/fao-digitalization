@@ -25,6 +25,7 @@
 validate_mandatory_fields_dt <- function(dt, config) {
   dt_work <- copy_as_data_table(dt)
   mandatory_cols <- config$column_required
+  constants <- get_pipeline_constants()
 
   missing_mandatory_cols <- setdiff(mandatory_cols, colnames(dt_work))
 
@@ -33,8 +34,11 @@ validate_mandatory_fields_dt <- function(dt, config) {
   }
 
   if (!"document" %in% colnames(dt_work)) {
-    dt_work[, document := "unknown_document"]
+    dt_work[, document := constants$defaults$unknown_document]
   }
+
+  document_values <- dt_work[["document"]]
+  row_ids <- seq_len(nrow(dt_work))
 
   error_parts <- vector("list", length(mandatory_cols))
   for (col_idx in seq_along(mandatory_cols)) {
@@ -42,12 +46,11 @@ validate_mandatory_fields_dt <- function(dt, config) {
     col_values <- dt_work[[col]]
     missing_mask <- is.na(col_values) | col_values == ""
     if (any(missing_mask)) {
-      missing_rows <- which(missing_mask)
       error_parts[[col_idx]] <- paste0(
         "missing mandatory value in document '",
-        dt_work[["document"]][missing_rows],
+        document_values[missing_mask],
         "', row_id '",
-        missing_rows,
+        row_ids[missing_mask],
         "', column '",
         col,
         "'"

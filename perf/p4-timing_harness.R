@@ -13,7 +13,6 @@ NULL
 #' @param fn A function with no required arguments.
 #' @return A numeric scalar elapsed time in seconds.
 time_fn <- function(fn) {
-  gc(verbose = FALSE, full = FALSE)
   t0 <- proc.time()[["elapsed"]]
   fn()
   proc.time()[["elapsed"]] - t0
@@ -46,9 +45,15 @@ run_benchmark <- function(
       message(sprintf("  n = %d ...", n_i))
     }
 
+    # Build the benchmark closure once per input size so timing reflects
+    # repeated execution cost of the target operation, not data setup cost.
+    fn <- fn_factory(n_i)
+
+    # Trigger collection once per n to limit cross-size carry-over without
+    # polluting each timed repetition with GC overhead.
+    gc(verbose = FALSE, full = FALSE)
     times <- numeric(n_reps)
     for (r in seq_len(n_reps)) {
-      fn <- fn_factory(n_i)
       times[r] <- time_fn(fn)
     }
 

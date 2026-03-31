@@ -40,6 +40,19 @@ get_pipeline_constants <- function() {
     toggle_options = list(
       drop_na_values = "whep.drop_na_values"
     ),
+    patterns = list(
+      normalize_non_alnum = "[^a-z0-9]+",
+      normalize_already_clean = "^([a-z0-9]+( [a-z0-9]+)*)?$",
+      year_column = "^\\d{4}(-\\d{4})?$"
+    ),
+    performance = list(
+      normalize_unique_min_n = 256L,
+      normalize_unique_sample_n = 2048L,
+      normalize_unique_ratio_threshold = 0.85
+    ),
+    defaults = list(
+      unknown_document = "unknown_document"
+    ),
     script_names = list(
       general = c("00-dependencies.R", "01-setup.R", "02-helpers.R"),
       pipeline_stage_runners = c(

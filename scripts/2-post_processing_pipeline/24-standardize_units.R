@@ -391,7 +391,7 @@ apply_standardize_rules <- function(
 #' @param value_column Character scalar name of the numeric column to sum.
 #' @return Aggregated `data.table` with the same column order and schema.
 #' @importFrom checkmate assert_data_table assert_string
-#' @importFrom data.table setcolorder setnames setkeyv anyDuplicated
+#' @importFrom data.table setcolorder setnames anyDuplicated
 aggregate_standardized_rows <- function(dt, value_column = "value") {
   checkmate::assert_data_table(dt)
   checkmate::assert_string(value_column, min.chars = 1)
@@ -419,40 +419,24 @@ aggregate_standardized_rows <- function(dt, value_column = "value") {
   }
 
   original_order <- names(dt)
-  has_na <- anyNA(dt[[value_column]])
-
-  # Vectorized aggregation: sum(na.rm = TRUE) for the value column.
-  # All-NA groups are corrected in a second pass below.
-  result <- dt[,
-    .(agg_value_tmp_ = sum(get(value_column), na.rm = TRUE)),
-    by = group_cols
-  ]
-  data.table::setnames(result, "agg_value_tmp_", value_column)
-
-  if (has_na) {
-    na_counts <- dt[is.na(get(value_column)), .N, by = group_cols]
-
-    if (nrow(na_counts) > 0L) {
-      total_counts <- dt[, .N, by = group_cols]
-
-      data.table::setnames(na_counts, "N", "na_count_tmp_")
-      data.table::setnames(total_counts, "N", "total_count_tmp_")
-
-      data.table::setkeyv(na_counts, group_cols)
-      data.table::setkeyv(total_counts, group_cols)
-
-      all_na_groups <- na_counts[total_counts, nomatch = 0L][
-        na_count_tmp_ == total_count_tmp_
-      ]
-
-      if (nrow(all_na_groups) > 0L) {
-        all_na_groups[, c("na_count_tmp_", "total_count_tmp_") := NULL]
-        data.table::setkeyv(result, group_cols)
-        data.table::setkeyv(all_na_groups, group_cols)
-        result[all_na_groups, (value_column) := NA_real_]
-      }
-    }
+  result <- if (identical(value_column, "value")) {
+    dt[, .(
+      agg_value_tmp_ = sum(value, na.rm = TRUE),
+      non_na_count_tmp_ = sum(!is.na(value))
+    ), by = group_cols]
+  } else {
+    dt[, {
+      vals <- get(value_column)
+      .(
+        agg_value_tmp_ = sum(vals, na.rm = TRUE),
+        non_na_count_tmp_ = sum(!is.na(vals))
+      )
+    }, by = group_cols]
   }
+
+  result[non_na_count_tmp_ == 0L, agg_value_tmp_ := NA_real_]
+  result[, non_na_count_tmp_ := NULL]
+  data.table::setnames(result, "agg_value_tmp_", value_column)
 
   data.table::setcolorder(result, original_order)
   return(result)

@@ -66,7 +66,7 @@ NULL
       ),
       fn_factory = function(n) {
         dt <- make_long_dt(n, na_fraction = na_frac)
-        function() drop_na_value_rows(data.table::copy(dt))
+        function() drop_na_value_rows(dt)
       }
     )
   )
@@ -108,7 +108,8 @@ NULL
       ),
       fn_factory = function(n) {
         df <- make_wide_dt(n, n_years = n_yrs)
-        function() reshape_to_long(data.table::copy(df), bench_cfg)
+        attr(df, "whep_year_columns") <- identify_year_columns(df, bench_cfg)
+        function() reshape_to_long(df, bench_cfg)
       }
     ),
 
@@ -118,7 +119,7 @@ NULL
       description = "check mandatory non-empty fields in n-row long table",
       fn_factory = function(n) {
         dt <- make_long_dt(n, na_fraction = 0.05)
-        function() validate_mandatory_fields_dt(data.table::copy(dt), bench_cfg)
+        function() validate_mandatory_fields_dt(dt, bench_cfg)
       }
     ),
 
@@ -132,7 +133,7 @@ NULL
       ),
       fn_factory = function(n) {
         dt <- make_long_dt(n, dup_fraction = dup_frac)
-        function() detect_duplicates_dt(data.table::copy(dt))
+        function() detect_duplicates_dt(dt)
       }
     ),
 
@@ -149,8 +150,7 @@ NULL
         )
         local_cfg <- bench_cfg
         function() {
-          input_list <- lapply(dt_list, data.table::copy)
-          consolidate_audited_dt(input_list, local_cfg)
+          consolidate_audited_dt(dt_list, local_cfg)
         }
       }
     )
@@ -167,8 +167,57 @@ NULL
 #' @noRd
 .build_stage_2_post_processing_benchmarks <- function(cfg) {
   dup_frac <- cfg$dup_fraction
+  na_frac <- cfg$na_fraction
+
+  conversion_rules_raw <- data.table::data.table(
+    product = rep(.ca_products, each = 3L),
+    source_unit = rep(c("tonnes", "kg_ha", "ha"), times = length(.ca_products)),
+    target_unit = rep(c("kg", "kg_per_ha_std", "ha_std"), times = length(.ca_products)),
+    multiplier = rep(c(1000, 1, 1), times = length(.ca_products)),
+    addend = 0
+  )
 
   list(
+    list(
+      name = "apply_standardize_rules",
+      stage = "2-post_processing",
+      description = paste0(
+        "apply prepared unit conversion rules to an n-row long table (",
+        round(na_frac * 100L),
+        "% NA values, ",
+        round(dup_frac * 100L),
+        "% duplicates)"
+      ),
+      fn_factory = function(n) {
+        dt_raw <- make_long_dt(n, na_fraction = na_frac, dup_fraction = dup_frac)
+        prepared_rules <- prepare_standardize_rules(conversion_rules_raw)
+        function() {
+          apply_standardize_rules(
+            mapped_dt = dt_raw,
+            prepared_rules_dt = prepared_rules,
+            unit_column = "unit",
+            value_column = "value",
+            product_column = "product"
+          )
+        }
+      }
+    ),
+
+    list(
+      name = "extract_aggregated_rows",
+      stage = "2-post_processing",
+      description = paste0(
+        "extract duplicate groups from n-row standardized table (",
+        round(dup_frac * 100L),
+        "% duplicates)"
+      ),
+      fn_factory = function(n) {
+        dt_raw <- make_long_dt(n, dup_fraction = dup_frac)
+        dt_raw[, value := suppressWarnings(as.numeric(value))]
+        function() extract_aggregated_rows(data.table::copy(dt_raw))
+      }
+    ),
+
     list(
       name = "aggregate_standardized_rows",
       stage = "2-post_processing",

@@ -50,6 +50,16 @@ testthat::test_that("normalize_string_impl matches normalize_string output", {
   )
 })
 
+testthat::test_that("normalize_string_impl handles high-duplication inputs", {
+  duplicated_values <- rep(c("Café", "RICE-01", "North  America"), 200L)
+  result <- normalize_string_impl(duplicated_values)
+
+  testthat::expect_identical(
+    result,
+    normalize_string(duplicated_values)
+  )
+})
+
 
 # --- normalize_string --------------------------------------------------------
 
@@ -161,6 +171,21 @@ testthat::test_that("coerce_numeric_safe returns NA for non-numeric", {
   result <- coerce_numeric_safe(c("abc", "1"))
   testthat::expect_true(is.na(result[1]))
   testthat::expect_equal(result[2], 1)
+})
+
+testthat::test_that("coerce_numeric_safe preserves numeric vectors", {
+  x <- c(1, 2.5, NA_real_, -3)
+  testthat::expect_identical(coerce_numeric_safe(x), x)
+})
+
+testthat::test_that("coerce_numeric_safe parses numeric factors correctly", {
+  x <- factor(c("1", "2.5", "", NA_character_))
+  result <- coerce_numeric_safe(x)
+
+  testthat::expect_equal(result[1], 1)
+  testthat::expect_equal(result[2], 2.5)
+  testthat::expect_true(is.na(result[3]))
+  testthat::expect_true(is.na(result[4]))
 })
 
 
@@ -538,6 +563,16 @@ testthat::test_that("drop_na_value_rows returns unchanged dt when no NAs", {
 
   result <- drop_na_value_rows(dt)
   testthat::expect_equal(nrow(result), 2L)
+})
+
+testthat::test_that("drop_na_value_rows preserves data.table class", {
+  dt <- data.table::data.table(
+    country = c("Japan", "France", "Italy"),
+    value = c("100", NA_character_, "300")
+  )
+
+  result <- drop_na_value_rows(dt)
+  testthat::expect_true(data.table::is.data.table(result))
 })
 
 testthat::test_that("drop_na_value_rows works with custom column name", {

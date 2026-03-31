@@ -301,6 +301,49 @@ testthat::test_that("fn_factory returns a zero-argument function", {
   testthat::expect_equal(length(formals(fn)), 0L)
 })
 
+testthat::test_that("stage 2 benchmark catalog includes additional post-processing hotspots", {
+  cfg <- utils::modifyList(get_analysis_config(), list(
+    stages = c("2-post_processing"),
+    input_sizes = c(100L),
+    n_reps = 1L
+  ))
+
+  defs <- build_benchmark_definitions(cfg)
+  expected <- c(
+    "apply_standardize_rules",
+    "extract_aggregated_rows",
+    "aggregate_standardized_rows"
+  )
+
+  testthat::expect_true(all(expected %in% names(defs)))
+  testthat::expect_true(all(vapply(
+    defs[expected],
+    function(bm) identical(bm$stage, "2-post_processing"),
+    logical(1)
+  )))
+})
+
+testthat::test_that("stage 2 benchmark factories execute without error", {
+  cfg <- utils::modifyList(get_analysis_config(), list(
+    stages = c("2-post_processing"),
+    input_sizes = c(100L),
+    n_reps = 1L
+  ))
+
+  defs <- build_stage_benchmarks("2-post_processing", cfg)
+  expected <- c(
+    "apply_standardize_rules",
+    "extract_aggregated_rows",
+    "aggregate_standardized_rows"
+  )
+
+  for (name_i in expected) {
+    fn <- defs[[name_i]]$fn_factory(100L)
+    testthat::expect_type(fn, "closure")
+    testthat::expect_no_error(fn())
+  }
+})
+
 
 # ── export_results_markdown / build_analysis_markdown ────────────────────────
 

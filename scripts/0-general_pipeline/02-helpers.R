@@ -59,10 +59,62 @@ assert_or_abort <- function(check_result) {
 #' @param x atomic vector to normalize. coerced to character internally.
 #' @return character vector with normalized lowercase ascii text.
 #' @importFrom stringi stri_trans_general stri_replace_all_regex stri_trim_both
+#' @importFrom data.table uniqueN
 normalize_string_impl <- function(x) {
-  out <- stringi::stri_trans_general(x, "Latin-ASCII; Lower")
-  out <- stringi::stri_replace_all_regex(out, "[^a-z0-9]+", " ")
-  stringi::stri_trim_both(out)
+  constants <- get_pipeline_constants()
+  non_alnum_pattern <- constants$patterns$normalize_non_alnum
+  normalized_pattern <- constants$patterns$normalize_already_clean
+
+  values_chr <- as.character(x)
+  non_na_idx <- !is.na(values_chr)
+
+  if (!any(non_na_idx)) {
+    return(values_chr)
+  }
+
+  values_non_na <- values_chr[non_na_idx]
+  values_n <- length(values_non_na)
+
+  use_unique_path <- FALSE
+  perf_cfg <- constants$performance
+  if (values_n >= perf_cfg$normalize_unique_min_n) {
+    sample_n <- min(values_n, perf_cfg$normalize_unique_sample_n)
+    unique_ratio <- data.table::uniqueN(values_non_na[seq_len(sample_n)]) /
+      sample_n
+    use_unique_path <- unique_ratio <=
+      perf_cfg$normalize_unique_ratio_threshold
+  }
+
+  if (isTRUE(use_unique_path)) {
+    unique_values <- unique(values_non_na)
+    if (all(stringi::stri_detect_regex(unique_values, normalized_pattern))) {
+      values_chr[non_na_idx] <- unique_values[match(values_non_na, unique_values)]
+      return(values_chr)
+    }
+
+    normalized_unique <- stringi::stri_trans_general(
+      unique_values,
+      "Latin-ASCII; Lower"
+    )
+    normalized_unique <- stringi::stri_replace_all_regex(
+      normalized_unique,
+      non_alnum_pattern,
+      " "
+    )
+    normalized_unique <- stringi::stri_trim_both(normalized_unique)
+    values_chr[non_na_idx] <- normalized_unique[match(values_non_na, unique_values)]
+    return(values_chr)
+  }
+
+  normalized_values <- stringi::stri_trans_general(values_non_na, "Latin-ASCII; Lower")
+  normalized_values <- stringi::stri_replace_all_regex(
+    normalized_values,
+    non_alnum_pattern,
+    " "
+  )
+  values_chr[non_na_idx] <- stringi::stri_trim_both(normalized_values)
+
+  return(values_chr)
 }
 
 #' @title normalize free text into lowercase ascii
@@ -162,11 +214,16 @@ coerce_numeric_safe <- function(x) {
     any.missing = TRUE
   ))
 
-  x_chr <- as.character(x)
-  x_chr <- trimws(x_chr)
-  x_chr[x_chr == ""] <- NA_character_
+  if ((is.double(x) || is.integer(x)) &&
+    is.null(attr(x, "class", exact = TRUE))) {
+    return(as.numeric(x))
+  }
 
-  return(suppressWarnings(as.numeric(x_chr)))
+  if (is.character(x)) {
+    return(suppressWarnings(as.numeric(x)))
+  }
+
+  return(suppressWarnings(as.numeric(as.character(x))))
 }
 
 #' @title extract yearbook token from parsed name parts
@@ -628,26 +685,37 @@ clear_pipeline_checkpoints <- function(config) {
 #' @param value_column Character scalar column name to check for `NA` values.
 #' @return Filtered `data.table` (copy when rows are dropped; original when
 #' nothing changes or the toggle is off).
-#' @importFrom checkmate assert_data_frame assert_string
+#' @importFrom checkmate assert_string
 drop_na_value_rows <- function(dt, value_column = "value") {
-  checkmate::assert_data_frame(dt, min.rows = 0)
+  if (!(data.table::is.data.table(dt) || is.data.frame(dt))) {
+    cli::cli_abort("{.arg dt} must be a data.frame or data.table")
+  }
   checkmate::assert_string(value_column, min.chars = 1)
 
-  if (!isTRUE(getOption("whep.drop_na_values", TRUE))) {
+  drop_na_option <- get_pipeline_constants()$toggle_options$drop_na_values
+  if (!isTRUE(getOption(drop_na_option, TRUE))) {
     return(dt)
   }
 
-  if (!value_column %in% colnames(dt)) {
+  if (!value_column %in% names(dt)) {
     return(dt)
   }
 
-  keep_idx <- which(!is.na(dt[[value_column]]))
+  value_vec <- dt[[value_column]]
 
-  if (length(keep_idx) == nrow(dt)) {
+  if (data.table::is.data.table(dt)) {
+    if (!anyNA(value_vec)) {
+      return(dt)
+    }
+
+    return(dt[!is.na(value_vec)])
+  }
+
+  if (!anyNA(value_vec)) {
     return(dt)
   }
 
-  return(dt[keep_idx, ])
+  return(dt[!is.na(value_vec), , drop = FALSE])
 }
 
 
