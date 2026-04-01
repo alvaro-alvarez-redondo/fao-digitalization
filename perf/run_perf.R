@@ -7,7 +7,6 @@
 #' @noRd
 NULL
 
-# load orchestration + full API (run_big_o_analysis and dependencies)
 .perf_orchestration_path <- tryCatch(
   here::here("perf", "p9-orchestration.R"),
   error = function(e) file.path(getwd(), "perf", "p9-orchestration.R")
@@ -15,25 +14,11 @@ NULL
 source(.perf_orchestration_path, echo = FALSE, local = FALSE)
 
 # ── user-editable main configuration ─────────────────────────────────────────
-
-# choose one hard-coded preset: quick, standard, full
-selected_preset <- "full"
-
-# optional hard-coded overrides for the selected preset
-# keep as list() to use the preset as-is
-config_overrides <- list(
-  # n_reps = 4L,
-  # input_sizes = as.integer(c(1500, 3000, 8000, 15000)),
-  # stages = c("1-import", "2-post_processing")
-)
-
 perf_cfg <- build_perf_run_config(
-  preset_name = selected_preset,
-  overrides = config_overrides
+  preset_name = "standard"
 )
 
 # ── execute analysis ─────────────────────────────────────────────────────────
-
 result <- run_perf(
   input_sizes = perf_cfg$input_sizes,
   n_reps = perf_cfg$n_reps,

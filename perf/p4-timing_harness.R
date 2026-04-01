@@ -71,7 +71,8 @@ run_benchmark <- function(
 #' @description Aggregate raw timing observations into per-size summary
 #'   statistics.
 #' @param raw_dt A data.table returned by run_benchmark().
-#' @return A data.table with columns n, median_s, mean_s, sd_s, min_s, and max_s.
+#' @return A data.table with columns n, median_s, mean_s, sd_s, min_s, max_s,
+#'   iqr_s, p95_s, p99_s, cv_s, and n_reps.
 summarise_benchmark <- function(raw_dt) {
   raw_dt[,
     .(
@@ -79,7 +80,28 @@ summarise_benchmark <- function(raw_dt) {
       mean_s = mean(elapsed_s),
       sd_s = stats::sd(elapsed_s),
       min_s = min(elapsed_s),
-      max_s = max(elapsed_s)
+      max_s = max(elapsed_s),
+      iqr_s = stats::IQR(elapsed_s, na.rm = TRUE),
+      p95_s = as.numeric(stats::quantile(
+        elapsed_s,
+        probs = 0.95,
+        type = 7,
+        names = FALSE,
+        na.rm = TRUE
+      )),
+      p99_s = as.numeric(stats::quantile(
+        elapsed_s,
+        probs = 0.99,
+        type = 7,
+        names = FALSE,
+        na.rm = TRUE
+      )),
+      cv_s = ifelse(
+        mean(elapsed_s) > 0,
+        stats::sd(elapsed_s) / mean(elapsed_s),
+        NA_real_
+      ),
+      n_reps = .N
     ),
     by = n
   ][order(n)]

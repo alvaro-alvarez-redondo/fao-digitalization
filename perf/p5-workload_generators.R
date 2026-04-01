@@ -14,8 +14,167 @@ NULL
 #   description : one-line summary of what is measured
 #   fn_factory  : function(n) → function() that runs the target operation once
 #
-# fn_factory must be self-contained (capture everything via closure) and must
-# NOT perform any I/O or modify global state.
+# fn_factory must be self-contained (capture everything via closure).
+
+#' @title Resolve integer benchmark config field
+#' @description Return an integer scalar from optional config values, with a
+#'   deterministic fallback.
+#' @param x Candidate scalar value.
+#' @param fallback Integer scalar fallback.
+#' @return Integer scalar.
+#' @keywords internal
+#' @noRd
+.resolve_integer_cfg <- function(x, fallback) {
+  x_int <- suppressWarnings(as.integer(x))
+  if (length(x_int) != 1L || is.na(x_int)) {
+    return(as.integer(fallback))
+  }
+  return(as.integer(x_int))
+}
+
+#' @title Scale Excel read workload
+#' @description Map benchmark input size to a bounded, deterministic number of
+#'   Excel reads per timed invocation.
+#' @param n Integer scalar benchmark input size.
+#' @param max_reads Integer scalar upper bound.
+#' @return Integer scalar number of reads per invocation.
+#' @keywords internal
+#' @noRd
+.scale_excel_read_iterations <- function(n, max_reads) {
+  safe_n <- max(1L, suppressWarnings(as.integer(n)))
+  reads <- as.integer(floor(log10(max(10L, safe_n))))
+  return(max(1L, min(max_reads, reads)))
+}
+
+#' @title Resolve import folder for Excel benchmark
+#' @description Prefer the configured raw-import folder when it contains xlsx
+#'   files; otherwise build deterministic fallback fixtures from a readxl sample
+#'   workbook.
+#' @param cfg A named list from get_analysis_config().
+#' @param fixture_copy_count Integer scalar number of fallback fixture copies.
+#' @return Character scalar path to a folder containing xlsx files.
+#' @keywords internal
+#' @noRd
+.resolve_excel_benchmark_import_folder <- function(cfg, fixture_copy_count) {
+  candidate_folder <- NULL
+
+  if (
+    !is.null(cfg$paths) &&
+      !is.null(cfg$paths$data) &&
+      !is.null(cfg$paths$data$imports) &&
+      !is.null(cfg$paths$data$imports$raw)
+  ) {
+    candidate_folder <- as.character(cfg$paths$data$imports$raw)
+  } else if (exists("load_pipeline_config", mode = "function")) {
+    pipeline_cfg <- tryCatch(
+      load_pipeline_config(),
+      error = function(e) NULL
+    )
+    if (
+      !is.null(pipeline_cfg) &&
+        !is.null(pipeline_cfg$paths) &&
+        !is.null(pipeline_cfg$paths$data) &&
+        !is.null(pipeline_cfg$paths$data$imports) &&
+        !is.null(pipeline_cfg$paths$data$imports$raw)
+    ) {
+      candidate_folder <- as.character(pipeline_cfg$paths$data$imports$raw)
+    }
+  }
+
+  has_candidate_files <- FALSE
+  if (!is.null(candidate_folder) && dir.exists(candidate_folder)) {
+    candidate_files <- fs::dir_ls(
+      path = candidate_folder,
+      recurse = TRUE,
+      type = "file",
+      glob = "*.xlsx"
+    )
+    has_candidate_files <- length(candidate_files) > 0L
+  }
+
+  if (isTRUE(has_candidate_files)) {
+    return(candidate_folder)
+  }
+
+  sample_file <- readxl::readxl_example("datasets.xlsx")
+  if (!nzchar(sample_file) || !file.exists(sample_file)) {
+    stop("unable to resolve fallback xlsx fixture for benchmark")
+  }
+
+  fixture_dir <- file.path(tempdir(), "perf_excel_fixture")
+  dir.create(fixture_dir, recursive = TRUE, showWarnings = FALSE)
+
+  n_copies <- max(1L, as.integer(fixture_copy_count))
+  fixture_paths <- file.path(
+    fixture_dir,
+    sprintf("perf_fixture_%02d.xlsx", seq_len(n_copies))
+  )
+  copied <- file.copy(sample_file, fixture_paths, overwrite = TRUE)
+  if (!all(copied)) {
+    stop("failed to create fallback xlsx fixture files")
+  }
+
+  return(fixture_dir)
+}
+
+#' @title Build read benchmark config
+#' @description Build a config object compatible with discover/read import
+#'   helpers while preserving production defaults when available.
+#' @param cfg A named list from get_analysis_config().
+#' @param import_folder Character scalar folder path.
+#' @return Named list config for import read helpers.
+#' @keywords internal
+#' @noRd
+.build_excel_read_benchmark_config <- function(cfg, import_folder) {
+  pipeline_cfg <- NULL
+
+  if (exists("load_pipeline_config", mode = "function")) {
+    pipeline_cfg <- tryCatch(
+      load_pipeline_config(),
+      error = function(e) NULL
+    )
+  }
+
+  default_cfg <- make_benchmark_config()
+  read_cfg <- if (is.list(pipeline_cfg)) pipeline_cfg else default_cfg
+
+  if (
+    is.null(read_cfg$column_required) ||
+      !is.character(read_cfg$column_required) ||
+      length(read_cfg$column_required) == 0L
+  ) {
+    read_cfg$column_required <- default_cfg$column_required
+  }
+
+  if (is.null(read_cfg$paths)) {
+    read_cfg$paths <- list()
+  }
+  if (is.null(read_cfg$paths$data)) {
+    read_cfg$paths$data <- list()
+  }
+  if (is.null(read_cfg$paths$data$imports)) {
+    read_cfg$paths$data$imports <- list()
+  }
+  read_cfg$paths$data$imports$raw <- import_folder
+
+  return(read_cfg)
+}
+
+#' @title Select Excel files for workload
+#' @description Deterministically cycle over discovered file paths to produce a
+#'   fixed-length read list for one benchmark invocation.
+#' @param file_paths Character vector of discovered xlsx paths.
+#' @param n_reads Integer scalar number of reads to execute.
+#' @return Character vector of file paths to read.
+#' @keywords internal
+#' @noRd
+.select_excel_files_for_workload <- function(file_paths, n_reads) {
+  if (length(file_paths) == 0L || n_reads <= 0L) {
+    return(character(0))
+  }
+  idx <- ((seq_len(n_reads) - 1L) %% length(file_paths)) + 1L
+  return(as.character(file_paths[idx]))
+}
 
 # ── 5a. stage 0 — general pipeline ──────────────────────────────────────────
 
@@ -84,6 +243,14 @@ NULL
   n_yrs <- cfg$n_year_cols
   dup_frac <- cfg$dup_fraction
   bench_cfg <- make_benchmark_config()
+  excel_fixture_copy_count <- max(
+    1L,
+    .resolve_integer_cfg(cfg$excel_read_fixture_copy_count, fallback = 4L)
+  )
+  excel_max_reads <- max(
+    1L,
+    .resolve_integer_cfg(cfg$excel_read_max_reads_per_iteration, fallback = 8L)
+  )
 
   list(
     list(
@@ -151,6 +318,58 @@ NULL
         local_cfg <- bench_cfg
         function() {
           consolidate_audited_dt(dt_list, local_cfg)
+        }
+      }
+    ),
+
+    list(
+      name = "discover_and_read_excel_sheets",
+      stage = "1-import",
+      description = "discover import xlsx files and read sheets via pipeline readers",
+      fn_factory = function(n) {
+        import_folder <- .resolve_excel_benchmark_import_folder(
+          cfg = cfg,
+          fixture_copy_count = excel_fixture_copy_count
+        )
+        read_cfg <- .build_excel_read_benchmark_config(cfg, import_folder)
+        reads_per_call <- .scale_excel_read_iterations(
+          n = n,
+          max_reads = excel_max_reads
+        )
+
+        function() {
+          file_meta <- discover_pipeline_files(read_cfg)
+          available_paths <- as.character(file_meta$file_path)
+          available_paths <- available_paths[file.exists(available_paths)]
+
+          if (length(available_paths) == 0L) {
+            return(invisible(list(rows = 0L, errors = 0L)))
+          }
+
+          selected_paths <- .select_excel_files_for_workload(
+            file_paths = available_paths,
+            n_reads = reads_per_call
+          )
+
+          read_results <- lapply(selected_paths, function(path_i) {
+            read_file_sheets(path_i, read_cfg)
+          })
+
+          total_rows <- sum(vapply(read_results, function(result_i) {
+            if (is.null(result_i$data)) {
+              return(0L)
+            }
+            as.integer(nrow(result_i$data))
+          }, integer(1)))
+
+          total_errors <- sum(vapply(read_results, function(result_i) {
+            if (is.null(result_i$errors)) {
+              return(0L)
+            }
+            as.integer(length(result_i$errors))
+          }, integer(1)))
+
+          return(invisible(list(rows = total_rows, errors = total_errors)))
         }
       }
     )

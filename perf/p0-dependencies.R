@@ -15,11 +15,14 @@ perf_required_packages <- c(
   "checkmate",
   "cli",
   "data.table",
+  "fs",
   "glue",
   "here",
   "progressr",
+  "readxl",
   "readr",
-  "renv"
+  "renv",
+  "stringi"
 )
 
 #' @title Validate package vector

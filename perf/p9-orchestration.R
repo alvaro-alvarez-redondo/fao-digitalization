@@ -76,6 +76,8 @@ options(
 
 .source_pipeline_script("0-general_pipeline/01-setup.R")
 .source_pipeline_script("0-general_pipeline/02-helpers.R")
+.source_pipeline_script("1-import_pipeline/10-file_io.R")
+.source_pipeline_script("1-import_pipeline/11-reading.R")
 .source_pipeline_script("1-import_pipeline/12-transform.R")
 .source_pipeline_script("1-import_pipeline/13-validate_log.R")
 .source_pipeline_script("1-import_pipeline/15-output.R")

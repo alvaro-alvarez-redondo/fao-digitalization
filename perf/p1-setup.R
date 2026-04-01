@@ -19,6 +19,8 @@ get_analysis_config <- function() {
     input_sizes = c(100L, 500L, 1000L, 2500L, 5000L, 10000L, 25000L, 50000L),
     n_reps = 5L,
     n_year_cols = 10L,
+    excel_read_fixture_copy_count = 4L,
+    excel_read_max_reads_per_iteration = 8L,
     na_fraction = 0.2,
     dup_fraction = 0.1,
     rng_seed = 42L,
@@ -86,7 +88,7 @@ get_perf_run_presets <- function() {
       quiet = FALSE
     ),
     standard = list(
-      input_sizes = as.integer(c(1e3, 1e4, 1e5, 1e6)),
+      input_sizes = as.integer(c(1e3, 1e4, 1e5, 1e6, 1e7)),
       n_reps = 10L,
       n_year_cols = 40L,
       stages = NULL,
@@ -97,7 +99,7 @@ get_perf_run_presets <- function() {
       quiet = FALSE
     ),
     full = list(
-      input_sizes = as.integer(c(1e3, 1e4, 1e5, 1e6, 1e7)),
+      input_sizes = as.integer(c(1e3, 1e4, 1e5, 1e6, 1e7, 1e8)),
       n_reps = 15L,
       n_year_cols = 50L,
       stages = NULL,

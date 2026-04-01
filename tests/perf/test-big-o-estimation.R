@@ -228,8 +228,18 @@ testthat::test_that("summarise_benchmark returns correct per-n statistics", {
 
   testthat::expect_true(data.table::is.data.table(summ))
   testthat::expect_equal(nrow(summ), 2L)
-  testthat::expect_true(all(c("median_s", "mean_s", "sd_s", "min_s", "max_s") %in%
-                              names(summ)))
+  testthat::expect_true(all(c(
+    "median_s",
+    "mean_s",
+    "sd_s",
+    "min_s",
+    "max_s",
+    "iqr_s",
+    "p95_s",
+    "p99_s",
+    "cv_s",
+    "n_reps"
+  ) %in% names(summ)))
 })
 
 testthat::test_that("summarise_benchmark values are correct", {
@@ -253,6 +263,21 @@ testthat::test_that("summarise_benchmark output is sorted by n", {
   )
   summ <- summarise_benchmark(raw_dt)
   testthat::expect_equal(summ$n, c(100L, 500L))
+})
+
+testthat::test_that("summarise_benchmark computes deterministic dispersion metrics", {
+  raw_dt <- data.table::data.table(
+    n = c(100L, 100L, 100L, 100L),
+    rep = c(1L, 2L, 3L, 4L),
+    elapsed_s = c(0.01, 0.02, 0.03, 0.04)
+  )
+  summ <- summarise_benchmark(raw_dt)
+
+  testthat::expect_equal(summ$n_reps, 4L)
+  testthat::expect_true(summ$iqr_s > 0)
+  testthat::expect_true(summ$p95_s >= summ$median_s)
+  testthat::expect_true(summ$p99_s >= summ$p95_s)
+  testthat::expect_true(summ$cv_s > 0)
 })
 
 
@@ -299,6 +324,55 @@ testthat::test_that("fn_factory returns a zero-argument function", {
   fn <- bm$fn_factory(100L)
   testthat::expect_type(fn, "closure")
   testthat::expect_equal(length(formals(fn)), 0L)
+})
+
+testthat::test_that("stage 1 benchmark catalog includes excel read benchmark", {
+  cfg <- utils::modifyList(get_analysis_config(), list(
+    stages = c("1-import"),
+    input_sizes = c(100L),
+    n_reps = 1L
+  ))
+
+  defs <- build_stage_benchmarks("1-import", cfg)
+
+  testthat::expect_true("discover_and_read_excel_sheets" %in% names(defs))
+  testthat::expect_identical(
+    defs[["discover_and_read_excel_sheets"]]$stage,
+    "1-import"
+  )
+})
+
+testthat::test_that("stage 1 excel read benchmark factory executes without error", {
+  testthat::skip_if_not_installed("readxl")
+
+  fixture_file <- readxl::readxl_example("datasets.xlsx")
+  if (!nzchar(fixture_file) || !file.exists(fixture_file)) {
+    testthat::skip("readxl example workbook is not available")
+  }
+
+  fixture_dir <- tempfile("perf_excel_fixture_")
+  dir.create(fixture_dir, recursive = TRUE, showWarnings = FALSE)
+  on.exit(unlink(fixture_dir, recursive = TRUE), add = TRUE)
+
+  copied <- file.copy(
+    fixture_file,
+    file.path(fixture_dir, "fixture.xlsx"),
+    overwrite = TRUE
+  )
+  testthat::expect_true(copied)
+
+  cfg <- utils::modifyList(get_analysis_config(), list(
+    stages = c("1-import"),
+    input_sizes = c(100L),
+    n_reps = 1L,
+    paths = list(data = list(imports = list(raw = fixture_dir)))
+  ))
+
+  defs <- build_stage_benchmarks("1-import", cfg)
+  fn <- defs[["discover_and_read_excel_sheets"]]$fn_factory(100L)
+
+  testthat::expect_type(fn, "closure")
+  testthat::expect_no_error(fn())
 })
 
 testthat::test_that("stage 2 benchmark catalog includes additional post-processing hotspots", {
@@ -431,13 +505,22 @@ testthat::test_that("export_results_markdown output contains expected sections",
   general_lines <- readLines(general_path, warn = FALSE)
 
   testthat::expect_true(any(grepl("^# Pipeline Performance Report: perf_1-import_pipeline$", raw_lines)))
+  testthat::expect_true(any(grepl("^## Stage KPI Dashboard$", raw_lines)))
   testthat::expect_true(any(grepl("^## Function-Level Performance Matrix$", raw_lines)))
+  testthat::expect_true(any(grepl("^## Top Bottlenecks by Composite Score$", raw_lines)))
+  testthat::expect_true(any(grepl("^## Confidence and Uncertainty Summary$", raw_lines)))
+  testthat::expect_true(any(grepl("^## Optimization Priority Queue$", raw_lines)))
+  testthat::expect_true(any(grepl("^## Stage Narrative$", raw_lines)))
   testthat::expect_true(any(grepl("^## Runtime Share Distribution \\(ASCII\\)$", raw_lines)))
   testthat::expect_true(any(grepl("^```text$", raw_lines)))
   testthat::expect_true(grepl("\\| Function\\s+\\| Description\\s+\\| Complexity\\s+\\| adj\\.R2\\s+\\| Slope per n\\s+\\| Estimated runtime \\(sample n\\)\\s+\\| Relative impact\\s+\\| Indicator\\s+\\| Bottleneck\\s+\\|", raw_text))
   testthat::expect_false(grepl("Impact bar", raw_text, fixed = TRUE))
   testthat::expect_true(any(grepl("^# General Project Performance$", general_lines)))
   testthat::expect_true(any(grepl("^## Pipeline Summary$", general_lines)))
+  testthat::expect_true(any(grepl("^## Cross-Stage Runtime and Risk Ranking$", general_lines)))
+  testthat::expect_true(any(grepl("^## Stage Bottleneck Matrix$", general_lines)))
+  testthat::expect_true(any(grepl("^## Global Top Bottleneck Functions$", general_lines)))
+  testthat::expect_true(any(grepl("^## Recommended Optimization Roadmap$", general_lines)))
 })
 
 testthat::test_that("export_results_markdown preserves strings with tab/newline control chars", {
@@ -472,6 +555,26 @@ testthat::test_that("prepare_reporting_metrics computes stage and function impac
   hot_impact <- metrics$function_metrics[fn_name == "bench_hot", relative_impact][[1L]]
   testthat::expect_equal(round(hot_impact, 2), 0.75)
   testthat::expect_true(all(c(100L, 1000L, 5000L) %in% metrics$sample_n_values))
+
+  testthat::expect_true(all(c(
+    "bottleneck_score",
+    "confidence_label",
+    "high_complexity_flag",
+    "high_impact_flag",
+    "low_confidence_flag",
+    "high_volatility_flag",
+    "critical_bottleneck_flag",
+    "diagnostic_flags",
+    "slowdown_drivers",
+    "priority_tier"
+  ) %in% names(metrics$function_metrics)))
+
+  testthat::expect_true("stage_risk_score" %in% names(metrics$stage_summary))
+  testthat::expect_true(data.table::is.data.table(metrics$stage_priority_queue))
+  testthat::expect_true(data.table::is.data.table(metrics$global_bottlenecks))
+  testthat::expect_true(data.table::is.data.table(metrics$stage_bottleneck_matrix))
+  testthat::expect_true(nrow(metrics$stage_priority_queue) >= 1L)
+  testthat::expect_true(nrow(metrics$global_bottlenecks) >= 1L)
 })
 
 testthat::test_that("build_analysis_markdown includes chart-ready and projection sections", {
