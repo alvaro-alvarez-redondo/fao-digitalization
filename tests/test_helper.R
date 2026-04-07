@@ -91,11 +91,6 @@ build_test_config <- function(root_dir = NULL) {
             audit_root_dir,
             "data_audit",
             "whep_data_raw_audit.xlsx"
-          ),
-          raw_imports_mirror_dir = file.path(
-            audit_root_dir,
-            "data_audit",
-            "raw_imports_mirror"
           )
         )
       )

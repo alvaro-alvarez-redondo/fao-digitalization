@@ -107,14 +107,12 @@ testthat::test_that("audit_data_output creates Excel when findings exist", {
     yearbook = c("yb_2024", "yb_2024")
   )
 
-  # create a dummy raw import file matching the document value in dataset_dt
-  # so that mirror_raw_import_errors can find and copy it
-  fs::file_create(fs::path(config$paths$data$imports$raw, "a.xlsx"))
-
   audit_file_path <- config$paths$data$audit$audit_file_path
+  mirror_dir_path <- file.path(dirname(audit_file_path), "raw_imports_mirror")
 
   result <- audit_data_output(dataset_dt, config)
 
   testthat::expect_s3_class(result, "data.table")
   testthat::expect_true(file.exists(audit_file_path))
+  testthat::expect_false(dir.exists(mirror_dir_path))
 })

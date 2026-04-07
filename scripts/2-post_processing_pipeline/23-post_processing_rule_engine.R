@@ -39,6 +39,7 @@ coerce_rule_schema <- function(rule_dt, stage_name, rule_file_id) {
   available_columns <- colnames(canonical_dt)
 
   source_result_column <- get_stage_source_value_column(validated_stage_name)
+  source_value_column_present <- source_result_column %in% available_columns
   optional_columns <- source_result_column
 
   missing_columns <- setdiff(canonical_columns, available_columns)
@@ -64,6 +65,7 @@ coerce_rule_schema <- function(rule_dt, stage_name, rule_file_id) {
   }
 
   canonical_dt <- canonical_dt[, ..canonical_columns]
+  canonical_dt[, source_value_column_present := source_value_column_present]
 
   return(canonical_dt)
 }
@@ -338,7 +340,7 @@ validate_canonical_rules <- function(
   source_value_column <- get_stage_source_value_column(validated_stage_name)
 
   conflict_dt <- rules_for_validation[,
-    .(target_value_count = uniqueN(get(target_value_column))),
+    .(target_value_count = data.table::uniqueN(get(target_value_column))),
     by = .(column_source, value_source_raw, column_target, value_target_raw)
   ][target_value_count > 1L]
 
@@ -350,7 +352,7 @@ validate_canonical_rules <- function(
   }
 
   source_conflict_dt <- rules_for_validation[,
-    .(source_value_count = uniqueN(get(source_value_column))),
+    .(source_value_count = data.table::uniqueN(get(source_value_column))),
     by = .(column_source, value_source_raw, column_target)
   ][source_value_count > 1L]
 
@@ -506,6 +508,385 @@ encode_rule_match_key <- function(
   return(encoded_key)
 }
 
+#' @title Empty last-rule-wins overwrite events table
+#' @description Returns a standardized empty table used to collect overwrite
+#' diagnostics triggered by the `last_rule_wins` strategy.
+#' @return Empty `data.table` with overwrite event columns.
+empty_last_rule_wins_overwrite_events_dt <- function() {
+  return(data.table::data.table(
+    dataset_name = character(),
+    execution_stage = character(),
+    rule_file_identifier = character(),
+    column_source = character(),
+    column_target = character(),
+    row_id = integer(),
+    candidate_count = integer(),
+    unique_candidate_count = integer(),
+    selected_value = character(),
+    candidate_values = character()
+  ))
+}
+
+#' @title Get target-update strategy configuration
+#' @description Validates and returns centralized target-update strategies used
+#' by post-processing rule application.
+#' @return Named list with default strategy, supported strategies,
+#' concatenate delimiter, and optional per-column overrides.
+get_target_update_strategy_config <- function() {
+  strategy_config <- get_pipeline_constants()$post_processing$target_update_strategies
+
+  if (is.null(strategy_config)) {
+    cli::cli_abort(c(
+      "missing target-update strategy configuration in pipeline constants.",
+      "x" = "expected get_pipeline_constants()$post_processing$target_update_strategies"
+    ))
+  }
+
+  checkmate::assert_list(strategy_config, min.len = 1)
+  checkmate::assert_string(strategy_config$default, min.chars = 1)
+  checkmate::assert_character(
+    strategy_config$supported,
+    min.len = 1,
+    any.missing = FALSE,
+    unique = TRUE
+  )
+  checkmate::assert_string(
+    strategy_config$concatenate_delimiter,
+    min.chars = 1
+  )
+
+  if (!(strategy_config$default %in% strategy_config$supported)) {
+    cli::cli_abort(c(
+      "invalid target-update strategy configuration.",
+      "x" = "default strategy is not listed in supported strategies"
+    ))
+  }
+
+  by_column <- strategy_config$by_column
+  if (is.null(by_column)) {
+    by_column <- character(0)
+  }
+
+  if (is.list(by_column)) {
+    by_column <- unlist(by_column, recursive = FALSE, use.names = TRUE)
+  }
+
+  checkmate::assert_character(by_column, any.missing = FALSE)
+
+  if (
+    length(by_column) > 0L &&
+      (is.null(names(by_column)) || any(!nzchar(trimws(names(by_column)))))
+  ) {
+    cli::cli_abort(
+      "target-update column overrides must be a named character vector"
+    )
+  }
+
+  strategy_config$by_column <- by_column
+
+  return(strategy_config)
+}
+
+#' @title Resolve target-update strategy for one column
+#' @description Returns the configured strategy for a target column,
+#' falling back to the centralized default strategy.
+#' @param target_column Character scalar target column.
+#' @param strategy_config Named strategy configuration list.
+#' @return Character scalar strategy name.
+resolve_target_update_strategy <- function(
+  target_column,
+  strategy_config = get_target_update_strategy_config()
+) {
+  checkmate::assert_string(target_column, min.chars = 1)
+  checkmate::assert_list(strategy_config, min.len = 1)
+
+  resolved_strategy <- strategy_config$default
+
+  if (
+    length(strategy_config$by_column) > 0L &&
+      target_column %in% names(strategy_config$by_column)
+  ) {
+    resolved_strategy <- unname(strategy_config$by_column[[target_column]])
+  }
+
+  if (!(resolved_strategy %in% strategy_config$supported)) {
+    cli::cli_abort(c(
+      "unsupported target-update strategy configured.",
+      "x" = paste0(
+        "column: ",
+        target_column,
+        "; strategy: ",
+        resolved_strategy,
+        "; supported: ",
+        paste(strategy_config$supported, collapse = ", ")
+      )
+    ))
+  }
+
+  return(resolved_strategy)
+}
+
+#' @title Concatenate existing and incoming target values
+#' @description Appends incoming values to existing values using a deterministic
+#' delimiter while preserving missing-value semantics.
+#' @param existing_values Atomic vector of current dataset values.
+#' @param incoming_values Atomic vector of incoming update values.
+#' @param delimiter Character scalar concatenation delimiter.
+#' @return Character vector merged values.
+concatenate_existing_and_incoming_values <- function(
+  existing_values,
+  incoming_values,
+  delimiter
+) {
+  checkmate::assert_atomic(existing_values, any.missing = TRUE)
+  checkmate::assert_atomic(incoming_values, any.missing = TRUE)
+  checkmate::assert_string(delimiter, min.chars = 1)
+
+  if (length(existing_values) != length(incoming_values)) {
+    cli::cli_abort(
+      "existing and incoming values must have equal length for concatenation"
+    )
+  }
+
+  existing_values_norm <- as.character(existing_values)
+  incoming_values_norm <- as.character(incoming_values)
+
+  existing_values_norm[
+    is.na(existing_values_norm) | trimws(existing_values_norm) == ""
+  ] <- NA_character_
+  incoming_values_norm[
+    is.na(incoming_values_norm) | trimws(incoming_values_norm) == ""
+  ] <- NA_character_
+
+  merged_values <- incoming_values_norm
+  existing_only_mask <- !is.na(existing_values_norm) & is.na(incoming_values_norm)
+  both_present_mask <- !is.na(existing_values_norm) & !is.na(incoming_values_norm)
+
+  if (any(existing_only_mask)) {
+    merged_values[existing_only_mask] <- existing_values_norm[existing_only_mask]
+  }
+
+  if (any(both_present_mask)) {
+    merged_values[both_present_mask] <- paste(
+      existing_values_norm[both_present_mask],
+      incoming_values_norm[both_present_mask],
+      sep = delimiter
+    )
+  }
+
+  return(merged_values)
+}
+
+#' @title Apply target updates with strategy dispatch
+#' @description Applies conditional and unconditional target updates for one
+#' target column using a configured strategy (`last_rule_wins` or
+#' `concatenate`).
+#' @param dataset_dt Data table mutated by reference.
+#' @param target_updates Data frame/data.table containing row and value updates.
+#' @param target_column Character scalar target column to update.
+#' @param row_id_column Character scalar row-id column in `target_updates`.
+#' @param value_column Character scalar update value column in `target_updates`.
+#' @param condition_column Character scalar optional target condition column.
+#' @param order_columns Character vector columns used to deterministically order
+#' updates before strategy reduction.
+#' @return Invisible logical scalar indicating whether any update was applied.
+apply_target_updates_with_strategy <- function(
+  dataset_dt,
+  target_updates,
+  target_column,
+  row_id_column = "row_id",
+  value_column = "value_target_result",
+  condition_column = "value_target_raw",
+  order_columns = character(0),
+  apply_condition_match = TRUE,
+  dataset_name,
+  execution_stage,
+  rule_file_identifier,
+  source_column
+) {
+  checkmate::assert_data_table(dataset_dt)
+  checkmate::assert_data_frame(target_updates, min.rows = 0)
+  checkmate::assert_string(target_column, min.chars = 1)
+  checkmate::assert_string(row_id_column, min.chars = 1)
+  checkmate::assert_string(value_column, min.chars = 1)
+  checkmate::assert_string(condition_column, min.chars = 1)
+  checkmate::assert_character(order_columns, any.missing = FALSE)
+  checkmate::assert_flag(apply_condition_match)
+  checkmate::assert_string(dataset_name, min.chars = 1)
+  checkmate::assert_string(execution_stage, min.chars = 1)
+  checkmate::assert_string(rule_file_identifier, min.chars = 1)
+  checkmate::assert_string(source_column, min.chars = 1)
+
+  empty_events <- empty_last_rule_wins_overwrite_events_dt()
+
+  if (nrow(target_updates) == 0L) {
+    return(list(applied = FALSE, overwrite_events = empty_events))
+  }
+
+  if (!(target_column %in% colnames(dataset_dt))) {
+    cli::cli_abort(
+      "target column {.val {target_column}} is missing in dataset"
+    )
+  }
+
+  updates_dt <- data.table::as.data.table(data.table::copy(target_updates))
+
+  required_columns <- c(row_id_column, value_column, condition_column)
+  missing_columns <- setdiff(required_columns, colnames(updates_dt))
+
+  if (length(missing_columns) > 0L) {
+    cli::cli_abort(c(
+      "target updates are missing required columns.",
+      "x" = paste(missing_columns, collapse = ", ")
+    ))
+  }
+
+  present_order_columns <- intersect(order_columns, colnames(updates_dt))
+  if (length(present_order_columns) > 0L) {
+    data.table::setorderv(updates_dt, cols = present_order_columns)
+  }
+
+  updates_dt[, row_id_internal := as.integer(get(row_id_column))]
+  updates_dt <- updates_dt[!is.na(row_id_internal)]
+
+  if (nrow(updates_dt) == 0L) {
+    return(list(applied = FALSE, overwrite_events = empty_events))
+  }
+
+  out_of_bounds_mask <-
+    updates_dt$row_id_internal < 1L |
+    updates_dt$row_id_internal > nrow(dataset_dt)
+
+  if (any(out_of_bounds_mask)) {
+    cli::cli_abort(
+      "target updates contain row indexes outside dataset boundaries"
+    )
+  }
+
+  if (isTRUE(apply_condition_match)) {
+    has_condition <- !is.na(updates_dt[[condition_column]])
+    if (any(has_condition)) {
+      current_values <- dataset_dt[[target_column]][
+        updates_dt$row_id_internal[has_condition]
+      ]
+      current_keys <- encode_rule_match_key(current_values)
+      condition_keys <- encode_rule_match_key(
+        updates_dt[[condition_column]][has_condition]
+      )
+
+      conditioned_updates <- updates_dt[has_condition][
+        current_keys == condition_keys
+      ]
+      unconditional_updates <- updates_dt[!has_condition]
+
+      updates_dt <- data.table::rbindlist(
+        list(unconditional_updates, conditioned_updates),
+        use.names = TRUE,
+        fill = TRUE
+      )
+    }
+  }
+
+  if (nrow(updates_dt) == 0L) {
+    return(list(applied = FALSE, overwrite_events = empty_events))
+  }
+
+  strategy_config <- get_target_update_strategy_config()
+  strategy <- resolve_target_update_strategy(
+    target_column = target_column,
+    strategy_config = strategy_config
+  )
+
+  if (identical(strategy, "last_rule_wins")) {
+    updates_dt[, update_value := as.character(get(value_column))]
+
+    updates_collapsed <- updates_dt[,
+      .(
+        update_value = update_value[.N],
+        candidate_count = .N,
+        unique_candidate_count = data.table::uniqueN(update_value),
+        candidate_values = paste(update_value, collapse = "; ")
+      ),
+      by = .(row_id_internal)
+    ]
+
+    overwrite_events <- updates_collapsed[
+      candidate_count > 1L & unique_candidate_count > 1L,
+      .(
+        dataset_name = dataset_name,
+        execution_stage = execution_stage,
+        rule_file_identifier = rule_file_identifier,
+        column_source = source_column,
+        column_target = target_column,
+        row_id = as.integer(row_id_internal),
+        candidate_count = as.integer(candidate_count),
+        unique_candidate_count = as.integer(unique_candidate_count),
+        selected_value = as.character(update_value),
+        candidate_values = as.character(candidate_values)
+      )
+    ]
+
+    data.table::set(
+      dataset_dt,
+      i = updates_collapsed$row_id_internal,
+      j = target_column,
+      value = updates_collapsed$update_value
+    )
+
+    return(list(applied = TRUE, overwrite_events = overwrite_events))
+  }
+
+  if (identical(strategy, "concatenate")) {
+    target_vector <- dataset_dt[[target_column]]
+    if (!(is.character(target_vector) || is.factor(target_vector))) {
+      cli::cli_abort(c(
+        "concatenate strategy requires a character-like target column.",
+        "x" = paste0(
+          "column ",
+          target_column,
+          " has class: ",
+          paste(class(target_vector), collapse = ", ")
+        )
+      ))
+    }
+
+    updates_dt[, update_value := as.character(get(value_column))]
+    updates_dt[trimws(update_value) == "", update_value := NA_character_]
+    updates_dt <- updates_dt[!is.na(update_value)]
+
+    if (nrow(updates_dt) == 0L) {
+      return(list(applied = FALSE, overwrite_events = empty_events))
+    }
+
+    delimiter <- strategy_config$concatenate_delimiter
+
+    updates_collapsed <- updates_dt[,
+      .(update_value = paste(update_value, collapse = delimiter)),
+      by = .(row_id_internal)
+    ]
+
+    existing_values <- dataset_dt[[target_column]][updates_collapsed$row_id_internal]
+    merged_values <- concatenate_existing_and_incoming_values(
+      existing_values = existing_values,
+      incoming_values = updates_collapsed$update_value,
+      delimiter = delimiter
+    )
+
+    data.table::set(
+      dataset_dt,
+      i = updates_collapsed$row_id_internal,
+      j = target_column,
+      value = merged_values
+    )
+
+    return(list(applied = TRUE, overwrite_events = empty_events))
+  }
+
+  cli::cli_abort(
+    "unhandled target-update strategy {.val {strategy}} for {.val {target_column}}"
+  )
+}
+
 #' @title Apply one conditional dictionary group
 #' @description Executes vectorized matching and mutation for one
 #' `(column_source, column_target)` group and captures structured audit records.
@@ -536,6 +917,16 @@ apply_conditional_rule_group <- function(
   source_value_column <- get_stage_source_value_column(validated_stage_name)
 
   group_dt <- data.table::as.data.table(group_rules)
+  source_value_column_present <- source_value_column %in% names(group_dt)
+
+  if (!(source_value_column %in% names(group_dt))) {
+    group_dt[, (source_value_column) := NA_character_]
+  }
+
+  if (!("source_value_column_present" %in% names(group_dt))) {
+    group_dt[, source_value_column_present := source_value_column_present]
+  }
+
   source_column <- group_dt$column_source[[1]]
   target_column <- group_dt$column_target[[1]]
 
@@ -543,6 +934,7 @@ apply_conditional_rule_group <- function(
     column_source,
     value_source_raw,
     source_value_raw = get(source_value_column),
+    source_value_column_present,
     column_target,
     value_target_raw,
     value_target_result_encoded = encode_target_rule_value(get(
@@ -570,6 +962,7 @@ apply_conditional_rule_group <- function(
   target_values_pre_update <- dataset_dt[[target_column]]
 
   join_input <- data.table::data.table(
+    row_id = seq_len(nrow(dataset_dt)),
     source_key = encode_rule_match_key(source_values_pre_update),
     target_key = encode_rule_match_key(target_values_pre_update)
   )
@@ -580,21 +973,44 @@ apply_conditional_rule_group <- function(
   ]
 
   matched_row_mask <- !is.na(joined_dt$column_source)
-  source_update_mask <- matched_row_mask
+  source_update_mask <- matched_row_mask &
+    !is.na(joined_dt$source_value_column_present) &
+    as.logical(joined_dt$source_value_column_present)
   matched_rows <- as.integer(sum(matched_row_mask))
+  overwrite_events_dt <- empty_last_rule_wins_overwrite_events_dt()
 
   if (matched_rows > 0L) {
     if (any(source_update_mask)) {
-      dataset_dt[
-        source_update_mask,
-        (source_column) := joined_dt$value_source_result[source_update_mask]
-      ]
+      data.table::set(
+        dataset_dt,
+        i = joined_dt$row_id[source_update_mask],
+        j = source_column,
+        value = joined_dt$value_source_result[source_update_mask]
+      )
     }
 
-    dataset_dt[
-      matched_row_mask,
-      (target_column) := joined_dt$value_target_result[matched_row_mask]
-    ]
+    target_updates <- joined_dt[matched_row_mask, .(
+      row_id,
+      value_target_raw,
+      value_target_result
+    )]
+
+    update_result <- apply_target_updates_with_strategy(
+      dataset_dt = dataset_dt,
+      target_updates = target_updates,
+      target_column = target_column,
+      row_id_column = "row_id",
+      value_column = "value_target_result",
+      condition_column = "value_target_raw",
+      order_columns = c("row_id"),
+      apply_condition_match = FALSE,
+      dataset_name = dataset_name,
+      execution_stage = validated_stage_name,
+      rule_file_identifier = rule_file_id,
+      source_column = source_column
+    )
+
+    overwrite_events_dt <- update_result$overwrite_events
   }
 
   matched_counts <- joined_dt[
@@ -634,7 +1050,11 @@ apply_conditional_rule_group <- function(
     )
   ][order(column_source, column_target, value_source_raw, value_target_raw)]
 
-  return(list(data = dataset_dt, audit = audit_dt))
+  return(list(
+    data = dataset_dt,
+    audit = audit_dt,
+    overwrite_events = overwrite_events_dt
+  ))
 }
 
 #' @title Apply footnote rules with multi-footnote split-join-reconstruct
@@ -762,67 +1182,44 @@ apply_footnote_rules <- function(
   }
 
   # --- step 6: apply target column updates -----------------------------------
-  target_updates <- joined[matched_mask & column_target != "footnotes"]
+  target_updates <- joined[matched_mask & column_target != "footnotes", .(
+    row_id,
+    footnote_index,
+    column_target,
+    value_target_raw,
+    value_target_result
+  )]
+  overwrite_event_tables <- list()
 
   if (nrow(target_updates) > 0L) {
-    # detect conflicts: multiple footnotes updating same target column for same row
-    conflict_check <- target_updates[,
-      .(n_values = data.table::uniqueN(value_target_result_encoded)),
-      by = .(row_id, column_target)
-    ][n_values > 1L]
-
-    has_conflicts <- nrow(conflict_check) > 0L
-
-    # apply updates per unique target column; last rule wins for conflicts
     target_columns <- unique(target_updates$column_target)
+
     for (tc in target_columns) {
-      tc_updates <- target_updates[
-        column_target == tc,
-        .(
-          value_target_result = value_target_result[.N],
-          value_target_raw_check = value_target_raw[.N]
-        ),
-        by = row_id
-      ]
+      update_result <- apply_target_updates_with_strategy(
+        dataset_dt = dataset_dt,
+        target_updates = target_updates[column_target == tc],
+        target_column = tc,
+        row_id_column = "row_id",
+        value_column = "value_target_result",
+        condition_column = "value_target_raw",
+        order_columns = c("row_id", "footnote_index"),
+        dataset_name = dataset_name,
+        execution_stage = validated_stage_name,
+        rule_file_identifier = rule_file_id,
+        source_column = "footnotes"
+      )
 
-      # apply value_target_raw condition if specified (non-NA)
-      has_condition <- !is.na(tc_updates$value_target_raw_check)
-      if (any(has_condition)) {
-        current_values <- dataset_dt[[tc]][tc_updates$row_id[has_condition]]
-        current_keys <- encode_rule_match_key(current_values)
-        condition_keys <- encode_rule_match_key(
-          tc_updates$value_target_raw_check[has_condition]
-        )
-        condition_met <- current_keys == condition_keys
-        condition_rows <- tc_updates$row_id[has_condition][condition_met]
-        condition_vals <- tc_updates$value_target_result[has_condition][
-          condition_met
-        ]
-        if (length(condition_rows) > 0L) {
-          data.table::set(
-            dataset_dt,
-            i = condition_rows,
-            j = tc,
-            value = condition_vals
-          )
-        }
-      }
-
-      # unconditional updates (value_target_raw is NA → apply to all matched rows)
-      no_condition <- !has_condition
-      if (any(no_condition)) {
-        uncond_rows <- tc_updates$row_id[no_condition]
-        uncond_vals <- tc_updates$value_target_result[no_condition]
-        data.table::set(
-          dataset_dt,
-          i = uncond_rows,
-          j = tc,
-          value = uncond_vals
-        )
+      if (nrow(update_result$overwrite_events) > 0L) {
+        overwrite_event_tables[[length(overwrite_event_tables) + 1L]] <-
+          update_result$overwrite_events
       }
     }
+  }
+
+  overwrite_events_dt <- if (length(overwrite_event_tables) > 0L) {
+    data.table::rbindlist(overwrite_event_tables, use.names = TRUE, fill = TRUE)
   } else {
-    has_conflicts <- FALSE
+    empty_last_rule_wins_overwrite_events_dt()
   }
 
   # --- step 7: reconstruct footnotes per row ---------------------------------
@@ -905,7 +1302,11 @@ apply_footnote_rules <- function(
     )
   }
 
-  return(list(data = dataset_dt, audit = audit_dt))
+  return(list(
+    data = dataset_dt,
+    audit = audit_dt,
+    overwrite_events = overwrite_events_dt
+  ))
 }
 
 #' @title Apply canonical rule file payload
@@ -936,11 +1337,16 @@ apply_rule_payload <- function(
   checkmate::assert_string(execution_timestamp_utc, min.chars = 1)
 
   if (nrow(canonical_rules) == 0L) {
-    return(list(data = dataset_dt, audit = data.table::data.table()))
+    return(list(
+      data = dataset_dt,
+      audit = data.table::data.table(),
+      overwrite_events = empty_last_rule_wins_overwrite_events_dt()
+    ))
   }
 
   rules_dt <- data.table::as.data.table(canonical_rules)
   audit_tables <- list()
+  overwrite_tables <- list()
   current_data <- dataset_dt
 
   # --- route footnote-source rules through specialized handler ----------------
@@ -959,6 +1365,10 @@ apply_rule_payload <- function(
     )
     current_data <- fn_result$data
     audit_tables[[length(audit_tables) + 1L]] <- fn_result$audit
+    if (nrow(fn_result$overwrite_events) > 0L) {
+      overwrite_tables[[length(overwrite_tables) + 1L]] <-
+        fn_result$overwrite_events
+    }
   }
 
   # --- apply remaining standard rules via grouped execution -------------------
@@ -980,6 +1390,10 @@ apply_rule_payload <- function(
 
       current_data <- group_result$data
       audit_tables[[length(audit_tables) + 1L]] <- group_result$audit
+      if (nrow(group_result$overwrite_events) > 0L) {
+        overwrite_tables[[length(overwrite_tables) + 1L]] <-
+          group_result$overwrite_events
+      }
     }
   }
 
@@ -989,5 +1403,15 @@ apply_rule_payload <- function(
     fill = TRUE
   )
 
-  return(list(data = current_data, audit = combined_audit))
+  combined_overwrite_events <- if (length(overwrite_tables) > 0L) {
+    data.table::rbindlist(overwrite_tables, use.names = TRUE, fill = TRUE)
+  } else {
+    empty_last_rule_wins_overwrite_events_dt()
+  }
+
+  return(list(
+    data = current_data,
+    audit = combined_audit,
+    overwrite_events = combined_overwrite_events
+  ))
 }

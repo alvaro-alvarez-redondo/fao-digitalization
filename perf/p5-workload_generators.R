@@ -32,89 +32,190 @@ NULL
   return(as.integer(x_int))
 }
 
-#' @title Scale Excel read workload
-#' @description Map benchmark input size to a bounded, deterministic number of
-#'   Excel reads per timed invocation.
+#' @title Scale Excel discovery workload
+#' @description Map benchmark input size to a bounded number of workbook files
+#'   used for file discovery timing.
 #' @param n Integer scalar benchmark input size.
-#' @param max_reads Integer scalar upper bound.
-#' @return Integer scalar number of reads per invocation.
+#' @param max_workbooks Integer scalar upper bound.
+#' @param scale_divisor Integer scalar that maps benchmark n to workbook count
+#'   by ceiling(n / scale_divisor).
+#' @return Integer scalar workbook count.
 #' @keywords internal
 #' @noRd
-.scale_excel_read_iterations <- function(n, max_reads) {
+.scale_excel_discovery_workbook_count <- function(
+  n,
+  max_workbooks,
+  scale_divisor = 1000L
+) {
   safe_n <- max(1L, suppressWarnings(as.integer(n)))
-  reads <- as.integer(floor(log10(max(10L, safe_n))))
-  return(max(1L, min(max_reads, reads)))
+  safe_max <- max(1L, suppressWarnings(as.integer(max_workbooks)))
+  safe_divisor <- max(1L, suppressWarnings(as.integer(scale_divisor)))
+  workbook_count <- as.integer(ceiling(safe_n / safe_divisor))
+  return(max(1L, min(safe_max, workbook_count)))
 }
 
-#' @title Resolve import folder for Excel benchmark
-#' @description Prefer the configured raw-import folder when it contains xlsx
-#'   files; otherwise build deterministic fallback fixtures from a readxl sample
-#'   workbook.
-#' @param cfg A named list from get_analysis_config().
-#' @param fixture_copy_count Integer scalar number of fallback fixture copies.
-#' @return Character scalar path to a folder containing xlsx files.
+#' @title Scale Excel sheet-read workload
+#' @description Map benchmark input size to number of worksheet reads per timed
+#'   invocation while bounding runtime.
+#' @param n Integer scalar benchmark input size interpreted as sheet reads.
+#' @param max_sheet_reads Integer scalar upper bound for sheet reads per
+#'   invocation.
+#' @return Integer scalar sheet reads per invocation.
 #' @keywords internal
 #' @noRd
-.resolve_excel_benchmark_import_folder <- function(cfg, fixture_copy_count) {
-  candidate_folder <- NULL
+.scale_excel_sheet_reads <- function(n, max_sheet_reads) {
+  safe_n <- max(1L, suppressWarnings(as.integer(n)))
+  safe_max <- max(1L, suppressWarnings(as.integer(max_sheet_reads)))
+  return(max(1L, min(safe_max, safe_n)))
+}
 
-  if (
-    !is.null(cfg$paths) &&
-      !is.null(cfg$paths$data) &&
-      !is.null(cfg$paths$data$imports) &&
-      !is.null(cfg$paths$data$imports$raw)
-  ) {
-    candidate_folder <- as.character(cfg$paths$data$imports$raw)
-  } else if (exists("load_pipeline_config", mode = "function")) {
-    pipeline_cfg <- tryCatch(
-      load_pipeline_config(),
-      error = function(e) NULL
-    )
-    if (
-      !is.null(pipeline_cfg) &&
-        !is.null(pipeline_cfg$paths) &&
-        !is.null(pipeline_cfg$paths$data) &&
-        !is.null(pipeline_cfg$paths$data$imports) &&
-        !is.null(pipeline_cfg$paths$data$imports$raw)
-    ) {
-      candidate_folder <- as.character(pipeline_cfg$paths$data$imports$raw)
-    }
+#' @title Build synthetic Excel fixture sheet
+#' @description Build deterministic worksheet contents for synthetic benchmark
+#'   workbooks.
+#' @param n_rows Integer scalar rows per worksheet.
+#' @param workbook_id Integer scalar workbook index.
+#' @param sheet_id Integer scalar worksheet index.
+#' @return A data.frame with stable schema and deterministic values.
+#' @keywords internal
+#' @noRd
+.build_excel_fixture_sheet <- function(n_rows, workbook_id, sheet_id) {
+  row_id <- seq_len(n_rows)
+  continents <- c("asia", "europe", "africa", "americas", "oceania")
+
+  data.frame(
+    product = sprintf(
+      "product_%02d",
+      ((row_id + workbook_id + sheet_id - 1L) %% 12L) + 1L
+    ),
+    variable = sprintf(
+      "variable_%02d",
+      ((row_id + sheet_id - 1L) %% 6L) + 1L
+    ),
+    unit = ifelse(row_id %% 2L == 0L, "tonnes", "kg"),
+    continent = continents[((row_id + workbook_id - 1L) %% length(continents)) + 1L],
+    country = sprintf(
+      "country_%02d",
+      ((row_id + workbook_id + sheet_id - 1L) %% 25L) + 1L
+    ),
+    value = as.character((row_id * (sheet_id + 1L) + workbook_id) %% 10000L),
+    stringsAsFactors = FALSE
+  )
+}
+
+#' @title Create synthetic Excel benchmark fixtures
+#' @description Create a deterministic fixture directory containing synthetic
+#'   xlsx files with controlled workbook count and worksheet row count.
+#' @param workbook_count Integer scalar number of workbooks to create.
+#' @param rows_per_sheet Integer scalar rows per worksheet.
+#' @param sheet_count Integer scalar worksheets per workbook.
+#' @return Character scalar fixture directory path.
+#' @keywords internal
+#' @noRd
+.create_excel_benchmark_fixture_dir <- function(
+  workbook_count,
+  rows_per_sheet,
+  sheet_count = 2L
+) {
+  if (!requireNamespace("writexl", quietly = TRUE)) {
+    stop("writexl package is required for synthetic Excel benchmark fixtures")
   }
 
-  has_candidate_files <- FALSE
-  if (!is.null(candidate_folder) && dir.exists(candidate_folder)) {
-    candidate_files <- fs::dir_ls(
-      path = candidate_folder,
-      recurse = TRUE,
+  safe_workbook_count <- max(1L, suppressWarnings(as.integer(workbook_count)))
+  safe_rows <- max(1L, suppressWarnings(as.integer(rows_per_sheet)))
+  safe_sheet_count <- max(1L, suppressWarnings(as.integer(sheet_count)))
+
+  fixture_root <- file.path(tempdir(), "perf_excel_fixture_generated")
+  fixture_dir <- file.path(
+    fixture_root,
+    sprintf(
+      "wb_%03d_rows_%05d_sheets_%02d",
+      safe_workbook_count,
+      safe_rows,
+      safe_sheet_count
+    )
+  )
+
+  existing_files <- character(0)
+  if (dir.exists(fixture_dir)) {
+    existing_files <- fs::dir_ls(
+      path = fixture_dir,
       type = "file",
+      recurse = FALSE,
       glob = "*.xlsx"
     )
-    has_candidate_files <- length(candidate_files) > 0L
   }
 
-  if (isTRUE(has_candidate_files)) {
-    return(candidate_folder)
+  if (length(existing_files) == safe_workbook_count) {
+    return(fixture_dir)
   }
 
-  sample_file <- readxl::readxl_example("datasets.xlsx")
-  if (!nzchar(sample_file) || !file.exists(sample_file)) {
-    stop("unable to resolve fallback xlsx fixture for benchmark")
+  if (dir.exists(fixture_dir)) {
+    unlink(fixture_dir, recursive = TRUE, force = TRUE)
   }
-
-  fixture_dir <- file.path(tempdir(), "perf_excel_fixture")
   dir.create(fixture_dir, recursive = TRUE, showWarnings = FALSE)
 
-  n_copies <- max(1L, as.integer(fixture_copy_count))
-  fixture_paths <- file.path(
-    fixture_dir,
-    sprintf("perf_fixture_%02d.xlsx", seq_len(n_copies))
-  )
-  copied <- file.copy(sample_file, fixture_paths, overwrite = TRUE)
-  if (!all(copied)) {
-    stop("failed to create fallback xlsx fixture files")
+  for (workbook_i in seq_len(safe_workbook_count)) {
+    workbook_path <- file.path(
+      fixture_dir,
+      sprintf("perf_fixture_%03d.xlsx", workbook_i)
+    )
+    sheet_payload <- lapply(seq_len(safe_sheet_count), function(sheet_i) {
+      .build_excel_fixture_sheet(
+        n_rows = safe_rows,
+        workbook_id = workbook_i,
+        sheet_id = sheet_i
+      )
+    })
+    names(sheet_payload) <- sprintf("sheet_%02d", seq_len(safe_sheet_count))
+    writexl::write_xlsx(sheet_payload, path = workbook_path)
   }
 
   return(fixture_dir)
+}
+
+#' @title Resolve benchmark Excel file paths
+#' @description Discover benchmark fixture files and return existing paths.
+#' @param read_cfg Named list config for import readers.
+#' @return Character vector of existing xlsx paths.
+#' @keywords internal
+#' @noRd
+.resolve_excel_benchmark_read_paths <- function(read_cfg) {
+  file_meta <- discover_pipeline_files(read_cfg)
+  available_paths <- as.character(file_meta$file_path)
+  available_paths <- available_paths[file.exists(available_paths)]
+  return(as.character(available_paths))
+}
+
+#' @title Build Excel sheet reference table
+#' @description Enumerate available workbook/sheet pairs for deterministic
+#'   per-sheet read workloads.
+#' @param file_paths Character vector of xlsx paths.
+#' @return data.table with columns file_path and sheet_name.
+#' @keywords internal
+#' @noRd
+.build_excel_sheet_reference_table <- function(file_paths) {
+  if (length(file_paths) == 0L) {
+    return(data.table::data.table(
+      file_path = character(),
+      sheet_name = character()
+    ))
+  }
+
+  refs <- lapply(as.character(file_paths), function(path_i) {
+    sheet_names <- readxl::excel_sheets(path_i)
+    if (length(sheet_names) == 0L) {
+      return(data.table::data.table(
+        file_path = character(),
+        sheet_name = character()
+      ))
+    }
+    data.table::data.table(
+      file_path = rep(path_i, length(sheet_names)),
+      sheet_name = as.character(sheet_names)
+    )
+  })
+
+  data.table::rbindlist(refs, use.names = TRUE, fill = TRUE)
 }
 
 #' @title Build read benchmark config
@@ -158,22 +259,6 @@ NULL
   read_cfg$paths$data$imports$raw <- import_folder
 
   return(read_cfg)
-}
-
-#' @title Select Excel files for workload
-#' @description Deterministically cycle over discovered file paths to produce a
-#'   fixed-length read list for one benchmark invocation.
-#' @param file_paths Character vector of discovered xlsx paths.
-#' @param n_reads Integer scalar number of reads to execute.
-#' @return Character vector of file paths to read.
-#' @keywords internal
-#' @noRd
-.select_excel_files_for_workload <- function(file_paths, n_reads) {
-  if (length(file_paths) == 0L || n_reads <= 0L) {
-    return(character(0))
-  }
-  idx <- ((seq_len(n_reads) - 1L) %% length(file_paths)) + 1L
-  return(as.character(file_paths[idx]))
 }
 
 # ── 5a. stage 0 — general pipeline ──────────────────────────────────────────
@@ -243,13 +328,41 @@ NULL
   n_yrs <- cfg$n_year_cols
   dup_frac <- cfg$dup_fraction
   bench_cfg <- make_benchmark_config()
-  excel_fixture_copy_count <- max(
+  excel_fixture_sheet_count <- max(
     1L,
-    .resolve_integer_cfg(cfg$excel_read_fixture_copy_count, fallback = 4L)
+    .resolve_integer_cfg(cfg$excel_fixture_sheet_count, fallback = 2L)
   )
-  excel_max_reads <- max(
+  excel_fixture_base_rows_per_sheet <- max(
+    8L,
+    .resolve_integer_cfg(cfg$excel_fixture_base_rows_per_sheet, fallback = 16L)
+  )
+  excel_discovery_scale_divisor <- max(
     1L,
-    .resolve_integer_cfg(cfg$excel_read_max_reads_per_iteration, fallback = 8L)
+    .resolve_integer_cfg(cfg$excel_discovery_scale_divisor, fallback = 500L)
+  )
+  excel_discovery_max_workbooks <- max(
+    1L,
+    .resolve_integer_cfg(cfg$excel_discovery_max_workbooks, fallback = 96L)
+  )
+  excel_discovery_repeats_per_iteration <- max(
+    1L,
+    .resolve_integer_cfg(cfg$excel_discovery_repeats_per_iteration, fallback = 20L)
+  )
+  excel_read_workbook_count <- max(
+    1L,
+    .resolve_integer_cfg(cfg$excel_read_workbook_count, fallback = 4L)
+  )
+  excel_read_rows_per_sheet <- max(
+    1L,
+    .resolve_integer_cfg(cfg$excel_read_rows_per_sheet, fallback = 128L)
+  )
+  excel_read_max_sheet_reads_per_iteration <- max(
+    1L,
+    .resolve_integer_cfg(cfg$excel_read_max_sheet_reads_per_iteration, fallback = 1000L)
+  )
+  excel_read_repeats_per_iteration <- max(
+    1L,
+    .resolve_integer_cfg(cfg$excel_read_repeats_per_iteration, fallback = 2L)
   )
 
   list(
@@ -323,53 +436,152 @@ NULL
     ),
 
     list(
-      name = "discover_and_read_excel_sheets",
+      name = "discover_excel_files",
       stage = "1-import",
-      description = "discover import xlsx files and read sheets via pipeline readers",
+      description = paste0(
+        "discover synthetic xlsx files with n-scaled workbook count ",
+        "and fixed worksheet size across repeated discovery passes"
+      ),
+      complexity_n_transform = function(n_values) {
+        vapply(
+          n_values,
+          function(n_i) {
+            .scale_excel_discovery_workbook_count(
+              n = n_i,
+              max_workbooks = excel_discovery_max_workbooks,
+              scale_divisor = excel_discovery_scale_divisor
+            )
+          },
+          integer(1)
+        )
+      },
       fn_factory = function(n) {
-        import_folder <- .resolve_excel_benchmark_import_folder(
-          cfg = cfg,
-          fixture_copy_count = excel_fixture_copy_count
+        workbook_count <- .scale_excel_discovery_workbook_count(
+          n = n,
+          max_workbooks = excel_discovery_max_workbooks,
+          scale_divisor = excel_discovery_scale_divisor
+        )
+        import_folder <- .create_excel_benchmark_fixture_dir(
+          workbook_count = workbook_count,
+          rows_per_sheet = excel_fixture_base_rows_per_sheet,
+          sheet_count = excel_fixture_sheet_count
         )
         read_cfg <- .build_excel_read_benchmark_config(cfg, import_folder)
-        reads_per_call <- .scale_excel_read_iterations(
-          n = n,
-          max_reads = excel_max_reads
-        )
 
         function() {
-          file_meta <- discover_pipeline_files(read_cfg)
-          available_paths <- as.character(file_meta$file_path)
-          available_paths <- available_paths[file.exists(available_paths)]
+          discovered_rows <- integer(excel_discovery_repeats_per_iteration)
+          for (iter_i in seq_len(excel_discovery_repeats_per_iteration)) {
+            file_meta <- discover_pipeline_files(read_cfg)
+            discovered_rows[[iter_i]] <- as.integer(nrow(file_meta))
+          }
+          return(invisible(sum(discovered_rows)))
+        }
+      }
+    ),
 
-          if (length(available_paths) == 0L) {
-            return(invisible(list(rows = 0L, errors = 0L)))
+    list(
+      name = "read_excel_file_sheets",
+      stage = "1-import",
+      description = paste0(
+        "read n synthetic workbook sheets (fixed rows per sheet) where n ",
+        "directly represents total sheet reads per timed invocation"
+      ),
+      complexity_min_best_r2 = -1,
+      complexity_n_transform = function(n_values) {
+        vapply(
+          n_values,
+          function(n_i) {
+            .scale_excel_sheet_reads(
+              n = n_i,
+              max_sheet_reads = excel_read_max_sheet_reads_per_iteration
+            )
+          },
+          integer(1)
+        )
+      },
+      fn_factory = function(n) {
+        sheet_reads_target <- .scale_excel_sheet_reads(
+          n = n,
+          max_sheet_reads = excel_read_max_sheet_reads_per_iteration
+        )
+
+        workbook_count_target <- max(
+          excel_read_workbook_count,
+          as.integer(ceiling(sheet_reads_target / excel_fixture_sheet_count))
+        )
+
+        import_folder <- .create_excel_benchmark_fixture_dir(
+          workbook_count = workbook_count_target,
+          rows_per_sheet = excel_read_rows_per_sheet,
+          sheet_count = excel_fixture_sheet_count
+        )
+        read_cfg <- .build_excel_read_benchmark_config(cfg, import_folder)
+        available_paths <- .resolve_excel_benchmark_read_paths(read_cfg)
+
+        sheet_refs <- .build_excel_sheet_reference_table(available_paths)
+        if (nrow(sheet_refs) > 0L) {
+          data.table::setorder(sheet_refs, file_path, sheet_name)
+        }
+
+        selected_refs <- if (nrow(sheet_refs) > 0L) {
+          selected_count <- min(sheet_reads_target, nrow(sheet_refs))
+          sheet_refs[seq_len(selected_count)]
+        } else {
+          sheet_refs
+        }
+
+        selected_paths <- as.character(selected_refs$file_path)
+        selected_sheets <- as.character(selected_refs$sheet_name)
+
+        function() {
+          if (length(selected_paths) == 0L) {
+            return(invisible(list(rows = 0L, errors = 0L, sheet_reads = 0L)))
           }
 
-          selected_paths <- .select_excel_files_for_workload(
-            file_paths = available_paths,
-            n_reads = reads_per_call
-          )
+          total_rows <- 0L
+          total_errors <- 0L
+          total_sheet_reads <- 0L
 
-          read_results <- lapply(selected_paths, function(path_i) {
-            read_file_sheets(path_i, read_cfg)
-          })
-
-          total_rows <- sum(vapply(read_results, function(result_i) {
-            if (is.null(result_i$data)) {
-              return(0L)
+          for (iter_i in seq_len(excel_read_repeats_per_iteration)) {
+            iter_idx <- seq(
+              from = iter_i,
+              to = length(selected_paths),
+              by = excel_read_repeats_per_iteration
+            )
+            if (length(iter_idx) == 0L) {
+              next
             }
-            as.integer(nrow(result_i$data))
-          }, integer(1)))
 
-          total_errors <- sum(vapply(read_results, function(result_i) {
-            if (is.null(result_i$errors)) {
-              return(0L)
-            }
-            as.integer(length(result_i$errors))
-          }, integer(1)))
+            read_results <- lapply(iter_idx, function(ref_i) {
+              read_excel_sheet(
+                file_path = selected_paths[[ref_i]],
+                sheet_name = selected_sheets[[ref_i]],
+                config = read_cfg
+              )
+            })
 
-          return(invisible(list(rows = total_rows, errors = total_errors)))
+            total_rows <- total_rows + sum(vapply(read_results, function(result_i) {
+              if (is.null(result_i$data)) {
+                return(0L)
+              }
+              as.integer(nrow(result_i$data))
+            }, integer(1)))
+
+            total_errors <- total_errors + sum(vapply(read_results, function(result_i) {
+              if (is.null(result_i$errors)) {
+                return(0L)
+              }
+              as.integer(length(result_i$errors))
+            }, integer(1)))
+
+            total_sheet_reads <- total_sheet_reads + length(read_results)
+          }
+
+          return(invisible(list(
+            rows = total_rows,
+            errors = total_errors,
+            sheet_reads = total_sheet_reads
+          )))
         }
       }
     )

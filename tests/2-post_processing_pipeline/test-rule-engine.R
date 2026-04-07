@@ -129,6 +129,7 @@ testthat::test_that("validate_canonical_rules allows NA in value columns for cle
   rules_dt <- data.table::data.table(
     column_source = c("product", "product"),
     value_source_raw = c(NA_character_, "Rice"),
+    value_source = c(NA_character_, NA_character_),
     column_target = c("unit", "unit"),
     value_target_raw = c(NA_character_, "kg"),
     value_target = c(NA_character_, "kilogram")
@@ -153,6 +154,7 @@ testthat::test_that("validate_canonical_rules fails for NA in structural columns
   rules_dt <- data.table::data.table(
     column_source = NA_character_,
     value_source_raw = NA_character_,
+    value_source = NA_character_,
     column_target = "unit",
     value_target_raw = "kg",
     value_target = "kilogram"
@@ -224,6 +226,17 @@ testthat::test_that("encode_rule_match_key normalizes values and encodes NA", {
   testthat::expect_equal(result[2], constants$na_match_key)
 })
 
+testthat::test_that("resolve_target_update_strategy supports per-column overrides", {
+  testthat::expect_equal(
+    resolve_target_update_strategy("notes"),
+    "concatenate"
+  )
+  testthat::expect_equal(
+    resolve_target_update_strategy("unit"),
+    "last_rule_wins"
+  )
+})
+
 
 # --- apply_conditional_rule_group --------------------------------------------
 
@@ -236,6 +249,7 @@ testthat::test_that("apply_conditional_rule_group applies clean rules", {
   group_rules <- data.table::data.table(
     column_source = "product",
     value_source_raw = "Wheat",
+    value_source = NA_character_,
     column_target = "unit",
     value_target_raw = "kg",
     value_target = "kilogram"
@@ -267,6 +281,7 @@ testthat::test_that("apply_conditional_rule_group matches NA keys", {
   group_rules <- data.table::data.table(
     column_source = "product",
     value_source_raw = NA_character_,
+    value_source = NA_character_,
     column_target = "unit",
     value_target_raw = NA_character_,
     value_target = "unknown_unit"
@@ -295,6 +310,7 @@ testthat::test_that("apply_conditional_rule_group applies empty target as NA", {
   group_rules <- data.table::data.table(
     column_source = "product",
     value_source_raw = "Wheat",
+    value_source = NA_character_,
     column_target = "unit",
     value_target_raw = "kg",
     value_target = ""
@@ -326,6 +342,7 @@ testthat::test_that("apply_rule_payload applies multiple rule groups", {
   canonical_rules <- data.table::data.table(
     column_source = c("product", "product"),
     value_source_raw = c("Wheat", "Rice"),
+    value_source = c(NA_character_, NA_character_),
     column_target = c("unit", "unit"),
     value_target_raw = c("kg", "kg"),
     value_target = c("kilogram", "gram")
@@ -610,6 +627,69 @@ testthat::test_that("apply_footnote_rules applies target column updates", {
   )
 
   testthat::expect_equal(result$data$unit[[1]], "kilogram")
+})
+
+testthat::test_that("apply_footnote_rules concatenates mapped notes values", {
+  dataset_dt <- data.table::data.table(
+    product = "Wheat",
+    notes = NA_character_,
+    footnotes = "fn_country; fn_continent; fn_note_01; fn_note_02"
+  )
+
+  footnote_rules <- data.table::data.table(
+    column_source = c("footnotes", "footnotes"),
+    value_source_raw = c("fn_note_01", "fn_note_02"),
+    value_source = c(NA_character_, NA_character_),
+    column_target = c("notes", "notes"),
+    value_target_raw = c(NA_character_, NA_character_),
+    value_target = c("note_01", "note_02")
+  )
+
+  result <- apply_footnote_rules(
+    dataset_dt = dataset_dt,
+    footnote_rules = footnote_rules,
+    stage_name = "clean",
+    dataset_name = "demo",
+    rule_file_id = "test.xlsx",
+    execution_timestamp_utc = "2026-01-01T00:00:00Z"
+  )
+
+  testthat::expect_equal(
+    result$data$footnotes[[1]],
+    "fn_country; fn_continent"
+  )
+  testthat::expect_equal(result$data$notes[[1]], "note_01; note_02")
+})
+
+testthat::test_that("apply_footnote_rules appends concatenated notes to existing notes", {
+  dataset_dt <- data.table::data.table(
+    product = "Wheat",
+    notes = "existing note",
+    footnotes = "fn_note_01; fn_note_02"
+  )
+
+  footnote_rules <- data.table::data.table(
+    column_source = c("footnotes", "footnotes"),
+    value_source_raw = c("fn_note_01", "fn_note_02"),
+    value_source = c(NA_character_, NA_character_),
+    column_target = c("notes", "notes"),
+    value_target_raw = c(NA_character_, NA_character_),
+    value_target = c("note_01", "note_02")
+  )
+
+  result <- apply_footnote_rules(
+    dataset_dt = dataset_dt,
+    footnote_rules = footnote_rules,
+    stage_name = "clean",
+    dataset_name = "demo",
+    rule_file_id = "test.xlsx",
+    execution_timestamp_utc = "2026-01-01T00:00:00Z"
+  )
+
+  testthat::expect_equal(
+    result$data$notes[[1]],
+    "existing note; note_01; note_02"
+  )
 })
 
 testthat::test_that("apply_footnote_rules handles NA footnotes rows", {

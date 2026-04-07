@@ -117,7 +117,7 @@ testthat::test_that("assert_post_processing_preflight aborts with stage details"
 
   testthat::expect_error(
     assert_post_processing_preflight(bad_result),
-    regexp = "post-processing preflight checks failed"
+    regexp = "Post-processing preflight checks failed"
   )
 })
 
@@ -127,15 +127,19 @@ testthat::test_that("assert_post_processing_preflight aborts with stage details"
 testthat::test_that("summarize_stage_rules aggregates audit records", {
   audit_dt <- data.table::data.table(
     rule_file_identifier = c("clean_rules.csv", "clean_rules.csv"),
+    value_source_raw = c("wheat", "rice"),
+    value_target_raw = c("kg", "kg"),
+    value_target = c("kilogram", "gram"),
     column_source = c("product", "product"),
     column_target = c("unit", "variable"),
     affected_rows = c(5L, 3L)
   )
 
-  result <- summarize_stage_rules(audit_dt)
+  result <- summarize_stage_rules(audit_dt, stage_name = "clean")
 
   testthat::expect_true(data.table::is.data.table(result))
-  testthat::expect_true("total_affected" %in% names(result))
+  testthat::expect_true("affected_rows" %in% names(result))
+  testthat::expect_true("execution_stage" %in% names(result))
   testthat::expect_true(nrow(result) >= 1L)
 })
 
@@ -143,25 +147,40 @@ testthat::test_that("summarize_stage_rules aggregates audit records", {
 # --- build_post_processing_diagnostics ---------------------------------------
 
 testthat::test_that("build_post_processing_diagnostics creates stage summaries", {
-  audit_list <- list(
-    clean = data.table::data.table(
-      rule_file_identifier = "clean_rules.csv",
-      column_source = "product",
-      column_target = "unit",
-      affected_rows = 5L
-    )
+  clean_audit_dt <- data.table::data.table(
+    rule_file_identifier = "clean_rules.csv",
+    value_source_raw = "wheat",
+    value_target_raw = "kg",
+    value_target = "kilogram",
+    column_source = "product",
+    column_target = "unit",
+    affected_rows = 5L
   )
 
-  result <- build_post_processing_diagnostics(audit_list)
+  harmonize_audit_dt <- data.table::data.table(
+    rule_file_identifier = "harmonize_rules.csv",
+    value_source_raw = "usa",
+    value_target_raw = "usa",
+    value_target = "united states",
+    column_source = "country",
+    column_target = "country",
+    affected_rows = 2L
+  )
+
+  result <- build_post_processing_diagnostics(
+    clean_audit_dt = clean_audit_dt,
+    harmonize_audit_dt = harmonize_audit_dt
+  )
 
   testthat::expect_true(is.list(result))
-  testthat::expect_true("clean" %in% names(result))
+  testthat::expect_true("clean_rule_summary" %in% names(result))
+  testthat::expect_true("harmonize_rule_summary" %in% names(result))
 })
 
 
 # --- persist_post_processing_audit -------------------------------------------
 
-testthat::test_that("persist_post_processing_audit writes aggregate_standardized_rows excel", {
+testthat::test_that("persist_post_processing_audit writes overwrite subset diagnostics excel", {
   config <- build_test_config()
   dir.create(
     file.path(config$paths$data$audit$audit_root_dir, "post_processing_diagnostics"),
@@ -194,13 +213,36 @@ testthat::test_that("persist_post_processing_audit writes aggregate_standardized
     value = c(100, 200)
   )
 
+  final_stage_dt <- data.table::data.table(
+    country = c("CountryA", "CountryB"),
+    notes = c("note a", "note b"),
+    footnotes = c("f1", "f2")
+  )
+
+  overwrite_events_dt <- data.table::data.table(
+    dataset_name = "demo",
+    execution_stage = "harmonize",
+    rule_file_identifier = "harmonize_rules.xlsx",
+    column_source = "country",
+    column_target = "notes",
+    row_id = 2L,
+    candidate_count = 2L,
+    unique_candidate_count = 2L,
+    selected_value = "note b",
+    candidate_values = "note a; note b"
+  )
+
   output_paths <- persist_post_processing_audit(
     clean_audit_dt = clean_audit,
     harmonize_audit_dt = harmonize_audit,
     standardize_rows_dt = standardize_rows,
+    final_stage_dt = final_stage_dt,
+    last_rule_wins_overwrites_dt = overwrite_events_dt,
     config = config
   )
 
   testthat::expect_true("aggregate_standardized_rows" %in% names(output_paths))
   testthat::expect_true(file.exists(output_paths[["aggregate_standardized_rows"]]))
+  testthat::expect_true("last_rule_wins_overwrites" %in% names(output_paths))
+  testthat::expect_true(file.exists(output_paths[["last_rule_wins_overwrites"]]))
 })

@@ -76,6 +76,16 @@ get_pipeline_constants <- function() {
     helper_requirements = list(
       assignment_helper = "assign_environment_values",
       assignment_helper_source = "scripts/0-general_pipeline/02-helpers.R"
+    ),
+    post_processing = list(
+      target_update_strategies = list(
+        default = "last_rule_wins",
+        concatenate_delimiter = "; ",
+        by_column = c(
+          notes = "concatenate"
+        ),
+        supported = c("last_rule_wins", "concatenate")
+      )
     )
   )
 
@@ -102,8 +112,7 @@ get_pipeline_constants <- function() {
 #' `defaults`, and `messages`. `export_config$styles$error_highlight` defines
 #' centralized workbook styling for invalid audit cells. `paths$data$audit` contains
 #' `audit_root_dir`,
-#' `audit_dir`, `audit_file_name`, `audit_file_path`, and
-#' `raw_imports_mirror_dir` for easy direct access or recursive unlisting.
+#' `audit_dir`, `audit_file_name`, and `audit_file_path` for easy direct access.
 #' @importFrom here here
 #' @importFrom fs dir_create path
 #' @importFrom checkmate assert_string assert_directory_exists
@@ -197,8 +206,7 @@ load_pipeline_config <- function(
         audit_dir = audit_dir,
         dataset_dir = audit_dir,
         audit_file_name = audit_file_name,
-        audit_file_path = fs::path(audit_dir, audit_file_name),
-        raw_imports_mirror_dir = fs::path(audit_dir, "raw_imports_mirror")
+        audit_file_path = fs::path(audit_dir, audit_file_name)
       )
     )
   )

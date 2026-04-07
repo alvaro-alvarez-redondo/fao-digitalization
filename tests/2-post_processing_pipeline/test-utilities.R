@@ -121,6 +121,71 @@ testthat::test_that("read_rule_table reads Excel rule files", {
   testthat::expect_equal(nrow(result), 1L)
 })
 
+testthat::test_that("read_rule_table reads all matching Excel worksheets", {
+  root_dir <- build_temp_dir("whep-read-rules-xlsx-multi-")
+  file_path <- file.path(root_dir, "rules.xlsx")
+
+  sheet_one <- data.frame(
+    column_source = "product",
+    value_source_raw = "Wheat",
+    column_target = "unit",
+    value_target_raw = "kg",
+    value_target = "kilogram",
+    stringsAsFactors = FALSE
+  )
+
+  sheet_two <- data.frame(
+    clean_column_source = "unit",
+    clean_value_source_raw = "kg",
+    clean_column_target = "notes",
+    clean_value_target_raw = NA_character_,
+    clean_value_target = "standardized unit",
+    stringsAsFactors = FALSE
+  )
+
+  non_matching <- data.frame(
+    note = "this sheet should be ignored",
+    stringsAsFactors = FALSE
+  )
+
+  writexl::write_xlsx(
+    list(
+      matching_first = sheet_one,
+      metadata = non_matching,
+      matching_second = sheet_two
+    ),
+    path = file_path
+  )
+
+  result <- read_rule_table(file_path)
+
+  testthat::expect_true(data.table::is.data.table(result))
+  testthat::expect_equal(nrow(result), 2L)
+  testthat::expect_equal(
+    as.character(result$column_source),
+    c("product", "unit")
+  )
+  testthat::expect_false("note" %in% names(result))
+})
+
+testthat::test_that("read_rule_table errors when no Excel worksheet matches rule schema", {
+  root_dir <- build_temp_dir("whep-read-rules-xlsx-no-match-")
+  file_path <- file.path(root_dir, "rules.xlsx")
+
+  writexl::write_xlsx(
+    list(
+      metadata = data.frame(note = "not a rule table", stringsAsFactors = FALSE),
+      diagnostics = data.frame(status = "ok", stringsAsFactors = FALSE)
+    ),
+    path = file_path
+  )
+
+  testthat::expect_error(
+    read_rule_table(file_path),
+    "No worksheets with matching rule columns found"
+  )
+})
+
 
 # --- load_stage_rule_payloads ------------------------------------------------
 

@@ -51,12 +51,7 @@ testthat::test_that("create_required_directories excludes audit root tree when c
       ),
       audit = list(
         audit_root_dir = file.path(base_dir, "audit"),
-        audit_file_path = file.path(base_dir, "audit", "dataset", "audit.xlsx"),
-        raw_imports_mirror_dir = file.path(
-          base_dir,
-          "audit",
-          "raw_imports_mirror"
-        )
+        audit_file_path = file.path(base_dir, "audit", "dataset", "audit.xlsx")
       )
     )
   )

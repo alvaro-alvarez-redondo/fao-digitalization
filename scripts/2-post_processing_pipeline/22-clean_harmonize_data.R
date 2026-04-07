@@ -69,7 +69,8 @@ run_rule_stage_layer_batch <- function(
 
   initial_state <- list(
     data = data.table::copy(data.table::as.data.table(dataset_dt)),
-    audit_tables = list()
+    audit_tables = list(),
+    overwrite_tables = list()
   )
 
   final_state <- purrr::reduce(
@@ -111,6 +112,11 @@ run_rule_stage_layer_batch <- function(
       state$audit_tables[[
         length(state$audit_tables) + 1L
       ]] <- payload_result$audit
+      if (nrow(payload_result$overwrite_events) > 0L) {
+        state$overwrite_tables[[
+          length(state$overwrite_tables) + 1L
+        ]] <- payload_result$overwrite_events
+      }
 
       return(state)
     }
@@ -122,6 +128,16 @@ run_rule_stage_layer_batch <- function(
     fill = TRUE
   )
 
+  stage_overwrite_events <- if (length(final_state$overwrite_tables) > 0L) {
+    data.table::rbindlist(
+      final_state$overwrite_tables,
+      use.names = TRUE,
+      fill = TRUE
+    )
+  } else {
+    empty_last_rule_wins_overwrite_events_dt()
+  }
+
   diagnostics <- build_layer_diagnostics(
     layer_name = validated_stage_name,
     rows_in = nrow(dataset_dt),
@@ -132,6 +148,8 @@ run_rule_stage_layer_batch <- function(
   stage_output_dt <- final_state$data
   attr(stage_output_dt, "layer_diagnostics") <- diagnostics
   attr(stage_output_dt, "layer_audit") <- stage_audit
+  attr(stage_output_dt, "layer_last_rule_wins_overwrites") <-
+    stage_overwrite_events
 
   return(stage_output_dt)
 }

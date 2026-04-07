@@ -7,11 +7,44 @@ NULL
 
 # ── 0. performance dependencies ───────────────────────────────────────────────
 
+#' @title Evaluate expression with built-under warning muted
+#' @description Execute an expression while suppressing only warnings that
+#'   indicate a package was built under a different patch-level R version.
+#' @param expr Expression to evaluate.
+#' @return Result of expr.
+#' @keywords internal
+#' @noRd
+.muffle_built_under_warning <- function(expr) {
+  withCallingHandlers(
+    expr,
+    warning = function(w) {
+      warning_message <- conditionMessage(w)
+      if (grepl("was built under R version", warning_message, fixed = TRUE)) {
+        invokeRestart("muffleWarning")
+      }
+    }
+  )
+}
+
+#' @title Check namespace availability
+#' @description Return TRUE when a package namespace can be loaded quietly,
+#'   while muting non-actionable built-under patch-version warnings.
+#' @param package_name Character scalar package name.
+#' @return Logical scalar.
+#' @keywords internal
+#' @noRd
+.is_namespace_available <- function(package_name) {
+  isTRUE(.muffle_built_under_warning(
+    requireNamespace(package_name, quietly = TRUE)
+  ))
+}
+
 #' @title Required performance packages
 #' @description Package registry used by performance scripts.
 #' @keywords internal
 #' @noRd
 perf_required_packages <- c(
+  "bench",
   "checkmate",
   "cli",
   "data.table",
@@ -22,7 +55,8 @@ perf_required_packages <- c(
   "readxl",
   "readr",
   "renv",
-  "stringi"
+  "stringi",
+  "writexl"
 )
 
 #' @title Validate package vector
@@ -48,8 +82,8 @@ perf_required_packages <- c(
 #' @param check_result Logical TRUE or character scalar from checkmate checks.
 #' @return Invisible TRUE when validation passes.
 abort_on_perf_checkmate_failure <- function(check_result) {
-  has_checkmate <- requireNamespace("checkmate", quietly = TRUE)
-  has_cli <- requireNamespace("cli", quietly = TRUE)
+  has_checkmate <- .is_namespace_available("checkmate")
+  has_cli <- .is_namespace_available("cli")
 
   if (!has_checkmate || !has_cli) {
     if (!isTRUE(check_result)) {
@@ -79,15 +113,15 @@ check_perf_dependencies <- function(packages = perf_required_packages) {
 
   package_availability <- vapply(
     packages,
-    FUN = requireNamespace,
+    FUN = .is_namespace_available,
     FUN.VALUE = logical(1),
-    quietly = TRUE
+    USE.NAMES = TRUE
   )
 
   missing_packages <- unique(packages[!package_availability])
 
   if (length(missing_packages) > 0L) {
-    if (requireNamespace("cli", quietly = TRUE)) {
+    if (.is_namespace_available("cli")) {
       cli::cli_warn(c(
         "installing missing performance dependencies",
         "i" = "missing packages: {toString(missing_packages)}"
@@ -99,13 +133,13 @@ check_perf_dependencies <- function(packages = perf_required_packages) {
       ))
     }
 
-    if (requireNamespace("renv", quietly = TRUE)) {
+    if (.is_namespace_available("renv")) {
       renv::install(missing_packages)
     } else {
       utils::install.packages(missing_packages)
     }
 
-    if (requireNamespace("cli", quietly = TRUE)) {
+    if (.is_namespace_available("cli")) {
       cli::cli_alert_info("performance dependency installation completed")
     } else {
       message("performance dependency installation completed")
@@ -113,9 +147,9 @@ check_perf_dependencies <- function(packages = perf_required_packages) {
 
     still_missing <- vapply(
       missing_packages,
-      FUN = requireNamespace,
+      FUN = .is_namespace_available,
       FUN.VALUE = logical(1),
-      quietly = TRUE
+      USE.NAMES = TRUE
     )
 
     if (any(!still_missing)) {
@@ -148,12 +182,14 @@ load_perf_dependencies <- function(packages = perf_required_packages) {
   }
 
   for (package_name in packages_to_load) {
-    package_loaded <- suppressPackageStartupMessages(
-      require(package_name, character.only = TRUE, quietly = TRUE)
+    package_loaded <- .muffle_built_under_warning(
+      suppressPackageStartupMessages(
+        require(package_name, character.only = TRUE, quietly = TRUE)
+      )
     )
 
     if (!isTRUE(package_loaded)) {
-      if (requireNamespace("cli", quietly = TRUE)) {
+      if (.is_namespace_available("cli")) {
         cli::cli_abort("failed to attach package `{package_name}`.")
       }
       stop(sprintf("failed to attach package '%s'", package_name))

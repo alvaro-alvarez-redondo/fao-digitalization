@@ -13,9 +13,35 @@ NULL
 #' @param fn A function with no required arguments.
 #' @return A numeric scalar elapsed time in seconds.
 time_fn <- function(fn) {
-  t0 <- proc.time()[["elapsed"]]
-  fn()
-  proc.time()[["elapsed"]] - t0
+  has_bench <- suppressWarnings(requireNamespace("bench", quietly = TRUE))
+  if (!isTRUE(has_bench)) {
+    t0 <- proc.time()[["elapsed"]]
+    fn()
+    return(proc.time()[["elapsed"]] - t0)
+  }
+
+  benchmark <- withCallingHandlers(
+    bench::mark(
+      fn(),
+      iterations = 1L,
+      check = FALSE,
+      memory = FALSE,
+      time_unit = "s"
+    ),
+    warning = function(w) {
+      warning_message <- conditionMessage(w)
+      if (
+        grepl(
+          "GC in every iteration; so filtering is disabled",
+          warning_message,
+          fixed = TRUE
+        )
+      ) {
+        invokeRestart("muffleWarning")
+      }
+    }
+  )
+  as.numeric(benchmark$median)
 }
 
 #' @title Run benchmark loop

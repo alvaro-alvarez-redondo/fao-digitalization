@@ -1,6 +1,6 @@
 # script: 30-data_audit.r
 # description: validate consolidated pipeline data, isolate invalid records,
-# and export audit artifacts with mirrored raw source files.
+# and export deterministic audit artifacts.
 
 #' @title prepare audit root directory
 #' @description safely remove previous audit folder if it exists.
@@ -104,10 +104,6 @@ load_audit_config <- function(config) {
     config$paths$data$audit$audit_file_path,
     min.chars = 1
   ))
-  assert_or_abort(checkmate::check_string(
-    config$paths$data$audit$raw_imports_mirror_dir,
-    min.chars = 1
-  ))
 
   return(invisible(TRUE))
 }
@@ -116,24 +112,20 @@ load_audit_config <- function(config) {
 #' @description compute audit output paths without creating directories.
 #' @param audit_root_dir character scalar root audit directory.
 #' @param audit_file_name character scalar excel file name.
-#' @param mirror_dir_name character scalar mirror directory name.
-#' @return named list with `audit_root_dir`, `audit_file_path`, and `mirror_dir_path`.
+#' @return named list with `audit_root_dir` and `audit_file_path`.
 #' @examples
-#' resolve_audit_output_paths("data/2-post_processing/data_audit", "audit.xlsx", "mirror")
+#' resolve_audit_output_paths("data/2-post_processing/data_audit", "audit.xlsx")
 #' @export
 resolve_audit_output_paths <- function(
   audit_root_dir,
-  audit_file_name,
-  mirror_dir_name
+  audit_file_name
 ) {
   assert_or_abort(checkmate::check_string(audit_root_dir, min.chars = 1))
   assert_or_abort(checkmate::check_string(audit_file_name, min.chars = 1))
-  assert_or_abort(checkmate::check_string(mirror_dir_name, min.chars = 1))
 
   return(list(
     audit_root_dir = audit_root_dir,
-    audit_file_path = fs::path(audit_root_dir, audit_file_name),
-    mirror_dir_path = fs::path(audit_root_dir, mirror_dir_name)
+    audit_file_path = fs::path(audit_root_dir, audit_file_name)
   ))
 }
 
@@ -384,8 +376,7 @@ resolve_audit_columns_by_type <- function(config) {
 #'     data = list(
 #'       imports = list(raw = tempdir()),
 #'       audit = list(
-#'         audit_file_path = fs::path(tempdir(), "audit.xlsx"),
-#'         raw_imports_mirror_dir = fs::path(tempdir(), "mirror")
+#'         audit_file_path = fs::path(tempdir(), "audit.xlsx")
 #'       )
 #'     )
 #'   ),
@@ -526,86 +517,8 @@ export_validation_audit_report <- function(
   return(output_path)
 }
 
-#' @title mirror raw import errors
-#' @description copy raw import files associated with invalid audit records
-#' into a mirror directory while preserving relative folder structure.
-#' @param audit_dt data frame or data table containing at least document.
-#' @param raw_imports_dir character scalar path to raw import files.
-#' @param raw_imports_mirror_dir character scalar path to mirror destination.
-#' @return invisible character vector of mirrored target file paths.
-#' @examples
-#' raw_imports_dir <- fs::path(tempdir(), "raw")
-#' raw_imports_mirror_dir <- fs::path(tempdir(), "mirror")
-#' fs::dir_create(raw_imports_dir)
-#' fs::file_create(fs::path(raw_imports_dir, "a.xlsx"))
-#' audit_dt <- data.frame(document = "a.xlsx", stringsAsFactors = FALSE)
-#' mirror_raw_import_errors(audit_dt, raw_imports_dir, raw_imports_mirror_dir)
-#' @export
-mirror_raw_import_errors <- function(
-  audit_dt,
-  raw_imports_dir,
-  raw_imports_mirror_dir
-) {
-  assert_or_abort(checkmate::check_data_frame(audit_dt, min.rows = 0))
-  assert_or_abort(checkmate::check_names(
-    names(audit_dt),
-    must.include = "document"
-  ))
-  assert_or_abort(checkmate::check_string(raw_imports_dir, min.chars = 1))
-  assert_or_abort(checkmate::check_string(
-    raw_imports_mirror_dir,
-    min.chars = 1
-  ))
-  assert_or_abort(checkmate::check_directory_exists(raw_imports_dir))
-
-  error_documents <- unique(as.character(audit_dt$document))
-  error_documents <- error_documents[
-    !is.na(error_documents) & nzchar(error_documents)
-  ]
-  if (length(error_documents) == 0) {
-    return(invisible(character(0)))
-  }
-
-  raw_files <- fs::dir_ls(
-    path = raw_imports_dir,
-    type = "file",
-    recurse = TRUE,
-    glob = "*.xlsx"
-  )
-  if (length(raw_files) == 0) {
-    cli::cli_warn("no raw import files found under {.path {raw_imports_dir}}")
-    return(invisible(character(0)))
-  }
-
-  raw_file_names <- fs::path_file(raw_files)
-  selected_rows <- raw_file_names %in% error_documents
-  if (!any(selected_rows)) {
-    cli::cli_warn(
-      "no matching raw import files were found for mirrored audit output"
-    )
-    return(invisible(character(0)))
-  }
-
-  unmatched_documents <- setdiff(error_documents, raw_file_names)
-  if (length(unmatched_documents) > 0) {
-    cli::cli_warn(c(
-      "some audited documents were not found in raw_imports",
-      "i" = "missing files: {toString(unmatched_documents)}"
-    ))
-  }
-
-  matched_paths <- raw_files[selected_rows]
-  relative_paths <- fs::path_rel(matched_paths, start = raw_imports_dir)
-  target_paths <- fs::path(raw_imports_mirror_dir, relative_paths)
-
-  ensure_output_directories(target_paths)
-  fs::file_copy(matched_paths, target_paths, overwrite = TRUE)
-
-  return(invisible(as.character(target_paths)))
-}
-
 #' @title create audited data output
-#' @description run audit, export excel, mirror files, and return numeric-parsed data.
+#' @description run audit, export excel findings, and return numeric-parsed data.
 #' @param dataset_dt data frame.
 #' @param config audit configuration.
 #' @return data.table.
@@ -634,10 +547,7 @@ audit_data_output <- function(dataset_dt, config) {
 
   prepared_paths <- resolve_audit_output_paths(
     audit_root_dir = audit_output_dir,
-    audit_file_name = fs::path_file(config$paths$data$audit$audit_file_path),
-    mirror_dir_name = fs::path_file(
-      config$paths$data$audit$raw_imports_mirror_dir
-    )
+    audit_file_name = fs::path_file(config$paths$data$audit$audit_file_path)
   )
 
   # subset invalid rows (may be zero rows)
@@ -658,14 +568,6 @@ audit_data_output <- function(dataset_dt, config) {
       config = config,
       findings_dt = findings_dt,
       output_path = prepared_paths$audit_file_path
-    )
-  }
-
-  if (length(invalid_index) > 0) {
-    mirror_raw_import_errors(
-      audit_dt = audit_dt,
-      raw_imports_dir = config$paths$data$imports$raw,
-      raw_imports_mirror_dir = prepared_paths$mirror_dir_path
     )
   }
 

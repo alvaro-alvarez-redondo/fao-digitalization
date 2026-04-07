@@ -25,6 +25,19 @@ testthat::test_that("get_analysis_config returns a list with all required fields
   testthat::expect_true("input_sizes"   %in% names(cfg))
   testthat::expect_true("n_reps"        %in% names(cfg))
   testthat::expect_true("n_year_cols"   %in% names(cfg))
+  testthat::expect_true("excel_fixture_sheet_count" %in% names(cfg))
+  testthat::expect_true("excel_fixture_base_rows_per_sheet" %in% names(cfg))
+  testthat::expect_true("excel_discovery_scale_divisor" %in% names(cfg))
+  testthat::expect_true("excel_discovery_max_workbooks" %in% names(cfg))
+  testthat::expect_true("excel_discovery_repeats_per_iteration" %in% names(cfg))
+  testthat::expect_true("excel_read_workbook_count" %in% names(cfg))
+  testthat::expect_true("excel_read_rows_per_sheet" %in% names(cfg))
+  testthat::expect_true("excel_read_max_sheet_reads_per_iteration" %in% names(cfg))
+  testthat::expect_true("excel_read_repeats_per_iteration" %in% names(cfg))
+  testthat::expect_true("complexity_r2_tolerance" %in% names(cfg))
+  testthat::expect_true("complexity_min_best_r2" %in% names(cfg))
+  testthat::expect_true("complexity_min_unique_n" %in% names(cfg))
+  testthat::expect_true("complexity_min_n_span_ratio" %in% names(cfg))
   testthat::expect_true("na_fraction"   %in% names(cfg))
   testthat::expect_true("dup_fraction"  %in% names(cfg))
   testthat::expect_true("rng_seed"      %in% names(cfg))
@@ -42,6 +55,18 @@ testthat::test_that("get_analysis_config fractions are in [0, 1]", {
   cfg <- get_analysis_config()
   testthat::expect_true(cfg$na_fraction  >= 0 & cfg$na_fraction  <= 1)
   testthat::expect_true(cfg$dup_fraction >= 0 & cfg$dup_fraction <= 1)
+})
+
+testthat::test_that("get_analysis_config includes valid complexity tuning fields", {
+  cfg <- get_analysis_config()
+  testthat::expect_true(cfg$complexity_r2_tolerance >= 0)
+  testthat::expect_true(cfg$complexity_min_best_r2 <= 1)
+  testthat::expect_true(cfg$complexity_min_unique_n >= 3L)
+  testthat::expect_true(cfg$complexity_min_n_span_ratio > 1)
+  testthat::expect_true(cfg$excel_discovery_repeats_per_iteration >= 1L)
+  testthat::expect_true(cfg$excel_read_max_sheet_reads_per_iteration >= 1L)
+  testthat::expect_true(cfg$excel_read_max_sheet_reads_per_iteration >= 1000L)
+  testthat::expect_true(cfg$excel_read_repeats_per_iteration >= 1L)
 })
 
 
@@ -215,6 +240,168 @@ testthat::test_that("fit_complexity_model handles NA and negative times graceful
   testthat::expect_length(fit$best_class, 1L)
 })
 
+testthat::test_that("fit_complexity_model breaks ties toward simpler class", {
+  candidate_env <- environment(fit_complexity_model)
+  original_candidates <- get("get_complexity_candidates", envir = candidate_env)
+  on.exit(
+    assign(
+      "get_complexity_candidates",
+      original_candidates,
+      envir = candidate_env
+    ),
+    add = TRUE
+  )
+
+  assign(
+    "get_complexity_candidates",
+    function() {
+      list(
+        list(label = "O(n)", f = function(n) n),
+        list(label = "O(n log n)", f = function(n) n)
+      )
+    },
+    envir = candidate_env
+  )
+
+  n <- c(100, 500, 1000, 2500, 5000)
+  t <- 1e-6 * n + 0.001
+  fit <- fit_complexity_model(n, t, r2_tolerance = 0)
+
+  testthat::expect_equal(fit$best_class, "O(n)")
+})
+
+testthat::test_that("fit_complexity_model validates r2_tolerance", {
+  n <- c(100, 500, 1000)
+  t <- c(0.01, 0.05, 0.1)
+
+  testthat::expect_error(
+    fit_complexity_model(n, t, r2_tolerance = -0.1),
+    "r2_tolerance"
+  )
+})
+
+testthat::test_that("fit_complexity_model returns unknown when distinct n support is insufficient", {
+  n <- c(100, 100, 100, 200, 200, 200, 300, 300)
+  t <- c(0.10, 0.11, 0.12, 0.20, 0.21, 0.22, 0.30, 0.31)
+
+  fit <- fit_complexity_model(
+    n_values = n,
+    t_values = t,
+    min_unique_n = 4L,
+    min_n_span_ratio = 2
+  )
+
+  testthat::expect_equal(fit$best_class, "unknown")
+  testthat::expect_true(is.na(fit$best_r2))
+})
+
+testthat::test_that("fit_complexity_model returns unknown when n span ratio is too flat", {
+  n <- c(100, 110, 120, 130, 140)
+  t <- c(0.10, 0.11, 0.12, 0.13, 0.14)
+
+  fit <- fit_complexity_model(
+    n_values = n,
+    t_values = t,
+    min_unique_n = 5L,
+    min_n_span_ratio = 2
+  )
+
+  testthat::expect_equal(fit$best_class, "unknown")
+  testthat::expect_true(is.na(fit$best_r2))
+})
+
+testthat::test_that("fit_complexity_model validates support threshold arguments", {
+  n <- c(100, 500, 1000, 2500, 5000)
+  t <- c(0.01, 0.05, 0.10, 0.25, 0.50)
+
+  testthat::expect_error(
+    fit_complexity_model(n, t, min_unique_n = 2L),
+    "min_unique_n"
+  )
+  testthat::expect_error(
+    fit_complexity_model(n, t, min_n_span_ratio = 1),
+    "min_n_span_ratio"
+  )
+  testthat::expect_error(
+    fit_complexity_model(n, t, min_best_r2 = 2),
+    "min_best_r2"
+  )
+})
+
+testthat::test_that(".has_complexity_fit_support validates uniqueness and span", {
+  testthat::expect_true(
+    .has_complexity_fit_support(
+      n_values = c(100, 500, 1000, 2500, 5000),
+      min_unique_n_req = 3L,
+      min_n_span_ratio_req = 2
+    )
+  )
+
+  testthat::expect_false(
+    .has_complexity_fit_support(
+      n_values = c(100, 100, 100, 250, 250),
+      min_unique_n_req = 3L,
+      min_n_span_ratio_req = 2
+    )
+  )
+
+  testthat::expect_false(
+    .has_complexity_fit_support(
+      n_values = c(100, 110, 120, 130, 140),
+      min_unique_n_req = 3L,
+      min_n_span_ratio_req = 2
+    )
+  )
+})
+
+testthat::test_that(".select_complexity_fit_n falls back when transformed n collapses support", {
+  original_n <- c(100, 500, 1000, 2500, 5000, 10000, 25000, 50000)
+  transformed_n <- c(100, 256, 256, 256, 256, 256, 256, 256)
+
+  selected <- .select_complexity_fit_n(
+    original_n = original_n,
+    transformed_n = transformed_n,
+    min_unique_n_req = 3L,
+    min_n_span_ratio_req = 2
+  )
+
+  testthat::expect_identical(selected$source, "original")
+  testthat::expect_true(selected$fallback_applied)
+  testthat::expect_equal(selected$n_values, as.numeric(original_n))
+})
+
+testthat::test_that(".select_complexity_fit_n keeps transformed n when support is sufficient", {
+  original_n <- c(100, 500, 1000, 2500, 5000, 10000, 25000, 50000)
+  transformed_n <- c(100, 500, 1000, 1000, 1000, 1000, 1000, 1000)
+
+  selected <- .select_complexity_fit_n(
+    original_n = original_n,
+    transformed_n = transformed_n,
+    min_unique_n_req = 3L,
+    min_n_span_ratio_req = 2
+  )
+
+  testthat::expect_identical(selected$source, "transformed")
+  testthat::expect_false(selected$fallback_applied)
+  testthat::expect_equal(selected$n_values, as.numeric(transformed_n))
+})
+
+testthat::test_that("fit_complexity_model returns unknown when best fit R2 is below threshold", {
+  n <- c(100, 500, 1000, 2500, 5000, 10000)
+  t <- c(0.10, 0.17, 0.14, 0.21, 0.18, 0.25)
+
+  fit <- fit_complexity_model(
+    n_values = n,
+    t_values = t,
+    min_best_r2 = 0.95,
+    min_unique_n = 5L,
+    min_n_span_ratio = 2
+  )
+
+  testthat::expect_equal(fit$best_class, "unknown")
+  testthat::expect_true(is.na(fit$best_r2))
+})
+
 
 # ── summarise_benchmark ───────────────────────────────────────────────────────
 
@@ -326,7 +513,7 @@ testthat::test_that("fn_factory returns a zero-argument function", {
   testthat::expect_equal(length(formals(fn)), 0L)
 })
 
-testthat::test_that("stage 1 benchmark catalog includes excel read benchmark", {
+testthat::test_that("stage 1 benchmark catalog includes split excel benchmarks", {
   cfg <- utils::modifyList(get_analysis_config(), list(
     stages = c("1-import"),
     input_sizes = c(100L),
@@ -335,44 +522,119 @@ testthat::test_that("stage 1 benchmark catalog includes excel read benchmark", {
 
   defs <- build_stage_benchmarks("1-import", cfg)
 
-  testthat::expect_true("discover_and_read_excel_sheets" %in% names(defs))
-  testthat::expect_identical(
-    defs[["discover_and_read_excel_sheets"]]$stage,
-    "1-import"
+  testthat::expect_true("discover_excel_files" %in% names(defs))
+  testthat::expect_true("read_excel_file_sheets" %in% names(defs))
+  testthat::expect_identical(defs[["discover_excel_files"]]$stage, "1-import")
+  testthat::expect_identical(defs[["read_excel_file_sheets"]]$stage, "1-import")
+})
+
+testthat::test_that("excel discovery workload scaling is bounded and deterministic", {
+  scaled <- vapply(c(100L, 1000L, 5000L, 10000L, 50000L), function(n_i) {
+    .scale_excel_discovery_workbook_count(
+      n = n_i,
+      max_workbooks = 64L,
+      scale_divisor = 1000L
+    )
+  }, integer(1))
+
+  testthat::expect_equal(scaled, c(1L, 1L, 5L, 10L, 50L))
+})
+
+testthat::test_that("excel sheet-read scaling is bounded and deterministic", {
+  scaled <- vapply(c(100L, 1000L, 5000L, 10000L, 50000L), function(n_i) {
+    .scale_excel_sheet_reads(
+      n = n_i,
+      max_sheet_reads = 5000L
+    )
+  }, integer(1))
+
+  testthat::expect_equal(scaled, c(100L, 1000L, 5000L, 5000L, 5000L))
+})
+
+testthat::test_that("stage 1 excel benchmarks expose complexity input transforms", {
+  cfg <- utils::modifyList(get_analysis_config(), list(
+    stages = c("1-import"),
+    input_sizes = c(100L),
+    n_reps = 1L,
+    excel_discovery_scale_divisor = 1000L,
+    excel_discovery_max_workbooks = 64L,
+    excel_read_rows_per_sheet = 128L,
+    excel_read_max_sheet_reads_per_iteration = 5000L,
+    excel_fixture_base_rows_per_sheet = 64L
+  ))
+
+  defs <- build_stage_benchmarks("1-import", cfg)
+  discover_transform <- defs[["discover_excel_files"]]$complexity_n_transform
+  read_transform <- defs[["read_excel_file_sheets"]]$complexity_n_transform
+
+  testthat::expect_type(discover_transform, "closure")
+  testthat::expect_type(read_transform, "closure")
+  testthat::expect_equal(
+    as.integer(discover_transform(c(100L, 1000L, 5000L, 10000L, 50000L))),
+    c(1L, 1L, 5L, 10L, 50L)
+  )
+  testthat::expect_equal(
+    as.integer(read_transform(c(100L, 1000L, 5000L, 10000L, 50000L))),
+    c(100L, 1000L, 5000L, 5000L, 5000L)
   )
 })
 
-testthat::test_that("stage 1 excel read benchmark factory executes without error", {
+testthat::test_that("synthetic excel fixture generation scales count and size independently", {
+  testthat::skip_if_not_installed("writexl")
   testthat::skip_if_not_installed("readxl")
 
-  fixture_file <- readxl::readxl_example("datasets.xlsx")
-  if (!nzchar(fixture_file) || !file.exists(fixture_file)) {
-    testthat::skip("readxl example workbook is not available")
-  }
-
-  fixture_dir <- tempfile("perf_excel_fixture_")
-  dir.create(fixture_dir, recursive = TRUE, showWarnings = FALSE)
-  on.exit(unlink(fixture_dir, recursive = TRUE), add = TRUE)
-
-  copied <- file.copy(
-    fixture_file,
-    file.path(fixture_dir, "fixture.xlsx"),
-    overwrite = TRUE
+  fixture_discovery <- .create_excel_benchmark_fixture_dir(
+    workbook_count = 7L,
+    rows_per_sheet = 64L,
+    sheet_count = 2L
   )
-  testthat::expect_true(copied)
+  fixture_read <- .create_excel_benchmark_fixture_dir(
+    workbook_count = 2L,
+    rows_per_sheet = 512L,
+    sheet_count = 2L
+  )
+
+  discovery_files <- fs::dir_ls(fixture_discovery, type = "file", glob = "*.xlsx")
+  read_files <- fs::dir_ls(fixture_read, type = "file", glob = "*.xlsx")
+
+  testthat::expect_equal(length(discovery_files), 7L)
+  testthat::expect_equal(length(read_files), 2L)
+
+  read_sample <- readxl::read_excel(path = read_files[[1L]], sheet = "sheet_01")
+  testthat::expect_equal(nrow(read_sample), 512L)
+})
+
+testthat::test_that("stage 1 split excel benchmark factories execute without error", {
+  testthat::skip_if_not_installed("writexl")
+  testthat::skip_if_not_installed("readxl")
 
   cfg <- utils::modifyList(get_analysis_config(), list(
     stages = c("1-import"),
     input_sizes = c(100L),
     n_reps = 1L,
-    paths = list(data = list(imports = list(raw = fixture_dir)))
+    excel_discovery_scale_divisor = 1000L,
+    excel_discovery_max_workbooks = 64L,
+    excel_read_rows_per_sheet = 128L,
+    excel_read_max_sheet_reads_per_iteration = 5000L,
+    excel_read_workbook_count = 2L,
+    excel_fixture_sheet_count = 2L,
+    excel_fixture_base_rows_per_sheet = 64L
   ))
 
   defs <- build_stage_benchmarks("1-import", cfg)
-  fn <- defs[["discover_and_read_excel_sheets"]]$fn_factory(100L)
+  discover_fn <- defs[["discover_excel_files"]]$fn_factory(100L)
+  read_fn <- defs[["read_excel_file_sheets"]]$fn_factory(100L)
 
-  testthat::expect_type(fn, "closure")
-  testthat::expect_no_error(fn())
+  testthat::expect_type(discover_fn, "closure")
+  testthat::expect_type(read_fn, "closure")
+  testthat::expect_no_error(discover_fn())
+
+  read_result <- NULL
+  testthat::expect_no_error({
+    read_result <- read_fn()
+  })
+  testthat::expect_type(read_result, "list")
+  testthat::expect_equal(read_result$sheet_reads, 100L)
 })
 
 testthat::test_that("stage 2 benchmark catalog includes additional post-processing hotspots", {
@@ -588,6 +850,29 @@ testthat::test_that("build_analysis_markdown includes chart-ready and projection
   testthat::expect_true(any(grepl("^## Runtime Projections by Sample n$", lines)))
   testthat::expect_true(grepl("75.0%", raw_text, fixed = TRUE))
   testthat::expect_true(grepl("!!! (critical)", raw_text, fixed = TRUE))
+})
+
+testthat::test_that("time_fn suppresses bench GC filtering warning noise", {
+  captured_warnings <- character(0L)
+
+  withCallingHandlers(
+    time_fn(function() {
+      x <- rnorm(10000L)
+      sum(x)
+    }),
+    warning = function(w) {
+      captured_warnings <<- c(captured_warnings, conditionMessage(w))
+      invokeRestart("muffleWarning")
+    }
+  )
+
+  has_gc_filter_warning <- any(grepl(
+    "GC in every iteration; so filtering is disabled",
+    captured_warnings,
+    fixed = TRUE
+  ))
+
+  testthat::expect_false(has_gc_filter_warning)
 })
 
 # ── run_benchmark (progressor integration) ───────────────────────────────────

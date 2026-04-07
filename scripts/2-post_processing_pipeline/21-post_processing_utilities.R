@@ -173,13 +173,16 @@ generate_post_processing_rule_templates <- function(config, overwrite = TRUE) {
 }
 
 #' @title Read rule table from csv or excel
-#' @description Reads a rule table file and returns a `data.table`.
+#' @description Reads a rule table file and returns a `data.table`. For
+#' Excel files, all worksheets whose columns match the canonical rule schema
+#' (with optional `clean_`/`harmonize_` prefixes) are read and row-bound in
+#' workbook order.
 #' @param file_path Character scalar path to rule file.
 #' @return `data.table` containing rule rows.
 #' @importFrom checkmate assert_string assert_file_exists
 #' @importFrom fs path_ext
 #' @importFrom readr read_csv
-#' @importFrom readxl read_excel
+#' @importFrom readxl read_excel excel_sheets
 #' @examples
 #' \dontrun{read_rule_table("data/1-import/11-clean_imports/clean_rules.xlsx")}
 read_rule_table <- function(file_path) {
@@ -197,7 +200,67 @@ read_rule_table <- function(file_path) {
   }
 
   if (file_extension %in% c("xlsx", "xls")) {
-    return(readxl::read_excel(file_path) |> data.table::as.data.table())
+    canonical_columns <- get_canonical_rule_columns()
+    optional_columns <- c("value_source")
+    required_columns <- setdiff(canonical_columns, optional_columns)
+    stage_prefix_pattern <- "^(clean|harmonize)_"
+
+    sheet_names <- readxl::excel_sheets(file_path)
+
+    sheet_results <- lapply(sheet_names, function(sheet_name) {
+      sheet_dt <- readxl::read_excel(file_path, sheet = sheet_name) |>
+        data.table::as.data.table()
+
+      available_columns <- colnames(sheet_dt)
+      normalized_columns <- sub(stage_prefix_pattern, "", available_columns)
+
+      has_duplicated_normalized <- anyDuplicated(normalized_columns) > 0L
+      has_unexpected_columns <- any(!(normalized_columns %in% canonical_columns))
+      has_required_columns <- all(required_columns %in% normalized_columns)
+
+      is_matching_sheet <-
+        !has_duplicated_normalized &&
+        !has_unexpected_columns &&
+        has_required_columns
+
+      if (is_matching_sheet) {
+        data.table::setnames(sheet_dt, available_columns, normalized_columns)
+      }
+
+      return(list(
+        matches = is_matching_sheet,
+        rules_dt = sheet_dt
+      ))
+    })
+
+    matching_sheet_indexes <- which(vapply(
+      sheet_results,
+      function(result) {
+        isTRUE(result$matches)
+      },
+      logical(1)
+    ))
+
+    if (length(matching_sheet_indexes) == 0L) {
+      cli::cli_abort(c(
+        "No worksheets with matching rule columns found in {.file {file_path}}.",
+        "x" = paste0("Required columns: ", paste(required_columns, collapse = ", ")),
+        "x" = paste0("Available sheets: ", paste(sheet_names, collapse = ", "))
+      ))
+    }
+
+    matching_tables <- lapply(
+      sheet_results[matching_sheet_indexes],
+      function(result) {
+        result$rules_dt
+      }
+    )
+
+    return(data.table::rbindlist(
+      matching_tables,
+      use.names = TRUE,
+      fill = TRUE
+    ))
   }
 
   cli::cli_abort("Unsupported rule extension for {.file {file_path}}.")

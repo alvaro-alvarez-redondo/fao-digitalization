@@ -178,12 +178,18 @@ run_post_processing_pipeline_batch <- function(
 
     clean_audit <- attr(cleaned_dt, "layer_audit")
     harmonize_audit <- attr(harmonized_dt, "layer_audit")
+    harmonize_overwrite_events <- attr(
+      harmonized_dt,
+      "layer_last_rule_wins_overwrites"
+    )
 
     progress("Post-Processing Pipeline Progress: persisting diagnostics")
     audit_output_path <- persist_post_processing_audit(
       clean_audit_dt = clean_audit,
       harmonize_audit_dt = harmonize_audit,
       standardize_rows_dt = attr(normalized_dt, "aggregated_source_rows"),
+      final_stage_dt = harmonized_dt,
+      last_rule_wins_overwrites_dt = harmonize_overwrite_events,
       config = config
     )
 

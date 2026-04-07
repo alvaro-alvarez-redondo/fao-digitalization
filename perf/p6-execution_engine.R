@@ -7,6 +7,106 @@ NULL
 
 # ── 6. execution engine ──────────────────────────────────────────────────────
 
+#' @title Check complexity fit support
+#' @description Validate whether a candidate complexity input vector provides
+#'   enough distinct support to fit models reliably under configured thresholds.
+#' @param n_values Numeric vector of candidate input sizes.
+#' @param min_unique_n_req Integer scalar minimum number of distinct values.
+#' @param min_n_span_ratio_req Numeric scalar minimum max(n) / min(n) ratio.
+#' @return Logical scalar.
+#' @keywords internal
+#' @noRd
+.has_complexity_fit_support <- function(
+  n_values,
+  min_unique_n_req,
+  min_n_span_ratio_req
+) {
+  n_clean <- suppressWarnings(as.numeric(n_values))
+  valid <- !is.na(n_clean) & is.finite(n_clean) & n_clean > 0
+  n_clean <- n_clean[valid]
+
+  if (length(n_clean) < 3L) {
+    return(FALSE)
+  }
+
+  unique_n <- sort(unique(n_clean))
+  if (length(unique_n) < as.integer(min_unique_n_req)) {
+    return(FALSE)
+  }
+
+  n_span_ratio <- max(unique_n) / min(unique_n)
+  if (!is.finite(n_span_ratio) || n_span_ratio < as.numeric(min_n_span_ratio_req)) {
+    return(FALSE)
+  }
+
+  return(TRUE)
+}
+
+#' @title Select complexity fit input sizes
+#' @description Choose between transformed and original benchmark n values.
+#'   Uses transformed values when they satisfy minimum fit-support thresholds;
+#'   otherwise falls back to original values when those satisfy support.
+#' @param original_n Numeric vector of original benchmark sizes.
+#' @param transformed_n Optional numeric vector after benchmark-specific
+#'   complexity transform.
+#' @param min_unique_n_req Integer scalar minimum number of distinct values.
+#' @param min_n_span_ratio_req Numeric scalar minimum max(n) / min(n) ratio.
+#' @return Named list with n_values, source, and fallback_applied.
+#' @keywords internal
+#' @noRd
+.select_complexity_fit_n <- function(
+  original_n,
+  transformed_n = NULL,
+  min_unique_n_req,
+  min_n_span_ratio_req
+) {
+  original_n <- suppressWarnings(as.numeric(original_n))
+
+  if (is.null(transformed_n)) {
+    return(list(
+      n_values = original_n,
+      source = "original",
+      fallback_applied = FALSE
+    ))
+  }
+
+  transformed_n <- suppressWarnings(as.numeric(transformed_n))
+
+  transformed_has_support <- .has_complexity_fit_support(
+    transformed_n,
+    min_unique_n_req = min_unique_n_req,
+    min_n_span_ratio_req = min_n_span_ratio_req
+  )
+
+  if (isTRUE(transformed_has_support)) {
+    return(list(
+      n_values = transformed_n,
+      source = "transformed",
+      fallback_applied = FALSE
+    ))
+  }
+
+  original_has_support <- .has_complexity_fit_support(
+    original_n,
+    min_unique_n_req = min_unique_n_req,
+    min_n_span_ratio_req = min_n_span_ratio_req
+  )
+
+  if (isTRUE(original_has_support)) {
+    return(list(
+      n_values = original_n,
+      source = "original",
+      fallback_applied = TRUE
+    ))
+  }
+
+  return(list(
+    n_values = transformed_n,
+    source = "transformed",
+    fallback_applied = FALSE
+  ))
+}
+
 #' @title Run benchmark set
 #' @description Internal helper that executes benchmark descriptors and fits
 #'   complexity models.
@@ -97,7 +197,94 @@ NULL
     summ_dt[, `:=`(fn_name = bm$name, stage = bm$stage)]
     all_summary[[i]] <- summ_dt
 
-    fit <- fit_complexity_model(summ_dt$n, summ_dt$median_s)
+    bm_r2_tolerance <- if (!is.null(bm$complexity_r2_tolerance)) {
+      bm$complexity_r2_tolerance
+    } else {
+      cfg$complexity_r2_tolerance
+    }
+    bm_min_best_r2 <- if (!is.null(bm$complexity_min_best_r2)) {
+      bm$complexity_min_best_r2
+    } else {
+      cfg$complexity_min_best_r2
+    }
+    bm_min_unique_n <- if (!is.null(bm$complexity_min_unique_n)) {
+      bm$complexity_min_unique_n
+    } else {
+      cfg$complexity_min_unique_n
+    }
+    bm_min_n_span_ratio <- if (!is.null(bm$complexity_min_n_span_ratio)) {
+      bm$complexity_min_n_span_ratio
+    } else {
+      cfg$complexity_min_n_span_ratio
+    }
+
+    fit_min_unique_n <- .resolve_complexity_min_unique_n(bm_min_unique_n)
+    fit_min_n_span_ratio <- .resolve_complexity_min_n_span_ratio(bm_min_n_span_ratio)
+
+    fit_input_n <- as.numeric(summ_dt$n)
+    if (!is.null(bm$complexity_n_transform) && is.function(bm$complexity_n_transform)) {
+      transformed_n <- tryCatch(
+        bm$complexity_n_transform(summ_dt$n),
+        error = function(e) {
+          warning(sprintf(
+            "benchmark '%s' complexity_n_transform failed: %s",
+            bm$name,
+            conditionMessage(e)
+          ))
+          NULL
+        }
+      )
+
+      if (!is.null(transformed_n)) {
+        transformed_n <- suppressWarnings(as.numeric(transformed_n))
+        valid_transform <- (
+          length(transformed_n) == length(fit_input_n) &&
+            all(!is.na(transformed_n)) &&
+            all(is.finite(transformed_n)) &&
+            all(transformed_n > 0)
+        )
+        if (isTRUE(valid_transform)) {
+          selected_n <- .select_complexity_fit_n(
+            original_n = summ_dt$n,
+            transformed_n = transformed_n,
+            min_unique_n_req = fit_min_unique_n,
+            min_n_span_ratio_req = fit_min_n_span_ratio
+          )
+          fit_input_n <- selected_n$n_values
+
+          if (!quiet && isTRUE(selected_n$fallback_applied)) {
+            message(sprintf(
+              "  -> complexity transform collapsed support for '%s'; using original n for model fitting",
+              bm$name
+            ))
+          }
+        } else {
+          warning(sprintf(
+            "benchmark '%s' returned invalid transformed complexity n values; using original n",
+            bm$name
+          ))
+        }
+      }
+    }
+
+    fit_dt <- data.table::data.table(
+      n = fit_input_n,
+      median_s = summ_dt$median_s
+    )
+    fit_dt <- fit_dt[
+      ,
+      .(median_s = stats::median(median_s, na.rm = TRUE)),
+      by = n
+    ][order(n)]
+
+    fit <- fit_complexity_model(
+      fit_dt$n,
+      fit_dt$median_s,
+      r2_tolerance = bm_r2_tolerance,
+      min_best_r2 = bm_min_best_r2,
+      min_unique_n = bm_min_unique_n,
+      min_n_span_ratio = bm_min_n_span_ratio
+    )
 
     if (!quiet) {
       message(sprintf(
