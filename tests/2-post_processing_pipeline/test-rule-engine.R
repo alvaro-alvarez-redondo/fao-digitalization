@@ -195,6 +195,57 @@ testthat::test_that("validate_canonical_rules detects duplicate rule keys", {
   )
 })
 
+testthat::test_that("validate_canonical_rules allows source rewrites that branch by value_target_raw", {
+  dataset_dt <- data.table::data.table(
+    product = "wine",
+    variable = "area"
+  )
+
+  rules_dt <- data.table::data.table(
+    column_source = c("product", "product"),
+    value_source_raw = c("wine", "wine"),
+    value_source = c("vineyards: wine", "wine"),
+    column_target = c("variable", "variable"),
+    value_target_raw = c("area", "production"),
+    value_target = c("area", "production")
+  )
+
+  testthat::expect_invisible(
+    validate_canonical_rules(
+      rules_dt = rules_dt,
+      dataset_dt = dataset_dt,
+      rule_file_id = "test.xlsx",
+      stage_name = "clean"
+    )
+  )
+})
+
+testthat::test_that("validate_canonical_rules rejects duplicated conditional keys even if source rewrites differ", {
+  dataset_dt <- data.table::data.table(
+    product = "wine",
+    variable = "area"
+  )
+
+  rules_dt <- data.table::data.table(
+    column_source = c("product", "product"),
+    value_source_raw = c("wine", "wine"),
+    value_source = c("vineyards: wine", "wine"),
+    column_target = c("variable", "variable"),
+    value_target_raw = c("area", "area"),
+    value_target = c("area", "area")
+  )
+
+  testthat::expect_error(
+    validate_canonical_rules(
+      rules_dt = rules_dt,
+      dataset_dt = dataset_dt,
+      rule_file_id = "test.xlsx",
+      stage_name = "clean"
+    ),
+    "Rule uniqueness validation failed"
+  )
+})
+
 
 # --- encode / decode target rule values --------------------------------------
 
@@ -926,6 +977,7 @@ testthat::test_that("apply_footnote_rules applies conditional target updates", {
   )
 
   testthat::expect_equal(result$data$unit[[1]], "kilogram")
+  testthat::expect_true(is.na(result$data$footnotes[[1]]))
 })
 
 testthat::test_that("apply_footnote_rules skips conditional update when condition not met", {
@@ -954,4 +1006,33 @@ testthat::test_that("apply_footnote_rules skips conditional update when conditio
   )
 
   testthat::expect_equal(result$data$unit[[1]], "tonnes")
+  testthat::expect_equal(result$data$footnotes[[1]], "conditional fn")
+})
+
+testthat::test_that("apply_footnote_rules skips source rewrite when target condition is not met", {
+  dataset_dt <- data.table::data.table(
+    product = "bovine",
+    footnotes = "large"
+  )
+
+  footnote_rules <- data.table::data.table(
+    column_source = "footnotes",
+    value_source_raw = "large",
+    value_source = "__VACAS_VIEJAS_TEST__",
+    column_target = "product",
+    value_target_raw = "cattle",
+    value_target = "cattle:__VACAS_VIEJAS_TEST__"
+  )
+
+  result <- apply_footnote_rules(
+    dataset_dt = dataset_dt,
+    footnote_rules = footnote_rules,
+    stage_name = "clean",
+    dataset_name = "demo",
+    rule_file_id = "test.xlsx",
+    execution_timestamp_utc = "2026-01-01T00:00:00Z"
+  )
+
+  testthat::expect_equal(result$data$product[[1]], "bovine")
+  testthat::expect_equal(result$data$footnotes[[1]], "large")
 })

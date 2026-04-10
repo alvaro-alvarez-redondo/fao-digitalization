@@ -353,13 +353,13 @@ validate_canonical_rules <- function(
 
   source_conflict_dt <- rules_for_validation[,
     .(source_value_count = data.table::uniqueN(get(source_value_column))),
-    by = .(column_source, value_source_raw, column_target)
+    by = .(column_source, value_source_raw, column_target, value_target_raw)
   ][source_value_count > 1L]
 
   if (nrow(source_conflict_dt) > 0) {
     cli::cli_abort(c(
       "Conflicting source rewrite rules detected in {.file {rule_file_id}}.",
-      "x" = "A single (column_source, value_source_raw, column_target) maps to multiple source result values."
+      "x" = "A single (column_source, value_source_raw, column_target, value_target_raw) maps to multiple source result values."
     ))
   }
 
@@ -677,6 +677,39 @@ concatenate_existing_and_incoming_values <- function(
   return(merged_values)
 }
 
+#' @title Count element-wise value changes
+#' @description Counts deterministic value changes between two same-length
+#' vectors while preserving missing-value semantics.
+#' @param before_values Atomic vector of values before mutation.
+#' @param after_values Atomic vector of values after mutation.
+#' @return Integer scalar count of changed elements.
+count_elementwise_value_changes <- function(before_values, after_values) {
+  checkmate::assert_atomic(before_values, any.missing = TRUE)
+  checkmate::assert_atomic(after_values, any.missing = TRUE)
+
+  if (length(before_values) != length(after_values)) {
+    cli::cli_abort("before and after vectors must have equal length")
+  }
+
+  if (length(before_values) == 0L) {
+    return(0L)
+  }
+
+  before_na <- is.na(before_values)
+  after_na <- is.na(after_values)
+
+  value_changed <- before_na != after_na
+  comparable_mask <- !before_na & !after_na
+
+  if (any(comparable_mask)) {
+    value_changed[comparable_mask] <-
+      as.character(before_values[comparable_mask]) !=
+      as.character(after_values[comparable_mask])
+  }
+
+  return(as.integer(sum(value_changed)))
+}
+
 #' @title Apply target updates with strategy dispatch
 #' @description Applies conditional and unconditional target updates for one
 #' target column using a configured strategy (`last_rule_wins` or
@@ -720,7 +753,11 @@ apply_target_updates_with_strategy <- function(
   empty_events <- empty_last_rule_wins_overwrite_events_dt()
 
   if (nrow(target_updates) == 0L) {
-    return(list(applied = FALSE, overwrite_events = empty_events))
+    return(list(
+      applied = FALSE,
+      overwrite_events = empty_events,
+      changed_value_count = 0L
+    ))
   }
 
   if (!(target_column %in% colnames(dataset_dt))) {
@@ -750,7 +787,11 @@ apply_target_updates_with_strategy <- function(
   updates_dt <- updates_dt[!is.na(row_id_internal)]
 
   if (nrow(updates_dt) == 0L) {
-    return(list(applied = FALSE, overwrite_events = empty_events))
+    return(list(
+      applied = FALSE,
+      overwrite_events = empty_events,
+      changed_value_count = 0L
+    ))
   }
 
   out_of_bounds_mask <-
@@ -788,7 +829,11 @@ apply_target_updates_with_strategy <- function(
   }
 
   if (nrow(updates_dt) == 0L) {
-    return(list(applied = FALSE, overwrite_events = empty_events))
+    return(list(
+      applied = FALSE,
+      overwrite_events = empty_events,
+      changed_value_count = 0L
+    ))
   }
 
   strategy_config <- get_target_update_strategy_config()
@@ -826,6 +871,8 @@ apply_target_updates_with_strategy <- function(
       )
     ]
 
+    previous_values <- dataset_dt[[target_column]][updates_collapsed$row_id_internal]
+
     data.table::set(
       dataset_dt,
       i = updates_collapsed$row_id_internal,
@@ -833,7 +880,16 @@ apply_target_updates_with_strategy <- function(
       value = updates_collapsed$update_value
     )
 
-    return(list(applied = TRUE, overwrite_events = overwrite_events))
+    changed_value_count <- count_elementwise_value_changes(
+      before_values = previous_values,
+      after_values = dataset_dt[[target_column]][updates_collapsed$row_id_internal]
+    )
+
+    return(list(
+      applied = TRUE,
+      overwrite_events = overwrite_events,
+      changed_value_count = changed_value_count
+    ))
   }
 
   if (identical(strategy, "concatenate")) {
@@ -855,7 +911,11 @@ apply_target_updates_with_strategy <- function(
     updates_dt <- updates_dt[!is.na(update_value)]
 
     if (nrow(updates_dt) == 0L) {
-      return(list(applied = FALSE, overwrite_events = empty_events))
+      return(list(
+        applied = FALSE,
+        overwrite_events = empty_events,
+        changed_value_count = 0L
+      ))
     }
 
     delimiter <- strategy_config$concatenate_delimiter
@@ -879,7 +939,16 @@ apply_target_updates_with_strategy <- function(
       value = merged_values
     )
 
-    return(list(applied = TRUE, overwrite_events = empty_events))
+    changed_value_count <- count_elementwise_value_changes(
+      before_values = existing_values,
+      after_values = dataset_dt[[target_column]][updates_collapsed$row_id_internal]
+    )
+
+    return(list(
+      applied = TRUE,
+      overwrite_events = empty_events,
+      changed_value_count = changed_value_count
+    ))
   }
 
   cli::cli_abort(
@@ -978,14 +1047,24 @@ apply_conditional_rule_group <- function(
     as.logical(joined_dt$source_value_column_present)
   matched_rows <- as.integer(sum(matched_row_mask))
   overwrite_events_dt <- empty_last_rule_wins_overwrite_events_dt()
+  source_changed_value_count <- 0L
+  target_changed_value_count <- 0L
 
   if (matched_rows > 0L) {
     if (any(source_update_mask)) {
+      source_row_ids <- joined_dt$row_id[source_update_mask]
+      source_values_before <- dataset_dt[[source_column]][source_row_ids]
+
       data.table::set(
         dataset_dt,
-        i = joined_dt$row_id[source_update_mask],
+        i = source_row_ids,
         j = source_column,
         value = joined_dt$value_source_result[source_update_mask]
+      )
+
+      source_changed_value_count <- count_elementwise_value_changes(
+        before_values = source_values_before,
+        after_values = dataset_dt[[source_column]][source_row_ids]
       )
     }
 
@@ -1011,6 +1090,7 @@ apply_conditional_rule_group <- function(
     )
 
     overwrite_events_dt <- update_result$overwrite_events
+    target_changed_value_count <- update_result$changed_value_count
   }
 
   matched_counts <- joined_dt[
@@ -1053,7 +1133,10 @@ apply_conditional_rule_group <- function(
   return(list(
     data = dataset_dt,
     audit = audit_dt,
-    overwrite_events = overwrite_events_dt
+    overwrite_events = overwrite_events_dt,
+    changed_value_count = as.integer(
+      source_changed_value_count + target_changed_value_count
+    )
   ))
 }
 
@@ -1094,6 +1177,8 @@ apply_footnote_rules <- function(
   if (!("footnotes" %in% colnames(dataset_dt))) {
     dataset_dt[, footnotes := NA_character_]
   }
+
+  footnote_values_before <- dataset_dt$footnotes
 
   # --- step 1: assign row identifiers ----------------------------------------
   dataset_dt[, row_id := .I]
@@ -1167,6 +1252,39 @@ apply_footnote_rules <- function(
 
   # --- step 5: compute footnote_final using vectorized conditional logic -----
   matched_mask <- !is.na(joined$column_source)
+
+  conditional_target_mask <- matched_mask &
+    joined$column_target != "footnotes" &
+    !is.na(joined$value_target_raw)
+
+  if (any(conditional_target_mask)) {
+    condition_match_mask <- rep(FALSE, nrow(joined))
+
+    conditional_target_columns <- unique(joined$column_target[
+      conditional_target_mask
+    ])
+
+    for (target_column in conditional_target_columns) {
+      target_column_mask <-
+        conditional_target_mask & joined$column_target == target_column
+
+      current_target_values <- dataset_dt[[target_column]][
+        joined$row_id[target_column_mask]
+      ]
+
+      current_target_keys <- encode_rule_match_key(current_target_values)
+      condition_target_keys <- encode_rule_match_key(
+        joined$value_target_raw[target_column_mask]
+      )
+
+      condition_match_mask[target_column_mask] <-
+        current_target_keys == condition_target_keys
+    }
+
+    matched_mask <- matched_mask &
+      (!conditional_target_mask | condition_match_mask)
+  }
+
   joined[, footnote_final := footnote]
 
   # matched replacement: value_source_result is not NA → replace footnote text
@@ -1190,6 +1308,7 @@ apply_footnote_rules <- function(
     value_target_result
   )]
   overwrite_event_tables <- list()
+  total_target_changed_value_count <- 0L
 
   if (nrow(target_updates) > 0L) {
     target_columns <- unique(target_updates$column_target)
@@ -1213,6 +1332,9 @@ apply_footnote_rules <- function(
         overwrite_event_tables[[length(overwrite_event_tables) + 1L]] <-
           update_result$overwrite_events
       }
+
+      total_target_changed_value_count <-
+        total_target_changed_value_count + update_result$changed_value_count
     }
   }
 
@@ -1257,6 +1379,11 @@ apply_footnote_rules <- function(
 
   # --- step 8: clean temporary columns ---------------------------------------
   dataset_dt[, row_id := NULL]
+
+  footnote_changed_value_count <- count_elementwise_value_changes(
+    before_values = footnote_values_before,
+    after_values = dataset_dt$footnotes
+  )
 
   # --- step 9: generate audit records ----------------------------------------
   audit_source <- joined[matched_mask]
@@ -1305,7 +1432,10 @@ apply_footnote_rules <- function(
   return(list(
     data = dataset_dt,
     audit = audit_dt,
-    overwrite_events = overwrite_events_dt
+    overwrite_events = overwrite_events_dt,
+    changed_value_count = as.integer(
+      total_target_changed_value_count + footnote_changed_value_count
+    )
   ))
 }
 
@@ -1340,13 +1470,15 @@ apply_rule_payload <- function(
     return(list(
       data = dataset_dt,
       audit = data.table::data.table(),
-      overwrite_events = empty_last_rule_wins_overwrite_events_dt()
+      overwrite_events = empty_last_rule_wins_overwrite_events_dt(),
+      changed_value_count = 0L
     ))
   }
 
   rules_dt <- data.table::as.data.table(canonical_rules)
   audit_tables <- list()
   overwrite_tables <- list()
+  changed_value_count <- 0L
   current_data <- dataset_dt
 
   # --- route footnote-source rules through specialized handler ----------------
@@ -1365,6 +1497,7 @@ apply_rule_payload <- function(
     )
     current_data <- fn_result$data
     audit_tables[[length(audit_tables) + 1L]] <- fn_result$audit
+    changed_value_count <- changed_value_count + fn_result$changed_value_count
     if (nrow(fn_result$overwrite_events) > 0L) {
       overwrite_tables[[length(overwrite_tables) + 1L]] <-
         fn_result$overwrite_events
@@ -1390,6 +1523,8 @@ apply_rule_payload <- function(
 
       current_data <- group_result$data
       audit_tables[[length(audit_tables) + 1L]] <- group_result$audit
+      changed_value_count <-
+        changed_value_count + group_result$changed_value_count
       if (nrow(group_result$overwrite_events) > 0L) {
         overwrite_tables[[length(overwrite_tables) + 1L]] <-
           group_result$overwrite_events
@@ -1412,6 +1547,7 @@ apply_rule_payload <- function(
   return(list(
     data = current_data,
     audit = combined_audit,
-    overwrite_events = combined_overwrite_events
+    overwrite_events = combined_overwrite_events,
+    changed_value_count = as.integer(changed_value_count)
   ))
 }

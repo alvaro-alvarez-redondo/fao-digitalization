@@ -245,4 +245,12 @@ testthat::test_that("persist_post_processing_audit writes overwrite subset diagn
   testthat::expect_true(file.exists(output_paths[["aggregate_standardized_rows"]]))
   testthat::expect_true("last_rule_wins_overwrites" %in% names(output_paths))
   testthat::expect_true(file.exists(output_paths[["last_rule_wins_overwrites"]]))
+  testthat::expect_identical(
+    readxl::excel_sheets(output_paths[["aggregate_standardized_rows"]]),
+    "aggregate_standardized_rows"
+  )
+  testthat::expect_identical(
+    readxl::excel_sheets(output_paths[["last_rule_wins_overwrites"]]),
+    "last_rule_wins_overwrites"
+  )
 })

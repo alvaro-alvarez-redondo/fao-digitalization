@@ -36,6 +36,8 @@ testthat::test_that("load_pipeline_config builds a valid config object", {
   testthat::expect_true("column_order" %in% names(config))
   testthat::expect_true("export_config" %in% names(config))
   testthat::expect_true("project_root" %in% names(config))
+  testthat::expect_true("post_processing" %in% names(config))
+  testthat::expect_true("multi_pass" %in% names(config$post_processing))
 })
 
 testthat::test_that("load_pipeline_config accepts custom dataset_name", {

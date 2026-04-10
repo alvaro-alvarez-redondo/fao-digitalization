@@ -130,7 +130,10 @@ write_processed_table_fast <- function(data_dt, output_path, overwrite = TRUE) {
     )
   }
 
-  writexl::write_xlsx(data_dt, path = output_path)
+  writexl::write_xlsx(
+    list(processed_data = data_dt),
+    path = output_path
+  )
 
   return(output_path)
 }

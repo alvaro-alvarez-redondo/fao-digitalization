@@ -390,12 +390,20 @@ persist_post_processing_audit <- function(
   )
 
   writexl::write_xlsx(
-    data.table::as.data.table(standardize_rows_dt),
+    list(
+      aggregate_standardized_rows = data.table::as.data.table(
+        standardize_rows_dt
+      )
+    ),
     path = output_paths[["aggregate_standardized_rows"]]
   )
 
   writexl::write_xlsx(
-    data.table::as.data.table(last_rule_wins_subset_dt),
+    list(
+      last_rule_wins_overwrites = data.table::as.data.table(
+        last_rule_wins_subset_dt
+      )
+    ),
     path = output_paths[["last_rule_wins_overwrites"]]
   )
 

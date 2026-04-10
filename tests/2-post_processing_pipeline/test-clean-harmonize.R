@@ -354,3 +354,260 @@ testthat::test_that("run_cleaning_layer_batch returns unchanged data with no rul
   testthat::expect_equal(result$product[[1]], "Wheat")
   testthat::expect_equal(result$unit[[1]], "kg")
 })
+
+
+# --- multi-pass convergence and safeguards -----------------------------------
+
+testthat::test_that("harmonize multi-pass converges chained footnote and unit rules without duplicate rule rows", {
+  config <- build_test_config()
+
+  harmonize_rules <- data.frame(
+    column_source = c("footnotes", "unit"),
+    value_source_raw = c("number", "quintals"),
+    value_source = c("number", "quintal"),
+    column_target = c("unit", "unit"),
+    value_target_raw = c("quintal", "quintals"),
+    value_target = c("count", "quintal"),
+    stringsAsFactors = FALSE
+  )
+  create_harmonize_rule_file(
+    config = config,
+    rules_df = harmonize_rules,
+    filename = "harmonize_rules_multipass_convergence.csv"
+  )
+
+  input_dt <- data.frame(
+    footnotes = "number",
+    unit = "quintals",
+    stringsAsFactors = FALSE
+  )
+
+  result <- run_harmonize_layer_batch(
+    dataset_dt = input_dt,
+    config = config,
+    dataset_name = "demo"
+  )
+
+  diagnostics <- attr(result, "layer_diagnostics")
+
+  testthat::expect_equal(result$unit[[1]], "count")
+  testthat::expect_true(is.list(diagnostics$multi_pass))
+  testthat::expect_true(diagnostics$multi_pass$converged)
+  testthat::expect_true(diagnostics$multi_pass$passes_executed >= 2L)
+})
+
+testthat::test_that("clean multi-pass detects deterministic two-state cycle with warn policy", {
+  config <- build_test_config()
+
+  clean_rules <- data.frame(
+    column_source = c("unit", "unit"),
+    value_source_raw = c("a", "b"),
+    value_source = c("b", "a"),
+    column_target = c("unit", "unit"),
+    value_target_raw = c("a", "b"),
+    value_target = c("b", "a"),
+    stringsAsFactors = FALSE
+  )
+  create_clean_rule_file(
+    config = config,
+    rules_df = clean_rules,
+    filename = "clean_rules_cycle_warn.csv"
+  )
+
+  input_dt <- data.frame(
+    unit = "a",
+    stringsAsFactors = FALSE
+  )
+
+  result <- testthat::expect_warning(
+    run_cleaning_layer_batch(
+      dataset_dt = input_dt,
+      config = config,
+      dataset_name = "demo"
+    ),
+    regexp = "cycle detected"
+  )
+
+  diagnostics <- attr(result, "layer_diagnostics")
+
+  testthat::expect_true(diagnostics$multi_pass$cycle_detected)
+  testthat::expect_identical(diagnostics$multi_pass$stop_reason, "cycle_detected")
+  testthat::expect_true(diagnostics$multi_pass$passes_executed >= 2L)
+})
+
+testthat::test_that("clean multi-pass aborts on cycle when cycle_policy is abort", {
+  config <- build_test_config()
+  config$post_processing <- list(
+    multi_pass = list(cycle_policy = "abort")
+  )
+
+  clean_rules <- data.frame(
+    column_source = c("unit", "unit"),
+    value_source_raw = c("a", "b"),
+    value_source = c("b", "a"),
+    column_target = c("unit", "unit"),
+    value_target_raw = c("a", "b"),
+    value_target = c("b", "a"),
+    stringsAsFactors = FALSE
+  )
+  create_clean_rule_file(
+    config = config,
+    rules_df = clean_rules,
+    filename = "clean_rules_cycle_abort.csv"
+  )
+
+  input_dt <- data.frame(
+    unit = "a",
+    stringsAsFactors = FALSE
+  )
+
+  testthat::expect_error(
+    run_cleaning_layer_batch(
+      dataset_dt = input_dt,
+      config = config,
+      dataset_name = "demo"
+    ),
+    regexp = "cycle detected"
+  )
+})
+
+testthat::test_that("clean multi-pass reports max_passes reached before convergence", {
+  config <- build_test_config()
+  config$post_processing <- list(
+    multi_pass = list(
+      enabled_by_stage = c(clean = TRUE, harmonize = TRUE),
+      max_passes_by_stage = c(clean = 1L, harmonize = 10L)
+    )
+  )
+
+  clean_rules <- data.frame(
+    column_source = c("unit", "unit"),
+    value_source_raw = c("quintals", "quintal"),
+    value_source = c("quintal", NA_character_),
+    column_target = c("unit", "notes"),
+    value_target_raw = c("quintals", NA_character_),
+    value_target = c("quintal", "normalized"),
+    stringsAsFactors = FALSE
+  )
+  create_clean_rule_file(
+    config = config,
+    rules_df = clean_rules,
+    filename = "clean_rules_max_passes.csv"
+  )
+
+  input_dt <- data.frame(
+    unit = "quintals",
+    notes = NA_character_,
+    stringsAsFactors = FALSE
+  )
+
+  result <- testthat::expect_warning(
+    run_cleaning_layer_batch(
+      dataset_dt = input_dt,
+      config = config,
+      dataset_name = "demo"
+    ),
+    regexp = "max_passes=1"
+  )
+
+  diagnostics <- attr(result, "layer_diagnostics")
+
+  testthat::expect_equal(result$unit[[1]], "quintal")
+  testthat::expect_true(is.na(result$notes[[1]]))
+  testthat::expect_true(diagnostics$multi_pass$max_passes_reached_before_convergence)
+  testthat::expect_identical(diagnostics$multi_pass$stop_reason, "max_passes_reached")
+})
+
+testthat::test_that("clean multi-pass treats net-zero-change pass as convergence, not cycle", {
+  config <- build_test_config()
+
+  clean_rules_first <- data.frame(
+    column_source = "unit",
+    value_source_raw = "a",
+    value_source = "b",
+    column_target = "unit",
+    value_target_raw = "a",
+    value_target = "b",
+    stringsAsFactors = FALSE
+  )
+  create_clean_rule_file(
+    config = config,
+    rules_df = clean_rules_first,
+    filename = "clean_rules_cancel_step_01.csv"
+  )
+
+  clean_rules_second <- data.frame(
+    column_source = "unit",
+    value_source_raw = "b",
+    value_source = "a",
+    column_target = "unit",
+    value_target_raw = "b",
+    value_target = "a",
+    stringsAsFactors = FALSE
+  )
+  create_clean_rule_file(
+    config = config,
+    rules_df = clean_rules_second,
+    filename = "clean_rules_cancel_step_02.csv"
+  )
+
+  input_dt <- data.frame(
+    unit = "a",
+    stringsAsFactors = FALSE
+  )
+
+  result <- run_cleaning_layer_batch(
+    dataset_dt = input_dt,
+    config = config,
+    dataset_name = "demo"
+  )
+
+  diagnostics <- attr(result, "layer_diagnostics")
+
+  testthat::expect_equal(result$unit[[1]], "a")
+  testthat::expect_true(diagnostics$multi_pass$converged)
+  testthat::expect_false(diagnostics$multi_pass$cycle_detected)
+  testthat::expect_identical(diagnostics$multi_pass$stop_reason, "converged_zero_change")
+})
+
+testthat::test_that("harmonize stage inherits missing stage controls from defaults when config overrides are partial", {
+  config <- build_test_config()
+  config$post_processing <- list(
+    multi_pass = list(
+      max_passes_by_stage = c(clean = 2L)
+    )
+  )
+
+  harmonize_rules <- data.frame(
+    column_source = "product",
+    value_source_raw = "Wheat",
+    value_source = NA_character_,
+    column_target = "unit",
+    value_target_raw = "kg",
+    value_target = "kilogram",
+    stringsAsFactors = FALSE
+  )
+  create_harmonize_rule_file(
+    config = config,
+    rules_df = harmonize_rules,
+    filename = "harmonize_rules_partial_override.csv"
+  )
+
+  input_dt <- data.frame(
+    product = "Wheat",
+    unit = "kg",
+    stringsAsFactors = FALSE
+  )
+
+  result <- run_harmonize_layer_batch(
+    dataset_dt = input_dt,
+    config = config,
+    dataset_name = "demo"
+  )
+
+  diagnostics <- attr(result, "layer_diagnostics")
+  expected_harmonize_max_passes <- get_pipeline_constants()$post_processing$multi_pass$max_passes_by_stage[["harmonize"]]
+
+  testthat::expect_equal(result$unit[[1]], "kilogram")
+  testthat::expect_equal(diagnostics$multi_pass$max_passes, expected_harmonize_max_passes)
+})

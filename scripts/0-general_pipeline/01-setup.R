@@ -85,6 +85,20 @@ get_pipeline_constants <- function() {
           notes = "concatenate"
         ),
         supported = c("last_rule_wins", "concatenate")
+      ),
+      multi_pass = list(
+        enabled_by_stage = c(
+          clean = TRUE,
+          harmonize = TRUE
+        ),
+        max_passes_by_stage = c(
+          clean = 10L,
+          harmonize = 10L
+        ),
+        cycle_policy = "warn",
+        supported_cycle_policies = c("warn", "abort"),
+        diagnostics_verbosity = "compact",
+        supported_diagnostics_verbosity = c("compact", "verbose")
       )
     )
   )
@@ -295,6 +309,10 @@ load_pipeline_config <- function(
     column_order = column_order,
     export_config = export_config,
     audit_columns = audit_columns,
+    post_processing = list(
+      target_update_strategies = get_pipeline_constants()$post_processing$target_update_strategies,
+      multi_pass = get_pipeline_constants()$post_processing$multi_pass
+    ),
     defaults = list(notes_value = NA_character_),
     messages = list(show_missing_product_metadata_warning = FALSE)
   )

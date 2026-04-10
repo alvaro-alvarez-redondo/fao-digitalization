@@ -89,6 +89,10 @@ testthat::test_that("write_processed_table_fast writes valid xlsx with correct c
   write_processed_table_fast(dt, file_path)
 
   testthat::expect_true(file.exists(file_path))
+  testthat::expect_identical(
+    readxl::excel_sheets(file_path),
+    "processed_data"
+  )
 
   # verify the file can be read back with correct content
   read_back <- readxl::read_excel(file_path)
