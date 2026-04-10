@@ -64,7 +64,7 @@ options(
 #' @keywords internal
 #' @noRd
 .source_perf_script <- function(filename) {
-  abs_path <- file.path(.perf_project_root, "perf", filename)
+  abs_path <- file.path(.perf_project_root, "perf", "perf_pipeline", filename)
   if (!file.exists(abs_path)) {
     stop(sprintf("perf sub-module not found: %s", abs_path))
   }
@@ -134,7 +134,7 @@ run_big_o_analysis <- function(
   cfg$quiet <- quiet
 
   if (is.null(cfg$output_dir)) {
-    cfg$output_dir <- file.path(tempdir(), "perf")
+    cfg$output_dir <- file.path(tempdir(), "perf", "perf_pipeline")
   }
 
   start_time <- proc.time()[["elapsed"]]
@@ -232,7 +232,13 @@ run_perf <- function(
   na_fraction = 0.05,
   dup_fraction = 0.02,
   rng_seed = 42L,
-  output_dir = here::here("data", "3-export", "processed_data", "perf"),
+  output_dir = here::here(
+    "data",
+    "3-export",
+    "processed_data",
+    "perf",
+    "perf_pipeline"
+  ),
   quiet = FALSE
 ) {
   cfg <- get_analysis_config()

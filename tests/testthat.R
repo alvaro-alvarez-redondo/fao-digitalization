@@ -8,17 +8,22 @@ test_dirs <- c(
   here::here("tests", "1-import_pipeline"),
   here::here("tests", "2-post_processing_pipeline"),
   here::here("tests", "3-export_pipeline"),
-  here::here("tests", "perf")
+  here::here("tests", "perf", "perf_pipeline")
 )
 
 for (test_dir in test_dirs) {
-  if (dir.exists(test_dir) && length(list.files(test_dir, pattern = "^test-")) > 0) {
+  if (
+    dir.exists(test_dir) && length(list.files(test_dir, pattern = "^test-")) > 0
+  ) {
     testthat::test_dir(test_dir, reporter = "summary")
   }
 }
 
 # also run tests in tests/testthat/scripts/ if present
 additional_dir <- here::here("tests", "testthat", "scripts")
-if (dir.exists(additional_dir) && length(list.files(additional_dir, pattern = "^test_")) > 0) {
+if (
+  dir.exists(additional_dir) &&
+    length(list.files(additional_dir, pattern = "^test_")) > 0
+) {
   testthat::test_dir(additional_dir, reporter = "summary")
 }

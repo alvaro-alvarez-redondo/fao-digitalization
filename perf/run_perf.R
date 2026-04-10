@@ -8,9 +8,9 @@
 NULL
 
 .perf_orchestration_path <- if (requireNamespace("here", quietly = TRUE)) {
-  here::here("perf", "p9-orchestration.R")
+  here::here("perf", "perf_pipeline", "p9-orchestration.R")
 } else {
-  file.path(getwd(), "perf", "p9-orchestration.R")
+  file.path(getwd(), "perf", "perf_pipeline", "p9-orchestration.R")
 }
 source(.perf_orchestration_path, echo = FALSE, local = FALSE)
 
@@ -18,6 +18,6 @@ source(.perf_orchestration_path, echo = FALSE, local = FALSE)
 do.call(
   run_perf,
   build_perf_run_config(
-    preset_name = "standard"
+    preset_name = "quick"
   )
 )

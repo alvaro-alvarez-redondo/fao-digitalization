@@ -95,7 +95,7 @@ get_perf_run_presets <- function() {
       na_fraction = 0.05,
       dup_fraction = 0.02,
       rng_seed = 42L,
-      output_dir = here::here("data", "perf"),
+      output_dir = here::here("perf", "perf_diagnosis"),
       quiet = FALSE
     ),
     medium = list(
@@ -106,7 +106,7 @@ get_perf_run_presets <- function() {
       na_fraction = 0.05,
       dup_fraction = 0.02,
       rng_seed = 42L,
-      output_dir = here::here("data", "perf"),
+      output_dir = here::here("perf", "perf_diagnosis"),
       quiet = FALSE
     ),
     standard = list(
@@ -117,7 +117,7 @@ get_perf_run_presets <- function() {
       na_fraction = 0.05,
       dup_fraction = 0.02,
       rng_seed = 42L,
-      output_dir = here::here("data", "perf"),
+      output_dir = here::here("perf", "perf_diagnosis"),
       quiet = FALSE
     ),
     full = list(
@@ -128,7 +128,7 @@ get_perf_run_presets <- function() {
       na_fraction = 0.05,
       dup_fraction = 0.02,
       rng_seed = 42L,
-      output_dir = here::here("data", "perf"),
+      output_dir = here::here("perf", "perf_diagnosis"),
       quiet = FALSE
     )
   )
