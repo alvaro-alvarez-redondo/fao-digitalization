@@ -1,6 +1,7 @@
 # General Project Performance
 
 - Analysis timestamp (UTC): 2026-04-07T12:06:32Z
+- Preset: standard
 - Overall pipeline class: O(n^3)
 - Runtime bottleneck pipeline: perf_1-import_pipeline
 - Complexity bottleneck pipeline: perf_1-import_pipeline

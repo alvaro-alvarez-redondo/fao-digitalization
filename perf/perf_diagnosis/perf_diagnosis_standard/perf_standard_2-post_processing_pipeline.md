@@ -1,6 +1,7 @@
 # Pipeline Performance Report: perf_2-post_processing_pipeline
 
 - Stage identifier: 2-post_processing
+- Preset: standard
 - Total functions benchmarked: 3
 - Dominant complexity class: O(n)
 - Stage runtime share: 8.4%

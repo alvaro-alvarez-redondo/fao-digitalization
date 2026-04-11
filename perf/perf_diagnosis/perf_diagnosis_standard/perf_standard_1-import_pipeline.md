@@ -1,6 +1,7 @@
 # Pipeline Performance Report: perf_1-import_pipeline
 
 - Stage identifier: 1-import
+- Preset: standard
 - Total functions benchmarked: 7
 - Dominant complexity class: O(n^3)
 - Stage runtime share: 87.9%

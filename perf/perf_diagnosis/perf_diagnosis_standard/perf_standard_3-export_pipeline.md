@@ -1,6 +1,7 @@
 # Pipeline Performance Report: perf_3-export_pipeline
 
 - Stage identifier: 3-export
+- Preset: standard
 - Total functions benchmarked: 2
 - Dominant complexity class: O(n)
 - Stage runtime share: 2.2%

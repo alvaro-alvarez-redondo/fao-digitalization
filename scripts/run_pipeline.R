@@ -57,11 +57,105 @@ run_pipeline <- function(
   maybe_view_pipeline_output(show_view = show_view)
 
   elapsed_seconds <- (proc.time() - pipeline_start_time)[["elapsed"]]
+  iteration_summary <- build_post_processing_iteration_summary()
   cli::cli_alert_success(
-    "Pipeline completed in {.strong {format_elapsed_time(elapsed_seconds)}}"
+    paste0(
+      "Pipeline completed in {.strong {format_elapsed_time(elapsed_seconds)}}",
+      iteration_summary
+    )
   )
 
   return(invisible(TRUE))
+}
+
+#' @title Build post-processing iteration summary suffix
+#' @description Builds deterministic clean/harmonize loop count suffix for the
+#'   pipeline completion message from post-processing diagnostics.
+#' @param env Environment used to resolve pipeline output objects.
+#' @return Character scalar summary suffix.
+#' @keywords internal
+build_post_processing_iteration_summary <- function(env = .GlobalEnv) {
+  checkmate::assert_environment(env)
+
+  loop_counts <- get_post_processing_iteration_loop_counts(env = env)
+
+  paste0(
+    " | clean loops: ",
+    format_post_processing_iteration_count(loop_counts$clean),
+    " | harmonize loops: ",
+    format_post_processing_iteration_count(loop_counts$harmonize)
+  )
+}
+
+#' @title Format post-processing iteration count
+#' @description Formats integer loop counts for user-facing completion
+#'   messaging.
+#' @param count Integer scalar loop count.
+#' @return Character scalar formatted loop count.
+#' @keywords internal
+format_post_processing_iteration_count <- function(count) {
+  count_value <- suppressWarnings(as.integer(count[[1L]]))
+
+  if (length(count_value) == 0L || is.na(count_value)) {
+    return("N/A")
+  }
+
+  as.character(count_value)
+}
+
+#' @title Get post-processing iteration loop counts
+#' @description Extracts clean and harmonize pass counts from the
+#'   `pipeline_diagnostics` attribute attached to the harmonized dataset.
+#' @param env Environment used to resolve pipeline output objects.
+#' @return Named list with integer scalars `clean` and `harmonize`.
+#' @keywords internal
+get_post_processing_iteration_loop_counts <- function(env = .GlobalEnv) {
+  checkmate::assert_environment(env)
+
+  pipeline_constants <- get_pipeline_constants()
+  harmonized_name <- pipeline_constants$object_names$harmonized
+
+  if (!exists(harmonized_name, envir = env, inherits = TRUE)) {
+    return(list(clean = NA_integer_, harmonize = NA_integer_))
+  }
+
+  harmonized_dt <- get(harmonized_name, envir = env, inherits = TRUE)
+  pipeline_diagnostics <- attr(harmonized_dt, "pipeline_diagnostics")
+
+  if (!is.list(pipeline_diagnostics)) {
+    return(list(clean = NA_integer_, harmonize = NA_integer_))
+  }
+
+  list(
+    clean = extract_post_processing_stage_pass_count(
+      pipeline_diagnostics$clean
+    ),
+    harmonize = extract_post_processing_stage_pass_count(
+      pipeline_diagnostics$harmonize
+    )
+  )
+}
+
+#' @title Extract post-processing stage pass count
+#' @description Safely extracts multi-pass `passes_executed` value from one
+#'   stage diagnostics payload.
+#' @param stage_diagnostics Stage diagnostics list.
+#' @return Integer scalar pass count or `NA_integer_`.
+#' @keywords internal
+extract_post_processing_stage_pass_count <- function(stage_diagnostics) {
+  if (!is.list(stage_diagnostics) || !is.list(stage_diagnostics$multi_pass)) {
+    return(NA_integer_)
+  }
+
+  passes <- suppressWarnings(as.integer(
+    stage_diagnostics$multi_pass$passes_executed[[1L]]
+  ))
+
+  if (length(passes) == 0L || is.na(passes)) {
+    return(NA_integer_)
+  }
+
+  passes
 }
 
 #' @title Assert runtime package dependencies for pipeline orchestration

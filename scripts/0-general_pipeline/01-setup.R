@@ -4,7 +4,9 @@
 
 options(
   stringsAsFactors = FALSE,
-  scipen = 999
+  scipen = 999,
+  datatable.showProgress = FALSE,
+  datatable.verbose = FALSE
 )
 
 

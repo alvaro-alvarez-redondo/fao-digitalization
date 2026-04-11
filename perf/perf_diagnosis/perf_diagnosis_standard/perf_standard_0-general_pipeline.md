@@ -1,6 +1,7 @@
 # Pipeline Performance Report: perf_0-general_pipeline
 
 - Stage identifier: 0-general
+- Preset: standard
 - Total functions benchmarked: 3
 - Dominant complexity class: O(n^2)
 - Stage runtime share: 1.5%

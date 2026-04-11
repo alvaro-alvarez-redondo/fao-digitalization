@@ -62,21 +62,83 @@ perf_pipeline_report_file_map <- c(
 # Canonical markdown report filename for cross-pipeline summary.
 perf_general_summary_report_filename <- "perf_whep-digitalization.md"
 
+#' @title Apply preset label to report filename
+#' @description Prefix markdown report filenames with the preset label so
+#'   artifacts remain self-identifying even if moved across folders.
+#' @param filename A character scalar markdown filename.
+#' @param preset_name A character scalar preset label.
+#' @return A character scalar markdown filename.
+apply_perf_preset_to_report_filename <- function(filename, preset_name) {
+  file_value <- as.character(filename[[1L]])
+  preset_raw <- if (is.null(preset_name) || length(preset_name) == 0L) {
+    NA_character_
+  } else {
+    as.character(preset_name[[1L]])
+  }
+
+  if (is.na(preset_raw) || !nzchar(trimws(preset_raw))) {
+    return(file_value)
+  }
+
+  preset_label <- .sanitize_perf_preset_name(preset_raw, default = "custom")
+  has_md_suffix <- grepl("\\.md$", file_value, ignore.case = TRUE)
+  file_stem <- sub("\\.md$", "", file_value, ignore.case = TRUE)
+
+  if (grepl(sprintf("^perf_%s_", preset_label), file_stem)) {
+    return(file_value)
+  }
+
+  prefixed_stem <- if (grepl("^perf_", file_stem)) {
+    sub("^perf_", sprintf("perf_%s_", preset_label), file_stem)
+  } else {
+    sprintf("perf_%s_%s", preset_label, file_stem)
+  }
+
+  if (has_md_suffix) {
+    paste0(prefixed_stem, ".md")
+  } else {
+    prefixed_stem
+  }
+}
+
 #' @title Get pipeline report file map
 #' @description Return the canonical stage-to-markdown filename mapping used by
 #'   performance reporting exports.
+#' @param preset_name Optional preset label used to namespace markdown
+#'   filenames.
 #' @return A named character vector where names are stage IDs and values are
 #'   markdown filenames.
-get_perf_pipeline_report_file_map <- function() {
-  perf_pipeline_report_file_map
+get_perf_pipeline_report_file_map <- function(preset_name = NULL) {
+  if (is.null(preset_name) || length(preset_name) == 0L) {
+    return(perf_pipeline_report_file_map)
+  }
+
+  stats::setNames(
+    vapply(
+      perf_pipeline_report_file_map,
+      apply_perf_preset_to_report_filename,
+      character(1),
+      preset_name = preset_name
+    ),
+    names(perf_pipeline_report_file_map)
+  )
 }
 
 #' @title Get general summary report filename
 #' @description Return the canonical markdown filename for the project-level
 #'   performance summary.
+#' @param preset_name Optional preset label used to namespace markdown
+#'   filename.
 #' @return A character scalar markdown filename.
-get_perf_general_summary_report_filename <- function() {
-  perf_general_summary_report_filename
+get_perf_general_summary_report_filename <- function(preset_name = NULL) {
+  if (is.null(preset_name) || length(preset_name) == 0L) {
+    return(perf_general_summary_report_filename)
+  }
+
+  apply_perf_preset_to_report_filename(
+    perf_general_summary_report_filename,
+    preset_name = preset_name
+  )
 }
 
 # ── 2. user-facing run presets ──────────────────────────────────────────────
@@ -134,6 +196,122 @@ get_perf_run_presets <- function() {
   )
 }
 
+#' @title Sanitize preset label
+#' @description Convert an arbitrary preset label into a filesystem-safe,
+#'   deterministic slug.
+#' @param preset_name A scalar preset label.
+#' @param default A fallback label when preset_name is missing or invalid.
+#' @return A character scalar safe label.
+.sanitize_perf_preset_name <- function(
+  preset_name,
+  default = "custom"
+) {
+  if (is.null(preset_name) || length(preset_name) == 0L) {
+    return(default)
+  }
+
+  label <- trimws(as.character(preset_name[[1L]]))
+  if (!nzchar(label) || is.na(label)) {
+    return(default)
+  }
+
+  safe_label <- tolower(gsub("[^A-Za-z0-9_-]+", "_", label))
+  safe_label <- gsub("^_+|_+$", "", safe_label)
+
+  if (!nzchar(safe_label)) {
+    return(default)
+  }
+
+  safe_label
+}
+
+#' @title Build preset output subdirectory label
+#' @description Return deterministic subdirectory name for a given preset.
+#' @param preset_name A scalar preset label.
+#' @return A character scalar subdirectory name.
+get_perf_preset_output_subdir <- function(preset_name) {
+  paste0(
+    "perf_diagnosis_",
+    .sanitize_perf_preset_name(preset_name, default = "custom")
+  )
+}
+
+#' @title Resolve output directory for preset
+#' @description Ensure preset runs are exported under a preset-specific
+#'   subdirectory to prevent report overwrites between presets.
+#' @param output_dir A scalar directory path.
+#' @param preset_name A scalar preset label.
+#' @return A character scalar output directory path.
+resolve_perf_output_dir_for_preset <- function(output_dir, preset_name) {
+  if (is.null(output_dir) || length(output_dir) == 0L) {
+    base_output_dir <- here::here("perf", "perf_diagnosis")
+  } else {
+    base_output_dir <- as.character(output_dir[[1L]])
+  }
+
+  if (!nzchar(base_output_dir) || is.na(base_output_dir)) {
+    base_output_dir <- here::here("perf", "perf_diagnosis")
+  }
+
+  preset_subdir <- get_perf_preset_output_subdir(preset_name)
+  if (identical(basename(base_output_dir), preset_subdir)) {
+    return(base_output_dir)
+  }
+
+  file.path(base_output_dir, preset_subdir)
+}
+
+#' @title Infer preset name from run config
+#' @description Attempt to infer a preset label from explicit config values
+#'   and output directory naming conventions.
+#' @param cfg A named list run configuration.
+#' @param default Fallback label when no preset can be inferred.
+#' @return A character scalar preset label.
+infer_perf_preset_name <- function(cfg, default = "custom") {
+  if (!is.list(cfg)) {
+    return(default)
+  }
+
+  output_dir <- cfg$output_dir
+  if (!is.null(output_dir) && length(output_dir) > 0L) {
+    output_basename <- basename(as.character(output_dir[[1L]]))
+    output_match <- regexec("^perf_diagnosis_(.+)$", output_basename)
+    output_parts <- regmatches(output_basename, output_match)[[1L]]
+    if (length(output_parts) >= 2L && nzchar(output_parts[[2L]])) {
+      return(.sanitize_perf_preset_name(output_parts[[2L]], default = default))
+    }
+  }
+
+  presets <- get_perf_run_presets()
+  preset_names <- names(presets)
+
+  matches <- vapply(preset_names, function(name) {
+    preset_cfg <- presets[[name]]
+
+    checks <- c(
+      identical(as.integer(cfg$input_sizes), as.integer(preset_cfg$input_sizes)),
+      identical(as.integer(cfg$n_reps), as.integer(preset_cfg$n_reps)),
+      identical(as.integer(cfg$n_year_cols), as.integer(preset_cfg$n_year_cols)),
+      identical(as.integer(cfg$rng_seed), as.integer(preset_cfg$rng_seed)),
+      isTRUE(all.equal(as.numeric(cfg$na_fraction), as.numeric(preset_cfg$na_fraction))),
+      isTRUE(all.equal(as.numeric(cfg$dup_fraction), as.numeric(preset_cfg$dup_fraction)))
+    )
+
+    if (!is.null(preset_cfg$stages)) {
+      checks <- c(checks, identical(as.character(cfg$stages), as.character(preset_cfg$stages)))
+    }
+
+    all(checks)
+  }, logical(1))
+
+  matched <- preset_names[matches]
+  if (length(matched) == 1L) {
+    return(.sanitize_perf_preset_name(matched[[1L]], default = default))
+  }
+
+  default
+}
+
 #' @title Build runner configuration from preset
 #' @description Retrieve a named preset and optionally apply a list of field
 #'   overrides.
@@ -154,10 +332,22 @@ build_perf_run_config <- function(
     ))
   }
   base_cfg <- presets[[preset_name]]
-  if (!is.list(overrides) || length(overrides) == 0L) {
-    return(base_cfg)
+  merged_cfg <- if (!is.list(overrides) || length(overrides) == 0L) {
+    base_cfg
+  } else {
+    utils::modifyList(base_cfg, overrides)
   }
-  utils::modifyList(base_cfg, overrides)
+
+  merged_cfg$preset_name <- .sanitize_perf_preset_name(
+    preset_name,
+    default = "custom"
+  )
+  merged_cfg$output_dir <- resolve_perf_output_dir_for_preset(
+    output_dir = merged_cfg$output_dir,
+    preset_name = merged_cfg$preset_name
+  )
+
+  merged_cfg
 }
 
 # ── 3. perf setup helpers (reserved for future expansion) ──

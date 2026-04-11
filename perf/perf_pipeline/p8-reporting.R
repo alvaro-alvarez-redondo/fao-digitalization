@@ -1772,18 +1772,28 @@ build_analysis_markdown <- function(results) {
 #' @description Resolve stage-specific markdown filename from canonical map, or
 #'   derive a sanitized fallback filename for non-canonical stages, always prefixed with 'perf_'.
 #' @param stage_id A character scalar stage identifier.
+#' @param preset_name Optional preset label used to namespace markdown
+#'   filenames.
 #' @return A character scalar markdown filename.
 #' @keywords internal
 #' @noRd
-.resolve_stage_report_filename <- function(stage_id) {
+.resolve_stage_report_filename <- function(stage_id, preset_name = NULL) {
   stage_id <- as.character(stage_id)
-  file_map <- get_perf_pipeline_report_file_map()
+  file_map <- get_perf_pipeline_report_file_map(preset_name = preset_name)
   resolved <- unname(file_map[stage_id])
 
   missing_idx <- is.na(resolved) | !nzchar(resolved)
   if (any(missing_idx)) {
     safe_stage <- gsub("[^A-Za-z0-9_-]+", "_", stage_id[missing_idx])
     resolved[missing_idx] <- paste0("perf_", safe_stage, "_pipeline.md")
+    if (!is.null(preset_name) && length(preset_name) > 0L) {
+      resolved[missing_idx] <- vapply(
+        resolved[missing_idx],
+        apply_perf_preset_to_report_filename,
+        character(1),
+        preset_name = preset_name
+      )
+    }
   }
 
   resolved
@@ -1826,11 +1836,17 @@ build_analysis_markdown <- function(results) {
 #'   stage from precomputed reporting metrics.
 #' @param metrics A list returned by prepare_reporting_metrics().
 #' @param stage_id A character scalar stage identifier.
+#' @param preset_name A character scalar preset label used for report metadata.
 #' @return Character vector of markdown lines.
 #' @keywords internal
 #' @noRd
-.build_pipeline_markdown_from_metrics <- function(metrics, stage_id) {
+.build_pipeline_markdown_from_metrics <- function(
+  metrics,
+  stage_id,
+  preset_name = "custom"
+) {
   stage_label <- .resolve_stage_report_label(stage_id)
+  preset_label <- .sanitize_perf_preset_name(preset_name, default = "custom")
 
   stage_summary <- data.table::copy(metrics$stage_summary[stage == stage_id])
   fn_metrics <- data.table::copy(metrics$function_metrics[stage == stage_id])
@@ -2285,6 +2301,7 @@ build_analysis_markdown <- function(results) {
     sprintf("# Pipeline Performance Report: %s", stage_label),
     "",
     sprintf("- Stage identifier: %s", stage_id),
+    sprintf("- Preset: %s", preset_label),
     sprintf(
       "- Total functions benchmarked: %d",
       stage_summary$function_count[[1L]]
@@ -2358,13 +2375,17 @@ build_analysis_markdown <- function(results) {
 #'   reporting metrics.
 #' @param metrics A list returned by prepare_reporting_metrics().
 #' @param stage_ids Character vector of stage identifiers to summarize.
+#' @param preset_name A character scalar preset label used for report metadata.
 #' @return Character vector of markdown lines.
 #' @keywords internal
 #' @noRd
 .build_general_project_performance_markdown_from_metrics <- function(
   metrics,
-  stage_ids
+  stage_ids,
+  preset_name = "custom"
 ) {
+  preset_label <- .sanitize_perf_preset_name(preset_name, default = "custom")
+
   summary_dt <- data.table::data.table(stage = stage_ids)
   summary_dt <- metrics$stage_summary[summary_dt, on = "stage"]
 
@@ -2719,6 +2740,7 @@ build_analysis_markdown <- function(results) {
       "- Analysis timestamp (UTC): %s",
       format(Sys.time(), "%Y-%m-%dT%H:%M:%SZ", tz = "UTC")
     ),
+    sprintf("- Preset: %s", preset_label),
     sprintf("- Overall pipeline class: %s", metrics$overall_class),
     sprintf("- Runtime bottleneck pipeline: %s", runtime_bottleneck_label),
     sprintf(
@@ -2771,9 +2793,11 @@ build_analysis_markdown <- function(results) {
 #' @description Build markdown content for all per-pipeline files plus the
 #'   project-level summary file.
 #' @param results A list from run_all_stages() or run_all_benchmarks().
+#' @param preset_name A character scalar preset label used for report metadata.
 #' @return A named list of character vectors where each name is a markdown
 #'   filename and each value is the file content line vector.
-build_pipeline_markdown_bundle <- function(results) {
+build_pipeline_markdown_bundle <- function(results, preset_name = "custom") {
+  preset_label <- .sanitize_perf_preset_name(preset_name, default = "custom")
   metrics <- prepare_reporting_metrics(results)
 
   stage_ids <- .order_stage_ids_for_reports(
@@ -2785,16 +2809,29 @@ build_pipeline_markdown_bundle <- function(results) {
   )
 
   pipeline_reports <- lapply(stage_ids, function(stage_id) {
-    .build_pipeline_markdown_from_metrics(metrics, stage_id)
+    .build_pipeline_markdown_from_metrics(
+      metrics = metrics,
+      stage_id = stage_id,
+      preset_name = preset_label
+    )
   })
   names(pipeline_reports) <- vapply(
     stage_ids,
     .resolve_stage_report_filename,
-    character(1)
+    character(1),
+    preset_name = preset_label
   )
 
-  pipeline_reports[[get_perf_general_summary_report_filename()]] <-
-    .build_general_project_performance_markdown_from_metrics(metrics, stage_ids)
+  summary_filename <- get_perf_general_summary_report_filename(
+    preset_name = preset_label
+  )
+
+  pipeline_reports[[summary_filename]] <-
+    .build_general_project_performance_markdown_from_metrics(
+      metrics = metrics,
+      stage_ids = stage_ids,
+      preset_name = preset_label
+    )
 
   pipeline_reports
 }
@@ -2805,8 +2842,13 @@ build_pipeline_markdown_bundle <- function(results) {
 #' @param results A list from run_all_stages() or run_all_benchmarks().
 #' @param output_path A character scalar output directory. If a file path ending
 #'   in .md is supplied, its parent directory is used.
+#' @param preset_name A character scalar preset label used for report metadata.
 #' @return An invisible named character vector of written markdown paths.
-export_analysis_markdown <- function(results, output_path) {
+export_analysis_markdown <- function(
+  results,
+  output_path,
+  preset_name = "custom"
+) {
   output_dir <- if (grepl("\\.md$", output_path, ignore.case = TRUE)) {
     dirname(output_path)
   } else {
@@ -2817,7 +2859,10 @@ export_analysis_markdown <- function(results, output_path) {
     output_dir <- "."
   }
 
-  markdown_bundle <- build_pipeline_markdown_bundle(results)
+  markdown_bundle <- build_pipeline_markdown_bundle(
+    results = results,
+    preset_name = preset_name
+  )
 
   dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
   markdown_paths <- file.path(output_dir, names(markdown_bundle))
@@ -2835,9 +2880,14 @@ export_analysis_markdown <- function(results, output_path) {
 #' @description Alias for export_analysis_markdown().
 #' @param results A list from run_all_stages() or run_all_benchmarks().
 #' @param output_path A character scalar output file path.
+#' @param preset_name A character scalar preset label used for report metadata.
 #' @return An invisible character scalar output path.
-export_results_markdown <- function(results, output_path) {
-  export_analysis_markdown(results, output_path)
+export_results_markdown <- function(
+  results,
+  output_path,
+  preset_name = "custom"
+) {
+  export_analysis_markdown(results, output_path, preset_name = preset_name)
 }
 
 # -----------------------------------------------------------------------------

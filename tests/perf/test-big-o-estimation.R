@@ -72,6 +72,31 @@ testthat::test_that("get_analysis_config includes valid complexity tuning fields
 })
 
 
+# ── build_perf_run_config ─────────────────────────────────────────────────────
+
+testthat::test_that("build_perf_run_config appends preset-specific output subdir", {
+  cfg <- build_perf_run_config(preset_name = "quick")
+
+  testthat::expect_equal(cfg$preset_name, "quick")
+  testthat::expect_equal(basename(cfg$output_dir), "perf_diagnosis_quick")
+  testthat::expect_equal(basename(dirname(cfg$output_dir)), "perf_diagnosis")
+})
+
+testthat::test_that("build_perf_run_config applies preset subdir after output override", {
+  root_dir <- tempfile("perf_reports_root_")
+  cfg <- build_perf_run_config(
+    preset_name = "medium",
+    overrides = list(output_dir = root_dir)
+  )
+
+  testthat::expect_equal(cfg$preset_name, "medium")
+  testthat::expect_equal(
+    cfg$output_dir,
+    file.path(root_dir, "perf_diagnosis_medium")
+  )
+})
+
+
 # ── make_benchmark_config ─────────────────────────────────────────────────────
 
 testthat::test_that("make_benchmark_config contains required column specs", {
@@ -819,28 +844,28 @@ testthat::test_that("export_results_markdown writes a file without error", {
   on.exit(unlink(out_dir, recursive = TRUE), add = TRUE)
 
   testthat::expect_no_error(
-    export_results_markdown(results, out_dir)
+    export_results_markdown(results, out_dir, preset_name = "quick")
   )
 
   testthat::expect_true(file.exists(file.path(
     out_dir,
-    "perf_whep-digitalization.md"
+    "perf_quick_whep-digitalization.md"
   )))
   testthat::expect_true(file.exists(file.path(
     out_dir,
-    "perf_0-general_pipeline.md"
+    "perf_quick_0-general_pipeline.md"
   )))
   testthat::expect_true(file.exists(file.path(
     out_dir,
-    "perf_1-import_pipeline.md"
+    "perf_quick_1-import_pipeline.md"
   )))
   testthat::expect_true(file.exists(file.path(
     out_dir,
-    "perf_2-post_processing_pipeline.md"
+    "perf_quick_2-post_processing_pipeline.md"
   )))
   testthat::expect_true(file.exists(file.path(
     out_dir,
-    "perf_3-export_pipeline.md"
+    "perf_quick_3-export_pipeline.md"
   )))
 })
 
@@ -849,9 +874,9 @@ testthat::test_that("export_results_markdown output contains expected sections",
   out_dir <- tempfile("perf_reports_")
   on.exit(unlink(out_dir, recursive = TRUE), add = TRUE)
 
-  export_results_markdown(results, out_dir)
-  pipeline_path <- file.path(out_dir, "perf_1-import_pipeline.md")
-  general_path <- file.path(out_dir, "perf_whep-digitalization.md")
+  export_results_markdown(results, out_dir, preset_name = "quick")
+  pipeline_path <- file.path(out_dir, "perf_quick_1-import_pipeline.md")
+  general_path <- file.path(out_dir, "perf_quick_whep-digitalization.md")
 
   raw_lines <- readLines(pipeline_path, warn = FALSE)
   raw_text <- paste(raw_lines, collapse = "\n")
@@ -917,15 +942,40 @@ testthat::test_that("export_results_markdown preserves strings with tab/newline 
   out_dir <- tempfile("perf_reports_")
   on.exit(unlink(out_dir, recursive = TRUE), add = TRUE)
 
-  testthat::expect_no_error(export_results_markdown(results, out_dir))
+  testthat::expect_no_error(
+    export_results_markdown(results, out_dir, preset_name = "quick")
+  )
 
   raw_text <- paste(
-    readLines(file.path(out_dir, "perf_1-import_pipeline.md"), warn = FALSE),
+    readLines(
+      file.path(out_dir, "perf_quick_1-import_pipeline.md"),
+      warn = FALSE
+    ),
     collapse = "\n"
   )
   testthat::expect_true(grepl("line1", raw_text, fixed = TRUE))
   testthat::expect_true(grepl("line2", raw_text, fixed = TRUE))
   testthat::expect_true(grepl("tabbed", raw_text, fixed = TRUE))
+})
+
+testthat::test_that("export_results_markdown writes preset metadata lines", {
+  results <- make_mock_results()
+  out_dir <- tempfile("perf_reports_")
+  on.exit(unlink(out_dir, recursive = TRUE), add = TRUE)
+
+  export_results_markdown(results, out_dir, preset_name = "quick")
+
+  pipeline_lines <- readLines(
+    file.path(out_dir, "perf_quick_1-import_pipeline.md"),
+    warn = FALSE
+  )
+  general_lines <- readLines(
+    file.path(out_dir, "perf_quick_whep-digitalization.md"),
+    warn = FALSE
+  )
+
+  testthat::expect_true(any(grepl("^- Preset: quick$", pipeline_lines)))
+  testthat::expect_true(any(grepl("^- Preset: quick$", general_lines)))
 })
 
 testthat::test_that("build_analysis_markdown handles NA r_squared", {

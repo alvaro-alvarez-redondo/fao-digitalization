@@ -183,8 +183,21 @@ run_big_o_analysis <- function(
   }
 
   # ── Markdown export ───────────────────────────────────────────────────────
-  markdown_paths <- export_analysis_markdown(all_results, cfg$output_dir)
-  markdown_path <- markdown_paths[[get_perf_general_summary_report_filename()]] # now 'perf_whep-digitalization.md'
+  resolved_preset_name <- if (!is.null(cfg$preset_name)) {
+    .sanitize_perf_preset_name(cfg$preset_name, default = "custom")
+  } else {
+    infer_perf_preset_name(cfg, default = "custom")
+  }
+
+  markdown_paths <- export_analysis_markdown(
+    results = all_results,
+    output_path = cfg$output_dir,
+    preset_name = resolved_preset_name
+  )
+  summary_filename <- get_perf_general_summary_report_filename(
+    preset_name = resolved_preset_name
+  )
+  markdown_path <- markdown_paths[[summary_filename]]
 
   # ── persist full analysis object to .qs ──────────────────────────────────
   analysis_object <- c(
@@ -222,6 +235,7 @@ run_big_o_analysis <- function(
 #' @param dup_fraction A numeric scalar duplicate fraction.
 #' @param rng_seed An integer scalar random seed.
 #' @param output_dir A character scalar output directory.
+#' @param preset_name An optional character scalar preset label.
 #' @param quiet A logical scalar verbosity flag.
 #' @return An invisible named list returned by run_big_o_analysis().
 run_perf <- function(
@@ -239,6 +253,7 @@ run_perf <- function(
     "perf",
     "perf_pipeline"
   ),
+  preset_name = NULL,
   quiet = FALSE
 ) {
   cfg <- get_analysis_config()
@@ -252,6 +267,22 @@ run_perf <- function(
 
   if (!is.null(stages)) {
     cfg$stages <- as.character(stages)
+  }
+
+  if (is.null(preset_name) || length(preset_name) == 0L) {
+    cfg$preset_name <- infer_perf_preset_name(cfg, default = "custom")
+  } else {
+    cfg$preset_name <- .sanitize_perf_preset_name(
+      preset_name,
+      default = "custom"
+    )
+  }
+
+  if (cfg$preset_name %in% names(get_perf_run_presets())) {
+    cfg$output_dir <- resolve_perf_output_dir_for_preset(
+      output_dir = cfg$output_dir,
+      preset_name = cfg$preset_name
+    )
   }
 
   run_big_o_analysis(cfg = cfg, quiet = quiet)
