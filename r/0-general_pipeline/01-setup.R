@@ -84,6 +84,12 @@ get_pipeline_constants <- function() {
       standardization = list(
         excluded_sheet_names = c("master_unit")
       ),
+      rule_match_normalization = list(
+        apply_once_before_stage = TRUE,
+        apply_each_pass = FALSE,
+        excluded_columns = c("year", "value", "yearbook", "document")
+      ),
+      rule_match_wildcard_token = "__ANY__",
       target_update_strategies = list(
         default = "last_rule_wins",
         concatenate_delimiter = "; ",
@@ -331,6 +337,8 @@ load_pipeline_config <- function(
     audit_columns = audit_columns,
     performance = get_pipeline_constants()$performance,
     post_processing = list(
+      rule_match_normalization = get_pipeline_constants()$post_processing$rule_match_normalization,
+      rule_match_wildcard_token = get_pipeline_constants()$post_processing$rule_match_wildcard_token,
       target_update_strategies = get_pipeline_constants()$post_processing$target_update_strategies,
       target_update_fast_path = get_pipeline_constants()$post_processing$target_update_fast_path,
       multi_pass = get_pipeline_constants()$post_processing$multi_pass,

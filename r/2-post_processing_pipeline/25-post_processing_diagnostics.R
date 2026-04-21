@@ -131,31 +131,50 @@ assert_post_processing_preflight <- function(preflight_result) {
   return(invisible(TRUE))
 }
 
-#' @title Summarize stage rules from audit table
-#' @description Aggregates audit records by rule file and column pairs to produce
-#' a deterministic rule summary for a single post-processing stage.
+#' @title Summarize clean/harmonize audit records
+#' @description Normalizes audit records into a row-level mirror of the clean or
+#' harmonize rule dictionary, preserving loop and affected-row detail.
 #' @param audit_dt Audit data.table from a post-processing stage.
 #' @param stage_name Character scalar stage label for the summary.
-#' @return `data.table` with one row per unique rule/column combination.
+#' @return `data.table` with one row per audit record.
 #' @importFrom data.table as.data.table data.table
 summarize_stage_rules <- function(audit_dt, stage_name) {
   stage_audit_dt <- data.table::as.data.table(audit_dt)
 
+  if (!("value_source" %in% names(stage_audit_dt)) &&
+      ("value_source_result" %in% names(stage_audit_dt))) {
+    stage_audit_dt[, value_source := value_source_result]
+  }
+
+  if (!("value_target" %in% names(stage_audit_dt)) &&
+      ("value_target_result" %in% names(stage_audit_dt))) {
+    stage_audit_dt[, value_target := value_target_result]
+  }
+
   required_columns <- c(
+    "loop",
+    "affected_rows",
     "rule_file_identifier",
     "column_source",
     "value_source_raw",
+    "value_source",
     "column_target",
     "value_target_raw",
-    "value_target",
-    "affected_rows"
+    "value_target"
   )
 
   missing_columns <- setdiff(required_columns, names(stage_audit_dt))
   if (length(missing_columns) > 0L) {
-    stage_audit_dt[, (missing_columns) := NA_character_]
+    for (column_name in missing_columns) {
+      if (column_name %in% c("loop", "affected_rows")) {
+        stage_audit_dt[, (column_name) := NA_integer_]
+      } else {
+        stage_audit_dt[, (column_name) := NA_character_]
+      }
+    }
   }
 
+  stage_audit_dt[, loop := suppressWarnings(as.integer(loop))]
   stage_audit_dt[,
     affected_rows := suppressWarnings(as.integer(affected_rows))
   ]
@@ -163,43 +182,38 @@ summarize_stage_rules <- function(audit_dt, stage_name) {
 
   if (nrow(stage_audit_dt) == 0L) {
     return(data.table::data.table(
-      execution_stage = character(),
+      loop = integer(),
+      affected_rows = integer(),
       rule_file_identifier = character(),
       column_source = character(),
       value_source_raw = character(),
+      value_source = character(),
       column_target = character(),
       value_target_raw = character(),
-      value_target = character(),
-      affected_rows = integer()
+      value_target = character()
     ))
   }
 
-  return(stage_audit_dt[,
-    .(affected_rows = as.integer(sum(affected_rows))),
-    by = .(
-      rule_file_identifier,
-      column_source,
-      value_source_raw,
-      column_target,
-      value_target_raw,
-      value_target
-    )
-  ][
-    order(rule_file_identifier, column_source, column_target)
-  ][,
-    execution_stage := stage_name
-  ][,
-    .(
-      execution_stage,
-      rule_file_identifier,
-      column_source,
-      value_source_raw,
-      column_target,
-      value_target_raw,
-      value_target,
-      affected_rows
-    )
-  ])
+  ordered_columns <- c(
+    "loop",
+    "affected_rows",
+    "rule_file_identifier",
+    "column_source",
+    "value_source_raw",
+    "value_source",
+    "column_target",
+    "value_target_raw",
+    "value_target"
+  )
+
+  return(stage_audit_dt[order(
+    loop,
+    rule_file_identifier,
+    column_source,
+    column_target,
+    value_source_raw,
+    value_target_raw
+  )][, ..ordered_columns])
 }
 
 #' @title Build post-processing rule summaries
@@ -362,9 +376,9 @@ persist_post_processing_audit <- function(
   ensure_directories_exist(diagnostics_dir, recurse = TRUE)
 
   output_paths <- c(
-    rule_summary = fs::path(
+    clean_harmonize_audit = fs::path(
       diagnostics_dir,
-      "post_processing_audit_rule_summary.xlsx"
+      "clean_harmonize_audit.xlsx"
     ),
     aggregate_standardized_rows = fs::path(
       diagnostics_dir,
@@ -386,7 +400,7 @@ persist_post_processing_audit <- function(
       clean = data.table::as.data.table(diagnostics$clean_rule_summary),
       harmonize = data.table::as.data.table(diagnostics$harmonize_rule_summary)
     ),
-    path = output_paths[["rule_summary"]]
+    path = output_paths[["clean_harmonize_audit"]]
   )
 
   writexl::write_xlsx(

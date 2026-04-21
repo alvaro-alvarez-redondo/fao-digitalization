@@ -398,6 +398,46 @@ testthat::test_that("harmonize multi-pass converges chained footnote and unit ru
   testthat::expect_true(diagnostics$multi_pass$passes_executed >= 2L)
 })
 
+testthat::test_that("clean stage normalizes matching once and avoids repeated punctuation rematch", {
+  config <- build_test_config()
+
+  clean_rules <- data.frame(
+    column_source = "country",
+    value_source_raw = "france alsace",
+    value_source = "france: alsace",
+    column_target = "country",
+    value_target_raw = "france alsace",
+    value_target = "france: alsace",
+    stringsAsFactors = FALSE
+  )
+  create_clean_rule_file(
+    config = config,
+    rules_df = clean_rules,
+    filename = "clean_country_punctuation_once.csv"
+  )
+
+  input_dt <- data.frame(
+    country = c(rep("france alsace", 14), "other"),
+    stringsAsFactors = FALSE
+  )
+
+  result <- run_cleaning_layer_batch(
+    dataset_dt = input_dt,
+    config = config,
+    dataset_name = "demo"
+  )
+
+  diagnostics <- attr(result, "layer_diagnostics")
+
+  testthat::expect_true(all(result$country[1:14] == "france: alsace"))
+  testthat::expect_equal(result$country[[15]], "other")
+  testthat::expect_true(diagnostics$multi_pass$converged)
+  testthat::expect_identical(
+    diagnostics$multi_pass$passes_executed,
+    2L
+  )
+})
+
 testthat::test_that("clean multi-pass detects deterministic two-state cycle with warn policy", {
   config <- build_test_config()
 
@@ -583,6 +623,94 @@ testthat::test_that("clean multi-pass treats net-zero-change pass as convergence
   )
 })
 
+testthat::test_that("clean notes concatenate when target condition uses wildcard token", {
+  config <- build_test_config()
+  config$post_processing <- list(
+    multi_pass = list(
+      enabled_by_stage = c(clean = TRUE, harmonize = TRUE),
+      max_passes_by_stage = c(clean = 5L, harmonize = 10L)
+    )
+  )
+  wildcard_token <- get_pipeline_constants()$post_processing$rule_match_wildcard_token
+
+  clean_rules <- data.frame(
+    column_source = "unit",
+    value_source_raw = "kg",
+    value_source = "kilogram",
+    column_target = "notes",
+    value_target_raw = wildcard_token,
+    value_target = "converted from kg",
+    stringsAsFactors = FALSE
+  )
+  create_clean_rule_file(
+    config = config,
+    rules_df = clean_rules,
+    filename = "clean_rules_blank_notes_wildcard.csv"
+  )
+
+  input_dt <- data.frame(
+    unit = "kg",
+    notes = "existing note",
+    stringsAsFactors = FALSE
+  )
+
+  result <- run_cleaning_layer_batch(
+    dataset_dt = input_dt,
+    config = config,
+    dataset_name = "demo"
+  )
+
+  diagnostics <- attr(result, "layer_diagnostics")
+
+  testthat::expect_equal(result$unit[[1]], "kilogram")
+  testthat::expect_equal(
+    result$notes[[1]],
+    "existing note; converted from kg"
+  )
+  testthat::expect_true(diagnostics$multi_pass$converged)
+  testthat::expect_true(diagnostics$multi_pass$passes_executed >= 2L)
+})
+
+testthat::test_that("clean notes blank target condition is not wildcard", {
+  config <- build_test_config()
+  wildcard_token <- get_pipeline_constants()$post_processing$rule_match_wildcard_token
+
+  clean_rules <- data.frame(
+    column_source = "unit",
+    value_source_raw = "kg",
+    value_source = "kilogram",
+    column_target = "notes",
+    value_target_raw = "",
+    value_target = "should_not_apply",
+    stringsAsFactors = FALSE
+  )
+  create_clean_rule_file(
+    config = config,
+    rules_df = clean_rules,
+    filename = "clean_rules_blank_notes_not_wildcard.csv"
+  )
+
+  input_dt <- data.frame(
+    unit = "kg",
+    notes = "existing note",
+    stringsAsFactors = FALSE
+  )
+
+  result <- run_cleaning_layer_batch(
+    dataset_dt = input_dt,
+    config = config,
+    dataset_name = "demo"
+  )
+
+  diagnostics <- attr(result, "layer_diagnostics")
+
+  testthat::expect_equal(result$unit[[1]], "kg")
+  testthat::expect_equal(result$notes[[1]], "existing note")
+  testthat::expect_true(diagnostics$multi_pass$converged)
+  testthat::expect_identical(diagnostics$multi_pass$passes_executed, 1L)
+  testthat::expect_false(identical(wildcard_token, ""))
+})
+
 testthat::test_that("clean footnote rewrites are audited only on effective change loops", {
   config <- build_test_config()
 
@@ -616,6 +744,43 @@ testthat::test_that("clean footnote rewrites are audited only on effective chang
 
   testthat::expect_equal(result$footnotes[[1]], "__australian mandate__")
   testthat::expect_identical(sort(unique(audit_dt$loop)), 1L)
+})
+
+testthat::test_that("clean footnote matched removal dominates overlapping unmatched duplicates", {
+  config <- build_test_config()
+
+  clean_rules <- data.frame(
+    column_source = c("footnotes", "footnotes"),
+    value_source_raw = c("oil", "oil"),
+    value_source = c("oil", ""),
+    column_target = c("product", "product"),
+    value_target_raw = c("olive", "olive: oil"),
+    value_target = c("olive", "olive: oil"),
+    stringsAsFactors = FALSE
+  )
+  create_clean_rule_file(
+    config = config,
+    rules_df = clean_rules,
+    filename = "clean_footnotes_remove_dominates_overlap.csv"
+  )
+
+  input_dt <- data.frame(
+    footnotes = "oil",
+    product = "olive: oil",
+    stringsAsFactors = FALSE
+  )
+
+  result <- run_cleaning_layer_batch(
+    dataset_dt = input_dt,
+    config = config,
+    dataset_name = "demo"
+  )
+
+  diagnostics <- attr(result, "layer_diagnostics")
+
+  testthat::expect_true(is.na(result$footnotes[[1]]))
+  testthat::expect_true(diagnostics$multi_pass$converged)
+  testthat::expect_identical(diagnostics$multi_pass$passes_executed, 1L)
 })
 
 testthat::test_that("clean stage persists runtime cache artifact deterministically", {

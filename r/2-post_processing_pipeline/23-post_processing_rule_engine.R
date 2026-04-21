@@ -493,19 +493,49 @@ decode_target_rule_value <- function(
 #' @importFrom checkmate assert_atomic assert_string
 encode_rule_match_key <- function(
   values,
-  na_key = get_pipeline_constants()$na_match_key
+  na_key = get_pipeline_constants()$na_match_key,
+  apply_normalization = TRUE
 ) {
   checkmate::assert_atomic(values, min.len = 0, any.missing = TRUE)
   checkmate::assert_string(na_key, min.chars = 1)
+  checkmate::assert_flag(apply_normalization)
 
   if (length(values) == 0L) {
     return(character(0))
   }
 
-  encoded_key <- normalize_string(values)
+  encoded_key <- as.character(values)
+  if (isTRUE(apply_normalization)) {
+    encoded_key <- normalize_string(values)
+  }
   encoded_key[is.na(encoded_key)] <- na_key
 
   return(encoded_key)
+}
+
+#' @title Resolve rule match normalization settings
+#' @description Returns centralized settings controlling when match-key
+#' normalization is applied.
+#' @return Named list with `apply_once_before_stage`, `apply_each_pass`, and
+#' `excluded_columns`.
+resolve_rule_match_normalization_settings <- function() {
+  settings <- get_pipeline_constants()$post_processing$rule_match_normalization
+  checkmate::assert_list(settings, min.len = 1)
+
+  apply_once_before_stage <- isTRUE(settings$apply_once_before_stage)
+  apply_each_pass <- isTRUE(settings$apply_each_pass)
+  excluded_columns <- settings$excluded_columns
+
+  if (is.null(excluded_columns)) {
+    excluded_columns <- character(0)
+  }
+  checkmate::assert_character(excluded_columns, any.missing = FALSE)
+
+  return(list(
+    apply_once_before_stage = apply_once_before_stage,
+    apply_each_pass = apply_each_pass,
+    excluded_columns = excluded_columns
+  ))
 }
 
 #' @title Empty last-rule-wins overwrite events table
@@ -674,18 +704,25 @@ resolve_tokenized_target_condition_columns <- function(
 #' @description Matches rule target-condition values against current dataset
 #' target values. For tokenized columns, semicolon-delimited current values are
 #' matched by token membership while preserving exact full-string matching.
+#' Wildcards for tokenized columns are explicit and controlled by
+#' `get_pipeline_constants()$post_processing$rule_match_wildcard_token`.
 #' @param current_values Atomic vector of current dataset target values.
 #' @param condition_values Atomic vector of rule target-condition values.
 #' @param tokenized_target Logical scalar enabling tokenized matching.
+#' @param wildcard_token Character scalar explicit wildcard token.
 #' @return Logical vector of match decisions.
 match_rule_target_condition_values <- function(
   current_values,
   condition_values,
-  tokenized_target = FALSE
+  tokenized_target = FALSE,
+  apply_match_normalization = TRUE,
+  wildcard_token = get_pipeline_constants()$post_processing$rule_match_wildcard_token
 ) {
   checkmate::assert_atomic(current_values, any.missing = TRUE)
   checkmate::assert_atomic(condition_values, any.missing = TRUE)
   checkmate::assert_flag(tokenized_target)
+  checkmate::assert_flag(apply_match_normalization)
+  checkmate::assert_string(wildcard_token, min.chars = 1)
 
   if (length(current_values) != length(condition_values)) {
     cli::cli_abort(
@@ -700,22 +737,35 @@ match_rule_target_condition_values <- function(
   condition_is_na <- is.na(condition_values)
 
   if (!isTRUE(tokenized_target)) {
-    current_keys <- encode_rule_match_key(current_values)
-    condition_keys <- encode_rule_match_key(condition_values)
+    current_keys <- encode_rule_match_key(
+      current_values,
+      apply_normalization = apply_match_normalization
+    )
+    condition_keys <- encode_rule_match_key(
+      condition_values,
+      apply_normalization = apply_match_normalization
+    )
 
     return(current_keys == condition_keys)
   }
 
   match_mask <- logical(length(condition_values))
+  condition_chr <- as.character(condition_values)
+  condition_is_wildcard <-
+    !condition_is_na & trimws(condition_chr) == wildcard_token
   match_mask[condition_is_na] <- is.na(current_values[condition_is_na])
+  match_mask[condition_is_wildcard] <- TRUE
 
-  non_na_idx <- which(!condition_is_na)
+  non_na_idx <- which(!condition_is_na & !condition_is_wildcard)
   if (length(non_na_idx) == 0L) {
     return(match_mask)
   }
 
   current_values_chr <- as.character(current_values[non_na_idx])
-  condition_keys <- encode_rule_match_key(condition_values[non_na_idx])
+  condition_keys <- encode_rule_match_key(
+    condition_values[non_na_idx],
+    apply_normalization = apply_match_normalization
+  )
 
   unique_current_values <- unique(current_values_chr[!is.na(current_values_chr)])
 
@@ -727,10 +777,16 @@ match_rule_target_condition_values <- function(
 
       token_keys <- character(0)
       if (length(split_tokens) > 0L) {
-        token_keys <- encode_rule_match_key(split_tokens)
+        token_keys <- encode_rule_match_key(
+          split_tokens,
+          apply_normalization = apply_match_normalization
+        )
       }
 
-      full_key <- encode_rule_match_key(value_chr)
+      full_key <- encode_rule_match_key(
+        value_chr,
+        apply_normalization = apply_match_normalization
+      )
 
       return(unique(c(token_keys, full_key)))
     }),
@@ -1131,7 +1187,8 @@ apply_conditional_rule_group <- function(
   stage_name,
   dataset_name,
   rule_file_id,
-  execution_timestamp_utc
+  execution_timestamp_utc,
+  apply_match_normalization = TRUE
 ) {
   checkmate::assert_data_table(dataset_dt)
   checkmate::assert_data_frame(group_rules, min.rows = 1)
@@ -1139,9 +1196,12 @@ apply_conditional_rule_group <- function(
   checkmate::assert_string(dataset_name, min.chars = 1)
   checkmate::assert_string(rule_file_id, min.chars = 1)
   checkmate::assert_string(execution_timestamp_utc, min.chars = 1)
+  checkmate::assert_flag(apply_match_normalization)
 
   target_value_column <- get_stage_target_value_column(validated_stage_name)
   source_value_column <- get_stage_source_value_column(validated_stage_name)
+  rule_match_normalization_settings <- resolve_rule_match_normalization_settings()
+  excluded_columns <- rule_match_normalization_settings$excluded_columns
 
   group_dt <- data.table::as.data.table(group_rules)
   source_value_column_present <- source_value_column %in% names(group_dt)
@@ -1156,6 +1216,10 @@ apply_conditional_rule_group <- function(
 
   source_column <- group_dt$column_source[[1]]
   target_column <- group_dt$column_target[[1]]
+  apply_source_match_normalization <-
+    isTRUE(apply_match_normalization) && !(source_column %in% excluded_columns)
+  apply_target_condition_normalization <-
+    isTRUE(apply_match_normalization) && !(target_column %in% excluded_columns)
 
   normalized_rules <- unique(group_dt[, .(
     column_source,
@@ -1167,8 +1231,14 @@ apply_conditional_rule_group <- function(
     value_target_result_encoded = encode_target_rule_value(get(
       target_value_column
     )),
-    source_key = encode_rule_match_key(value_source_raw),
-    target_key = encode_rule_match_key(value_target_raw)
+    source_key = encode_rule_match_key(
+      value_source_raw,
+      apply_normalization = apply_source_match_normalization
+    ),
+    target_key = encode_rule_match_key(
+      value_target_raw,
+      apply_normalization = apply_target_condition_normalization
+    )
   )][,
     `:=`(
       value_source_result = as.character(source_value_raw),
@@ -1194,7 +1264,10 @@ apply_conditional_rule_group <- function(
 
   join_input <- data.table::data.table(
     row_id = seq_len(nrow(dataset_dt)),
-    source_key = encode_rule_match_key(source_values_pre_update)
+    source_key = encode_rule_match_key(
+      source_values_pre_update,
+      apply_normalization = apply_source_match_normalization
+    )
   )
 
   joined_dt <- normalized_rules[
@@ -1206,7 +1279,8 @@ apply_conditional_rule_group <- function(
   target_condition_matches <- match_rule_target_condition_values(
     current_values = target_values_pre_update[joined_dt$row_id],
     condition_values = joined_dt$value_target_raw,
-    tokenized_target = target_column %in% tokenized_target_condition_columns
+    tokenized_target = target_column %in% tokenized_target_condition_columns,
+    apply_match_normalization = apply_target_condition_normalization
   )
 
   matched_row_mask <- !is.na(joined_dt$column_source) & target_condition_matches
@@ -1329,7 +1403,8 @@ apply_footnote_rules <- function(
   stage_name,
   dataset_name,
   rule_file_id,
-  execution_timestamp_utc
+  execution_timestamp_utc,
+  apply_match_normalization = TRUE
 ) {
   checkmate::assert_data_table(dataset_dt)
   checkmate::assert_data_frame(footnote_rules, min.rows = 1)
@@ -1337,9 +1412,14 @@ apply_footnote_rules <- function(
   checkmate::assert_string(dataset_name, min.chars = 1)
   checkmate::assert_string(rule_file_id, min.chars = 1)
   checkmate::assert_string(execution_timestamp_utc, min.chars = 1)
+  checkmate::assert_flag(apply_match_normalization)
 
   source_value_column <- get_stage_source_value_column(validated_stage_name)
   target_value_column <- get_stage_target_value_column(validated_stage_name)
+  rule_match_normalization_settings <- resolve_rule_match_normalization_settings()
+  excluded_columns <- rule_match_normalization_settings$excluded_columns
+  footnote_source_normalization <-
+    isTRUE(apply_match_normalization) && !("footnotes" %in% excluded_columns)
 
   # --- ensure footnotes column exists -----------------------------------------
   if (!("footnotes" %in% colnames(dataset_dt))) {
@@ -1395,7 +1475,10 @@ apply_footnote_rules <- function(
     value_target_result_encoded = encode_target_rule_value(get(
       target_value_column
     )),
-    source_key = encode_rule_match_key(value_source_raw)
+    source_key = encode_rule_match_key(
+      value_source_raw,
+      apply_normalization = footnote_source_normalization
+    )
   )][,
     `:=`(
       value_source_result = as.character(source_value_raw),
@@ -1411,7 +1494,10 @@ apply_footnote_rules <- function(
   data.table::setindex(normalized_rules, source_key)
 
   # --- step 4: join footnotes with rules on source key -----------------------
-  fn_long[, source_key := encode_rule_match_key(footnote)]
+  fn_long[, source_key := encode_rule_match_key(
+    footnote,
+    apply_normalization = footnote_source_normalization
+  )]
   joined <- normalized_rules[
     fn_long,
     on = .(source_key),
@@ -1449,7 +1535,10 @@ apply_footnote_rules <- function(
           current_values = current_target_values,
           condition_values = joined$value_target_raw[target_column_mask],
           tokenized_target =
-            target_column %in% tokenized_target_condition_columns
+            target_column %in% tokenized_target_condition_columns,
+          apply_match_normalization =
+            isTRUE(apply_match_normalization) &&
+              !(target_column %in% excluded_columns)
         )
     }
 
@@ -1470,6 +1559,11 @@ apply_footnote_rules <- function(
   if (any(remove_mask)) {
     joined[remove_mask, footnote_final := NA_character_]
   }
+
+  joined[, `:=`(
+    is_remove = remove_mask,
+    is_replace = replace_mask
+  )]
 
   # --- step 6: apply target column updates -----------------------------------
   target_updates <- joined[matched_mask & column_target != "footnotes", .(
@@ -1517,11 +1611,34 @@ apply_footnote_rules <- function(
   }
 
   # --- step 7: reconstruct footnotes per row ---------------------------------
-  # deduplicate from cartesian join: keep first footnote_final per (row_id, footnote_index)
-  recon <- unique(joined[, .(row_id, footnote_index, footnote_final)])
-  recon <- recon[, .SD[1L], by = .(row_id, footnote_index)]
-  data.table::setorder(recon, row_id, footnote_index)
-  reconstructed <- recon[,
+  # Resolve each token deterministically across cartesian duplicates:
+  # remove beats replace, replace beats unchanged original token.
+  token_resolution <- joined[,
+    .(
+      footnote_final = {
+        if (any(is_remove, na.rm = TRUE)) {
+          NA_character_
+        } else if (any(is_replace, na.rm = TRUE)) {
+          replacement_values <- footnote_final[is_replace & !is.na(footnote_final)]
+          if (length(replacement_values) == 0L) {
+            NA_character_
+          } else {
+            replacement_values[[1L]]
+          }
+        } else {
+          original_values <- footnote[!is.na(footnote)]
+          if (length(original_values) == 0L) {
+            NA_character_
+          } else {
+            original_values[[1L]]
+          }
+        }
+      }
+    ),
+    by = .(row_id, footnote_index)
+  ]
+  data.table::setorder(token_resolution, row_id, footnote_index)
+  reconstructed <- token_resolution[,
     .(
       footnotes_new = {
         valid <- footnote_final[!is.na(footnote_final)]
@@ -1629,7 +1746,8 @@ apply_rule_payload <- function(
   stage_name,
   dataset_name,
   rule_file_id,
-  execution_timestamp_utc
+  execution_timestamp_utc,
+  apply_match_normalization = TRUE
 ) {
   checkmate::assert_data_table(dataset_dt)
   checkmate::assert_data_frame(canonical_rules, min.rows = 0)
@@ -1637,6 +1755,7 @@ apply_rule_payload <- function(
   checkmate::assert_string(dataset_name, min.chars = 1)
   checkmate::assert_string(rule_file_id, min.chars = 1)
   checkmate::assert_string(execution_timestamp_utc, min.chars = 1)
+  checkmate::assert_flag(apply_match_normalization)
 
   if (nrow(canonical_rules) == 0L) {
     return(list(
@@ -1665,7 +1784,8 @@ apply_rule_payload <- function(
       stage_name = validated_stage_name,
       dataset_name = dataset_name,
       rule_file_id = rule_file_id,
-      execution_timestamp_utc = execution_timestamp_utc
+      execution_timestamp_utc = execution_timestamp_utc,
+      apply_match_normalization = apply_match_normalization
     )
     current_data <- fn_result$data
     audit_tables[[length(audit_tables) + 1L]] <- fn_result$audit
@@ -1690,7 +1810,8 @@ apply_rule_payload <- function(
         stage_name = validated_stage_name,
         dataset_name = dataset_name,
         rule_file_id = rule_file_id,
-        execution_timestamp_utc = execution_timestamp_utc
+        execution_timestamp_utc = execution_timestamp_utc,
+        apply_match_normalization = apply_match_normalization
       )
 
       current_data <- group_result$data

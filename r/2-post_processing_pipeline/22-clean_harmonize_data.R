@@ -479,6 +479,8 @@ run_rule_stage_layer_batch <- function(
     canonical_payloads <- list()
   }
 
+  rule_match_normalization_settings <- resolve_rule_match_normalization_settings()
+
   payload_cache_key <- payload_bundle$cache_key
   if (is.null(payload_cache_key)) {
     payload_cache_key <- paste0(validated_stage_name, "::<no_payload_cache_key>")
@@ -573,6 +575,13 @@ run_rule_stage_layer_batch <- function(
       changed_value_count = 0L
     )
 
+    apply_match_normalization_for_pass <-
+      isTRUE(rule_match_normalization_settings$apply_each_pass) ||
+      (
+        isTRUE(rule_match_normalization_settings$apply_once_before_stage) &&
+          pass_index == 1L
+      )
+
     if (length(canonical_payloads) > 0L) {
       pass_state <- purrr::reduce(
         .x = canonical_payloads,
@@ -588,7 +597,8 @@ run_rule_stage_layer_batch <- function(
             stage_name = validated_stage_name,
             dataset_name = dataset_name,
             rule_file_id = payload$rule_file_id,
-            execution_timestamp_utc = execution_timestamp_utc
+            execution_timestamp_utc = execution_timestamp_utc,
+            apply_match_normalization = apply_match_normalization_for_pass
           )
 
           state$data <- payload_result$data

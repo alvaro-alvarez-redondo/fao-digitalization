@@ -142,7 +142,8 @@ testthat::test_that("summarize_stage_rules aggregates audit records", {
   testthat::expect_true(data.table::is.data.table(result))
   testthat::expect_true("loop" %in% names(result))
   testthat::expect_true("affected_rows" %in% names(result))
-  testthat::expect_true("execution_stage" %in% names(result))
+  testthat::expect_false("execution_stage" %in% names(result))
+  testthat::expect_identical(names(result)[1:2], c("loop", "affected_rows"))
   testthat::expect_identical(sort(unique(result$loop)), c(1L, 2L))
   testthat::expect_false(any(is.na(result$value_source)))
   testthat::expect_true(all(
@@ -262,8 +263,8 @@ testthat::test_that("persist_post_processing_audit writes overwrite subset diagn
     config = config
   )
 
-  testthat::expect_true("rule_summary" %in% names(output_paths))
-  testthat::expect_true(file.exists(output_paths[["rule_summary"]]))
+  testthat::expect_true("clean_harmonize_audit" %in% names(output_paths))
+  testthat::expect_true(file.exists(output_paths[["clean_harmonize_audit"]]))
   testthat::expect_true("aggregate_standardized_rows" %in% names(output_paths))
   testthat::expect_true(file.exists(output_paths[[
     "aggregate_standardized_rows"
@@ -273,7 +274,7 @@ testthat::test_that("persist_post_processing_audit writes overwrite subset diagn
     "last_rule_wins_overwrites"
   ]]))
   testthat::expect_identical(
-    readxl::excel_sheets(output_paths[["rule_summary"]]),
+    readxl::excel_sheets(output_paths[["clean_harmonize_audit"]]),
     c("clean", "harmonize")
   )
   testthat::expect_identical(
@@ -286,16 +287,26 @@ testthat::test_that("persist_post_processing_audit writes overwrite subset diagn
   )
 
   clean_summary <- readxl::read_excel(
-    output_paths[["rule_summary"]],
+    output_paths[["clean_harmonize_audit"]],
     sheet = "clean"
   )
   harmonize_summary <- readxl::read_excel(
-    output_paths[["rule_summary"]],
+    output_paths[["clean_harmonize_audit"]],
     sheet = "harmonize"
   )
 
   testthat::expect_true("loop" %in% colnames(clean_summary))
   testthat::expect_true("loop" %in% colnames(harmonize_summary))
+  testthat::expect_false("execution_stage" %in% colnames(clean_summary))
+  testthat::expect_false("execution_stage" %in% colnames(harmonize_summary))
+  testthat::expect_identical(
+    colnames(clean_summary)[1:2],
+    c("loop", "affected_rows")
+  )
+  testthat::expect_identical(
+    colnames(harmonize_summary)[1:2],
+    c("loop", "affected_rows")
+  )
   required_summary_columns <- c(
     "column_source",
     "value_source_raw",
