@@ -1,11 +1,11 @@
 # tests/1-import_pipeline/test-validate-log.R
-# unit tests for scripts/1-import_pipeline/13-validate_log.R
+# unit tests for R/1-import_pipeline/13-validate_log.R
 
 source(here::here("tests", "test_helper.R"), echo = FALSE)
-source(here::here("scripts", "1-import_pipeline", "10-file_io.R"), echo = FALSE)
-source(here::here("scripts", "1-import_pipeline", "11-reading.R"), echo = FALSE)
-source(here::here("scripts", "1-import_pipeline", "12-transform.R"), echo = FALSE)
-source(here::here("scripts", "1-import_pipeline", "13-validate_log.R"), echo = FALSE)
+source(here::here("r", "1-import_pipeline", "10-file_io.R"), echo = FALSE)
+source(here::here("r", "1-import_pipeline", "11-reading.R"), echo = FALSE)
+source(here::here("r", "1-import_pipeline", "12-transform.R"), echo = FALSE)
+source(here::here("r", "1-import_pipeline", "13-validate_log.R"), echo = FALSE)
 
 
 # --- validate_mandatory_fields_dt --------------------------------------------
@@ -24,11 +24,11 @@ testthat::test_that("validate_mandatory_fields_dt returns no errors for complete
 
 testthat::test_that("validate_mandatory_fields_dt creates missing columns", {
   dt <- data.table::data.table(
-    product  = "wheat",
+    product = "wheat",
     variable = "production",
-    unit     = "tonnes",
-    year     = "2020",
-    value    = "100",
+    unit = "tonnes",
+    year = "2020",
+    value = "100",
     document = "test.xlsx"
   )
   config <- build_test_config()
@@ -37,17 +37,17 @@ testthat::test_that("validate_mandatory_fields_dt creates missing columns", {
 
   # Missing columns (continent, country) should be created as NA
   testthat::expect_true("continent" %in% names(result$data))
-  testthat::expect_true("country"   %in% names(result$data))
+  testthat::expect_true("country" %in% names(result$data))
 })
 
 
 testthat::test_that("validate_mandatory_fields_dt detects missing values with correct error format", {
   dt <- data.table::data.table(
     continent = c("Asia", "", NA_character_),
-    country   = c("Japan", "France", ""),
-    product   = c("wheat", "rice", "corn"),
-    variable  = c("production", "trade", "yield"),
-    document  = c("doc.xlsx", "doc.xlsx", "doc.xlsx")
+    country = c("Japan", "France", ""),
+    product = c("wheat", "rice", "corn"),
+    variable = c("production", "trade", "yield"),
+    document = c("doc.xlsx", "doc.xlsx", "doc.xlsx")
   )
   config <- build_test_config()
 
@@ -56,13 +56,16 @@ testthat::test_that("validate_mandatory_fields_dt detects missing values with co
   testthat::expect_true(length(result$errors) > 0)
   testthat::expect_true(any(grepl("continent", result$errors)))
   testthat::expect_true(any(grepl("country", result$errors)))
-  testthat::expect_true(all(grepl("^missing mandatory value in document", result$errors)))
+  testthat::expect_true(all(grepl(
+    "^missing mandatory value in document",
+    result$errors
+  )))
 })
 
 testthat::test_that("validate_mandatory_fields_dt adds document column when absent", {
   dt <- data.table::data.table(
     continent = c("Asia"),
-    country   = c("")
+    country = c("")
   )
   config <- build_test_config()
 
@@ -87,17 +90,17 @@ testthat::test_that("validate_mandatory_fields_dt does not add row_id to output"
 
 testthat::test_that("detect_duplicates_dt finds duplicate rows", {
   dt <- data.table::data.table(
-    product  = c("wheat", "wheat"),
+    product = c("wheat", "wheat"),
     variable = c("production", "production"),
-    year     = c("2020", "2020"),
-    value    = c("100", "100"),
+    year = c("2020", "2020"),
+    value = c("100", "100"),
     document = c("file1.xlsx", "file1.xlsx"),
     continent = c("Asia", "Asia"),
-    country   = c("Japan", "Japan"),
-    unit      = c("tonnes", "tonnes"),
+    country = c("Japan", "Japan"),
+    unit = c("tonnes", "tonnes"),
     footnotes = c(NA_character_, NA_character_),
-    yearbook  = c("yb_2024", "yb_2024"),
-    notes     = c(NA_character_, NA_character_)
+    yearbook = c("yb_2024", "yb_2024"),
+    notes = c(NA_character_, NA_character_)
   )
 
   result <- detect_duplicates_dt(dt)
@@ -124,7 +127,7 @@ testthat::test_that("validate_long_dt runs full validation", {
   result <- validate_long_dt(dt, config)
 
   testthat::expect_true(is.list(result))
-  testthat::expect_true("data"   %in% names(result))
+  testthat::expect_true("data" %in% names(result))
   testthat::expect_true("errors" %in% names(result))
 })
 
@@ -133,8 +136,8 @@ testthat::test_that("validate_long_dt runs full validation", {
 
 testthat::test_that("validate_year_values returns no errors for valid single years", {
   dt <- data.table::data.table(
-    year     = c("2020", "2021", "1900"),
-    value    = c("100", "200", "300"),
+    year = c("2020", "2021", "1900"),
+    value = c("100", "200", "300"),
     document = c("doc.xlsx", "doc.xlsx", "doc.xlsx")
   )
 
@@ -142,14 +145,14 @@ testthat::test_that("validate_year_values returns no errors for valid single yea
 
   testthat::expect_true(is.list(result))
   testthat::expect_true("errors" %in% names(result))
-  testthat::expect_true("data"   %in% names(result))
+  testthat::expect_true("data" %in% names(result))
   testthat::expect_equal(length(result$errors), 0L)
 })
 
 testthat::test_that("validate_year_values returns no errors for valid year ranges", {
   dt <- data.table::data.table(
-    year     = c("2020-2021", "2019-2022"),
-    value    = c("100", "200"),
+    year = c("2020-2021", "2019-2022"),
+    value = c("100", "200"),
     document = c("doc.xlsx", "doc.xlsx")
   )
 
@@ -160,8 +163,8 @@ testthat::test_that("validate_year_values returns no errors for valid year range
 
 testthat::test_that("validate_year_values flags year below 1900", {
   dt <- data.table::data.table(
-    year     = c("1800"),
-    value    = c("100"),
+    year = c("1800"),
+    value = c("100"),
     document = c("doc.xlsx")
   )
 
@@ -174,8 +177,8 @@ testthat::test_that("validate_year_values flags year below 1900", {
 
 testthat::test_that("validate_year_values flags year above current year + 1", {
   dt <- data.table::data.table(
-    year     = c("9999"),
-    value    = c("100"),
+    year = c("9999"),
+    value = c("100"),
     document = c("doc.xlsx")
   )
 
@@ -187,8 +190,8 @@ testthat::test_that("validate_year_values flags year above current year + 1", {
 
 testthat::test_that("validate_year_values flags inverted year range", {
   dt <- data.table::data.table(
-    year     = c("2025-2020"),
-    value    = c("100"),
+    year = c("2025-2020"),
+    value = c("100"),
     document = c("doc.xlsx")
   )
 
@@ -196,13 +199,16 @@ testthat::test_that("validate_year_values flags inverted year range", {
 
   testthat::expect_true(length(result$errors) > 0L)
   testthat::expect_true(any(grepl("2025-2020", result$errors)))
-  testthat::expect_true(any(grepl("start year greater than end year", result$errors)))
+  testthat::expect_true(any(grepl(
+    "start year greater than end year",
+    result$errors
+  )))
 })
 
 testthat::test_that("validate_year_values flags year range outside plausible bounds", {
   dt <- data.table::data.table(
-    year     = c("1800-1850"),
-    value    = c("100"),
+    year = c("1800-1850"),
+    value = c("100"),
     document = c("doc.xlsx")
   )
 
@@ -214,8 +220,8 @@ testthat::test_that("validate_year_values flags year range outside plausible bou
 
 testthat::test_that("validate_year_values skips NA and empty year values", {
   dt <- data.table::data.table(
-    year     = c(NA_character_, "", "2020"),
-    value    = c("100", "200", "300"),
+    year = c(NA_character_, "", "2020"),
+    value = c("100", "200", "300"),
     document = c("doc.xlsx", "doc.xlsx", "doc.xlsx")
   )
 
@@ -226,8 +232,8 @@ testthat::test_that("validate_year_values skips NA and empty year values", {
 
 testthat::test_that("validate_year_values returns unchanged data", {
   dt <- data.table::data.table(
-    year     = c("2020", "1800"),
-    value    = c("100", "200"),
+    year = c("2020", "1800"),
+    value = c("100", "200"),
     document = c("doc.xlsx", "doc.xlsx")
   )
 
@@ -242,16 +248,16 @@ testthat::test_that("validate_year_values returns unchanged data", {
 testthat::test_that("validate_long_dt handles empty data.table", {
   dt <- data.table::data.table(
     continent = character(0),
-    country   = character(0),
-    product   = character(0),
-    variable  = character(0),
-    unit      = character(0),
-    year      = character(0),
-    value     = character(0),
-    notes     = character(0),
+    country = character(0),
+    product = character(0),
+    variable = character(0),
+    unit = character(0),
+    year = character(0),
+    value = character(0),
+    notes = character(0),
     footnotes = character(0),
-    yearbook  = character(0),
-    document  = character(0)
+    yearbook = character(0),
+    document = character(0)
   )
   config <- build_test_config()
 

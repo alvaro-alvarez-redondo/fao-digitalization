@@ -4,7 +4,7 @@ options(
 
 source(
   here::here(
-    "scripts",
+    "r",
     "0-general_pipeline",
     "01-setup.R"
   ),
@@ -13,7 +13,7 @@ source(
 
 source(
   here::here(
-    "scripts",
+    "r",
     "2-post_processing_pipeline",
     "25-post_processing_diagnostics.R"
   ),

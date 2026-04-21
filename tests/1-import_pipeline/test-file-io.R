@@ -1,8 +1,8 @@
 # tests/1-import_pipeline/test-file-io.R
-# unit tests for scripts/1-import_pipeline/10-file_io.R
+# unit tests for R/1-import_pipeline/10-file_io.R
 
 source(here::here("tests", "test_helper.R"), echo = FALSE)
-source(here::here("scripts", "1-import_pipeline", "10-file_io.R"), echo = FALSE)
+source(here::here("r", "1-import_pipeline", "10-file_io.R"), echo = FALSE)
 
 
 # --- build_empty_file_metadata -----------------------------------------------

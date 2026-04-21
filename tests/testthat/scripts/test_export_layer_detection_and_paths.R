@@ -3,15 +3,15 @@ options(
 )
 
 source(
-  here::here("scripts", "0-general_pipeline", "02-helpers.R"),
+  here::here("r", "0-general_pipeline", "02-helpers.R"),
   echo = FALSE
 )
 source(
-  here::here("scripts", "3-export_pipeline", "30-export_data.R"),
+  here::here("r", "3-export_pipeline", "30-export_data.R"),
   echo = FALSE
 )
 source(
-  here::here("scripts", "3-export_pipeline", "31-export_lists.R"),
+  here::here("r", "3-export_pipeline", "31-export_lists.R"),
   echo = FALSE
 )
 

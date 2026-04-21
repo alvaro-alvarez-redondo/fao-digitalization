@@ -30,12 +30,12 @@ options(
 #' @title Source pipeline script
 #' @description Internal helper to source a pipeline script from the scripts
 #'   directory using a relative path.
-#' @param relative_path A character scalar relative path under scripts/.
+#' @param relative_path A character scalar relative path under R/.
 #' @return Invisible logical scalar indicating whether sourcing succeeded.
 #' @keywords internal
 #' @noRd
 .source_pipeline_script <- function(relative_path) {
-  abs_path <- file.path(.perf_project_root, "scripts", relative_path)
+  abs_path <- file.path(.perf_project_root, "r", relative_path)
   if (!file.exists(abs_path)) {
     warning(sprintf("pipeline script not found, skipping: %s", abs_path))
     return(invisible(FALSE))

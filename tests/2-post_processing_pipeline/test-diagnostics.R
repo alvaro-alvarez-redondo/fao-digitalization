@@ -1,10 +1,10 @@
 # tests/2-post_processing_pipeline/test-diagnostics.R
-# unit tests for scripts/2-post_processing_pipeline/25-post_processing_diagnostics.R
+# unit tests for R/2-post_processing_pipeline/25-post_processing_diagnostics.R
 
 source(here::here("tests", "test_helper.R"), echo = FALSE)
 source(
   here::here(
-    "scripts",
+    "r",
     "2-post_processing_pipeline",
     "21-post_processing_utilities.R"
   ),
@@ -12,7 +12,7 @@ source(
 )
 source(
   here::here(
-    "scripts",
+    "r",
     "2-post_processing_pipeline",
     "23-post_processing_rule_engine.R"
   ),
@@ -20,7 +20,7 @@ source(
 )
 source(
   here::here(
-    "scripts",
+    "r",
     "2-post_processing_pipeline",
     "25-post_processing_diagnostics.R"
   ),
@@ -126,10 +126,12 @@ testthat::test_that("assert_post_processing_preflight aborts with stage details"
 
 testthat::test_that("summarize_stage_rules aggregates audit records", {
   audit_dt <- data.table::data.table(
+    loop = c(1L, 2L),
     rule_file_identifier = c("clean_rules.csv", "clean_rules.csv"),
     value_source_raw = c("wheat", "rice"),
+    value_source_result = c("wheat_clean", "rice_clean"),
     value_target_raw = c("kg", "kg"),
-    value_target = c("kilogram", "gram"),
+    value_target_result = c("kilogram", "gram"),
     column_source = c("product", "product"),
     column_target = c("unit", "variable"),
     affected_rows = c(5L, 3L)
@@ -138,8 +140,16 @@ testthat::test_that("summarize_stage_rules aggregates audit records", {
   result <- summarize_stage_rules(audit_dt, stage_name = "clean")
 
   testthat::expect_true(data.table::is.data.table(result))
+  testthat::expect_true("loop" %in% names(result))
   testthat::expect_true("affected_rows" %in% names(result))
   testthat::expect_true("execution_stage" %in% names(result))
+  testthat::expect_identical(sort(unique(result$loop)), c(1L, 2L))
+  testthat::expect_false(any(is.na(result$value_source)))
+  testthat::expect_true(all(
+    result$value_source %in% c("wheat_clean", "rice_clean")
+  ))
+  testthat::expect_false(any(is.na(result$value_target)))
+  testthat::expect_true(all(result$value_target %in% c("kilogram", "gram")))
   testthat::expect_true(nrow(result) >= 1L)
 })
 
@@ -148,8 +158,10 @@ testthat::test_that("summarize_stage_rules aggregates audit records", {
 
 testthat::test_that("build_post_processing_diagnostics creates stage summaries", {
   clean_audit_dt <- data.table::data.table(
+    loop = 1L,
     rule_file_identifier = "clean_rules.csv",
     value_source_raw = "wheat",
+    value_source = "wheat_clean",
     value_target_raw = "kg",
     value_target = "kilogram",
     column_source = "product",
@@ -158,8 +170,10 @@ testthat::test_that("build_post_processing_diagnostics creates stage summaries",
   )
 
   harmonize_audit_dt <- data.table::data.table(
+    loop = 1L,
     rule_file_identifier = "harmonize_rules.csv",
     value_source_raw = "usa",
+    value_source = "united_states",
     value_target_raw = "usa",
     value_target = "united states",
     column_source = "country",
@@ -183,24 +197,31 @@ testthat::test_that("build_post_processing_diagnostics creates stage summaries",
 testthat::test_that("persist_post_processing_audit writes overwrite subset diagnostics excel", {
   config <- build_test_config()
   dir.create(
-    file.path(config$paths$data$audit$audit_root_dir, "post_processing_diagnostics"),
+    file.path(
+      config$paths$data$audit$audit_root_dir,
+      "post_processing_diagnostics"
+    ),
     recursive = TRUE,
     showWarnings = FALSE
   )
 
   clean_audit <- data.table::data.table(
+    loop = integer(0),
     rule_file_identifier = character(0),
     column_source = character(0),
     value_source_raw = character(0),
+    value_source = character(0),
     column_target = character(0),
     value_target_raw = character(0),
     value_target = character(0),
     affected_rows = integer(0)
   )
   harmonize_audit <- data.table::data.table(
+    loop = integer(0),
     rule_file_identifier = character(0),
     column_source = character(0),
     value_source_raw = character(0),
+    value_source = character(0),
     column_target = character(0),
     value_target_raw = character(0),
     value_target = character(0),
@@ -241,10 +262,20 @@ testthat::test_that("persist_post_processing_audit writes overwrite subset diagn
     config = config
   )
 
+  testthat::expect_true("rule_summary" %in% names(output_paths))
+  testthat::expect_true(file.exists(output_paths[["rule_summary"]]))
   testthat::expect_true("aggregate_standardized_rows" %in% names(output_paths))
-  testthat::expect_true(file.exists(output_paths[["aggregate_standardized_rows"]]))
+  testthat::expect_true(file.exists(output_paths[[
+    "aggregate_standardized_rows"
+  ]]))
   testthat::expect_true("last_rule_wins_overwrites" %in% names(output_paths))
-  testthat::expect_true(file.exists(output_paths[["last_rule_wins_overwrites"]]))
+  testthat::expect_true(file.exists(output_paths[[
+    "last_rule_wins_overwrites"
+  ]]))
+  testthat::expect_identical(
+    readxl::excel_sheets(output_paths[["rule_summary"]]),
+    c("clean", "harmonize")
+  )
   testthat::expect_identical(
     readxl::excel_sheets(output_paths[["aggregate_standardized_rows"]]),
     "aggregate_standardized_rows"
@@ -253,4 +284,30 @@ testthat::test_that("persist_post_processing_audit writes overwrite subset diagn
     readxl::excel_sheets(output_paths[["last_rule_wins_overwrites"]]),
     "last_rule_wins_overwrites"
   )
+
+  clean_summary <- readxl::read_excel(
+    output_paths[["rule_summary"]],
+    sheet = "clean"
+  )
+  harmonize_summary <- readxl::read_excel(
+    output_paths[["rule_summary"]],
+    sheet = "harmonize"
+  )
+
+  testthat::expect_true("loop" %in% colnames(clean_summary))
+  testthat::expect_true("loop" %in% colnames(harmonize_summary))
+  required_summary_columns <- c(
+    "column_source",
+    "value_source_raw",
+    "value_source",
+    "column_target",
+    "value_target_raw",
+    "value_target"
+  )
+  testthat::expect_true(all(
+    required_summary_columns %in% colnames(clean_summary)
+  ))
+  testthat::expect_true(all(
+    required_summary_columns %in% colnames(harmonize_summary)
+  ))
 })

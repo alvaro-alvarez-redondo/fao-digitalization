@@ -2,7 +2,7 @@
 # sources the shared helper, then runs all test directories
 source(here::here("tests", "test_helper.R"), echo = FALSE)
 
-# run tests in the new structure (mirroring scripts/ directory)
+# run tests in the new structure (mirroring R/ directory)
 test_dirs <- c(
   here::here("tests", "0-general_pipeline"),
   here::here("tests", "1-import_pipeline"),
@@ -19,8 +19,8 @@ for (test_dir in test_dirs) {
   }
 }
 
-# also run tests in tests/testthat/scripts/ if present
-additional_dir <- here::here("tests", "testthat", "scripts")
+# also run tests in tests/testthat/R/ if present
+additional_dir <- here::here("tests", "testthat", "r")
 if (
   dir.exists(additional_dir) &&
     length(list.files(additional_dir, pattern = "^test_")) > 0

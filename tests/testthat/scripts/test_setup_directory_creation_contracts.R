@@ -2,7 +2,7 @@ options(
   whep.run_general_pipeline.auto = FALSE
 )
 
-source(here::here("scripts", "0-general_pipeline", "01-setup.R"), echo = FALSE)
+source(here::here("r", "0-general_pipeline", "01-setup.R"), echo = FALSE)
 
 build_temp_test_paths <- function(root_name) {
   root_dir <- file.path(tempdir(), root_name)
@@ -32,13 +32,25 @@ testthat::test_that("create_required_directories handles generic path lists with
 
   created_directories <- create_required_directories(paths)
 
+  normalized_created <- vapply(
+    created_directories,
+    function(path_i) {
+      normalizePath(path_i, winslash = "/", mustWork = FALSE)
+    },
+    character(1)
+  )
+  normalized_expected <- vapply(
+    c(file.path(base_dir, "lists"), file.path(base_dir, "reports")),
+    function(path_i) {
+      normalizePath(path_i, winslash = "/", mustWork = FALSE)
+    },
+    character(1)
+  )
+
   testthat::expect_true(dir.exists(file.path(base_dir, "lists")))
   testthat::expect_true(dir.exists(file.path(base_dir, "reports")))
   testthat::expect_true(
-    all(
-      c(file.path(base_dir, "lists"), file.path(base_dir, "reports")) %in%
-        created_directories
-    )
+    all(normalized_expected %in% normalized_created)
   )
 })
 

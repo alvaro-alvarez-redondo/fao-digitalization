@@ -1,46 +1,159 @@
 # tests/2-post_processing_pipeline/test-standardize-units.R
-# unit tests for scripts/2-post_processing_pipeline/24-standardize_units.R
+# unit tests for R/2-post_processing_pipeline/24-standardize_units.R
 
 source(here::here("tests", "test_helper.R"), echo = FALSE)
 source(
-  here::here("scripts", "2-post_processing_pipeline", "24-standardize_units.R"),
+  here::here(
+    "r",
+    "2-post_processing_pipeline",
+    "21-post_processing_utilities.R"
+  ),
   echo = FALSE
 )
+source(
+  here::here("r", "2-post_processing_pipeline", "24-standardize_units.R"),
+  echo = FALSE
+)
+
+
+write_standardize_workbook <- function(file_path, sheets_by_name) {
+  wb <- openxlsx::createWorkbook()
+
+  for (sheet_name in names(sheets_by_name)) {
+    openxlsx::addWorksheet(wb, sheet_name)
+    openxlsx::writeData(wb, sheet_name, sheets_by_name[[sheet_name]])
+  }
+
+  openxlsx::saveWorkbook(wb, file_path, overwrite = TRUE)
+}
+
+
+# --- standardize workbook ingestion ------------------------------------------
+
+testthat::test_that("read_all_standardize_rule_files supports multi-sheet workbooks and excludes master_unit", {
+  config <- build_test_config()
+
+  workbook_path <- file.path(
+    config$paths$data$imports$standardization,
+    "standardize_rules.xlsx"
+  )
+
+  write_standardize_workbook(
+    workbook_path,
+    list(
+      standardize_unit = data.frame(
+        product_key = "wheat",
+        unit_source = "kg",
+        unit_target = "g",
+        unit_multiplier = 1000,
+        unit_offset = 0
+      ),
+      master_unit = data.frame(
+        product_key = "wheat",
+        unit_source = "kg",
+        unit_target = "g",
+        unit_multiplier = 999,
+        unit_offset = 0
+      )
+    )
+  )
+
+  payload <- read_all_standardize_rule_files(config)
+
+  testthat::expect_equal(length(payload$source_paths), 1L)
+  testthat::expect_equal(nrow(payload$rules), 1L)
+  testthat::expect_identical(
+    payload$rules$source_rule_sheet[[1]],
+    "standardize_unit"
+  )
+  testthat::expect_equal(payload$rules$unit_multiplier[[1]], 1000)
+})
+
+testthat::test_that("read_all_standardize_rule_files reads all non-excluded matching sheets", {
+  config <- build_test_config()
+
+  workbook_path <- file.path(
+    config$paths$data$imports$standardization,
+    "standardize_rules_multi.xlsx"
+  )
+
+  write_standardize_workbook(
+    workbook_path,
+    list(
+      standardize_unit = data.frame(
+        product_key = "wheat",
+        unit_source = "kg",
+        unit_target = "g",
+        unit_multiplier = 1000,
+        unit_offset = 0
+      ),
+      secondary_rules = data.frame(
+        product_key = "rice",
+        unit_source = "tonnes",
+        unit_target = "kg",
+        unit_multiplier = 1000,
+        unit_offset = 0
+      ),
+      master_unit = data.frame(
+        product_key = "rice",
+        unit_source = "tonnes",
+        unit_target = "kg",
+        unit_multiplier = 1,
+        unit_offset = 0
+      ),
+      notes = data.frame(note = "helper sheet")
+    )
+  )
+
+  payload <- read_all_standardize_rule_files(config)
+
+  testthat::expect_equal(nrow(payload$rules), 2L)
+  testthat::expect_setequal(
+    payload$rules$source_rule_sheet,
+    c("standardize_unit", "secondary_rules")
+  )
+})
 
 
 # --- validate_rule_schema ----------------------------------------------------
 
 testthat::test_that("validate_rule_schema accepts complete schema", {
   rule_dt <- data.table::data.table(
-    product = "wheat",
-    source_unit = "kg",
-    target_unit = "g",
-    multiplier = 1000,
-    addend = 0
+    product_key = "wheat",
+    unit_source = "kg",
+    unit_target = "g",
+    unit_multiplier = 1000,
+    unit_offset = 0
   )
 
-  required <- c("product", "source_unit", "target_unit", "multiplier", "addend")
+  required <- c(
+    "product_key",
+    "unit_source",
+    "unit_target",
+    "unit_multiplier",
+    "unit_offset"
+  )
 
   testthat::expect_invisible(validate_rule_schema(rule_dt, required, "test"))
 })
 
 testthat::test_that("validate_rule_schema errors on missing columns", {
-  rule_dt <- data.table::data.table(product = "wheat")
+  rule_dt <- data.table::data.table(product_key = "wheat")
 
   testthat::expect_error(
-    validate_rule_schema(rule_dt, c("product", "missing_col"), "test"),
+    validate_rule_schema(rule_dt, c("product_key", "missing_col"), "test"),
     "Missing required columns"
   )
 })
 
 testthat::test_that("validate_rule_schema errors on NA in required columns", {
   rule_dt <- data.table::data.table(
-    product = NA_character_,
-    source_unit = "kg"
+    product_key = NA_character_,
+    unit_source = "kg"
   )
 
   testthat::expect_error(
-    validate_rule_schema(rule_dt, c("product", "source_unit"), "test"),
+    validate_rule_schema(rule_dt, c("product_key", "unit_source"), "test"),
     "missing values"
   )
 })
@@ -59,25 +172,26 @@ testthat::test_that("normalize_conversion_rule_columns renames legacy columns", 
 
   result <- normalize_conversion_rule_columns(legacy_dt)
 
-  testthat::expect_true("source_unit" %in% names(result))
-  testthat::expect_true("target_unit" %in% names(result))
-  testthat::expect_true("multiplier" %in% names(result))
-  testthat::expect_true("addend" %in% names(result))
+  testthat::expect_true("product_key" %in% names(result))
+  testthat::expect_true("unit_source" %in% names(result))
+  testthat::expect_true("unit_target" %in% names(result))
+  testthat::expect_true("unit_multiplier" %in% names(result))
+  testthat::expect_true("unit_offset" %in% names(result))
 })
 
 testthat::test_that("normalize_conversion_rule_columns preserves modern column names", {
   modern_dt <- data.table::data.table(
-    product = "wheat",
-    source_unit = "kg",
-    target_unit = "g",
-    multiplier = 1000,
-    addend = 0
+    product_key = "wheat",
+    unit_source = "kg",
+    unit_target = "g",
+    unit_multiplier = 1000,
+    unit_offset = 0
   )
 
   result <- normalize_conversion_rule_columns(modern_dt)
 
-  testthat::expect_true("source_unit" %in% names(result))
-  testthat::expect_true("multiplier" %in% names(result))
+  testthat::expect_true("unit_source" %in% names(result))
+  testthat::expect_true("unit_multiplier" %in% names(result))
 })
 
 
@@ -85,23 +199,23 @@ testthat::test_that("normalize_conversion_rule_columns preserves modern column n
 
 testthat::test_that("validate_conversion_rules accepts valid rules", {
   rules_dt <- data.table::data.table(
-    product = c("wheat", "rice"),
-    source_unit = c("kg", "kg"),
-    target_unit = c("g", "g"),
-    multiplier = c(1000, 1000),
-    addend = c(0, 0)
+    product_key = c("wheat", "rice"),
+    unit_source = c("kg", "kg"),
+    unit_target = c("g", "g"),
+    unit_multiplier = c(1000, 1000),
+    unit_offset = c(0, 0)
   )
 
   testthat::expect_invisible(validate_conversion_rules(rules_dt))
 })
 
-testthat::test_that("validate_conversion_rules errors on duplicated product/source_unit", {
+testthat::test_that("validate_conversion_rules errors on duplicated product_key/unit_source", {
   rules_dt <- data.table::data.table(
-    product = c("wheat", "wheat"),
-    source_unit = c("kg", "kg"),
-    target_unit = c("g", "mg"),
-    multiplier = c(1000, 1000000),
-    addend = c(0, 0)
+    product_key = c("wheat", "wheat"),
+    unit_source = c("kg", "kg"),
+    unit_target = c("g", "mg"),
+    unit_multiplier = c(1000, 1000000),
+    unit_offset = c(0, 0)
   )
 
   testthat::expect_error(validate_conversion_rules(rules_dt), "duplicate")
@@ -109,23 +223,23 @@ testthat::test_that("validate_conversion_rules errors on duplicated product/sour
 
 testthat::test_that("validate_conversion_rules detects chained conversions", {
   rules_dt <- data.table::data.table(
-    product = c("wheat", "wheat"),
-    source_unit = c("kg", "g"),
-    target_unit = c("g", "mg"),
-    multiplier = c(1000, 1000),
-    addend = c(0, 0)
+    product_key = c("wheat", "wheat"),
+    unit_source = c("kg", "g"),
+    unit_target = c("g", "mg"),
+    unit_multiplier = c(1000, 1000),
+    unit_offset = c(0, 0)
   )
 
   testthat::expect_error(validate_conversion_rules(rules_dt), "chained")
 })
 
-testthat::test_that("validate_conversion_rules errors on non-finite multiplier", {
+testthat::test_that("validate_conversion_rules errors on non-finite unit_multiplier", {
   rules_dt <- data.table::data.table(
-    product = "wheat",
-    source_unit = "kg",
-    target_unit = "g",
-    multiplier = Inf,
-    addend = 0
+    product_key = "wheat",
+    unit_source = "kg",
+    unit_target = "g",
+    unit_multiplier = Inf,
+    unit_offset = 0
   )
 
   testthat::expect_error(validate_conversion_rules(rules_dt), "finite")
@@ -136,19 +250,19 @@ testthat::test_that("validate_conversion_rules errors on non-finite multiplier",
 
 testthat::test_that("prepare_standardize_rules materializes numeric columns and keys", {
   raw_dt <- data.table::data.table(
-    product = "wheat",
-    source_unit = "kg",
-    target_unit = "g",
-    multiplier = 1000,
-    addend = 0
+    product_key = "wheat",
+    unit_source = "kg",
+    unit_target = "g",
+    unit_multiplier = 1000,
+    unit_offset = 0
   )
 
   result <- prepare_standardize_rules(raw_dt)
 
-  testthat::expect_true("multiplier_num" %in% names(result))
-  testthat::expect_true("addend_num" %in% names(result))
-  testthat::expect_true("product_key" %in% names(result))
-  testthat::expect_true("unit_key" %in% names(result))
+  testthat::expect_true("unit_multiplier_num" %in% names(result))
+  testthat::expect_true("unit_offset_num" %in% names(result))
+  testthat::expect_true("product_match_key" %in% names(result))
+  testthat::expect_true("unit_source_key" %in% names(result))
 })
 
 testthat::test_that("prepare_standardize_rules handles empty input", {
@@ -168,11 +282,11 @@ testthat::test_that("apply_standardize_rules converts values", {
   )
 
   prepared_rules_dt <- prepare_standardize_rules(data.table::data.table(
-    product = "wheat",
-    source_unit = "kg",
-    target_unit = "g",
-    multiplier = 1000,
-    addend = 0
+    product_key = "wheat",
+    unit_source = "kg",
+    unit_target = "g",
+    unit_multiplier = 1000,
+    unit_offset = 0
   ))
 
   result <- apply_standardize_rules(
@@ -191,7 +305,7 @@ testthat::test_that("apply_standardize_rules converts values", {
   testthat::expect_equal(result$data$value[[1]], 2000)
 })
 
-testthat::test_that("apply_standardize_rules with addend applies offset", {
+testthat::test_that("apply_standardize_rules with unit_offset applies conversion offset", {
   mapped_dt <- data.table::data.table(
     product = "temp_sensor",
     unit = "celsius",
@@ -199,11 +313,11 @@ testthat::test_that("apply_standardize_rules with addend applies offset", {
   )
 
   prepared_rules_dt <- prepare_standardize_rules(data.table::data.table(
-    product = "temp_sensor",
-    source_unit = "celsius",
-    target_unit = "fahrenheit",
-    multiplier = 1.8,
-    addend = 32
+    product_key = "temp_sensor",
+    unit_source = "celsius",
+    unit_target = "fahrenheit",
+    unit_multiplier = 1.8,
+    unit_offset = 32
   ))
 
   result <- apply_standardize_rules(

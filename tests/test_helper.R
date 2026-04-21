@@ -15,9 +15,9 @@ options(
   whep.checkpointing.enabled = FALSE
 )
 
-source(here::here("scripts", "0-general_pipeline", "01-setup.R"), echo = FALSE)
+source(here::here("r", "0-general_pipeline", "01-setup.R"), echo = FALSE)
 source(
-  here::here("scripts", "0-general_pipeline", "02-helpers.R"),
+  here::here("r", "0-general_pipeline", "02-helpers.R"),
   echo = FALSE
 )
 
@@ -125,6 +125,16 @@ build_test_config <- function(root_dir = NULL) {
     export_config = list(
       data_suffix = ".xlsx",
       list_suffix = "_list.xlsx",
+      lists_to_export = c(
+        "hemisphere",
+        "continent",
+        "country",
+        "product",
+        "variable",
+        "unit",
+        "notes",
+        "footnotes"
+      ),
       layer_suffixes = c("_raw", "_cleaned", "_normalized", "_harmonized"),
       export_layers = c("harmonized"),
       styles = list(

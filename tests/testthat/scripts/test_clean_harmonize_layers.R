@@ -3,12 +3,12 @@ options(
 )
 
 source(
-  here::here("scripts", "0-general_pipeline", "02-helpers.R"),
+  here::here("r", "0-general_pipeline", "02-helpers.R"),
   echo = FALSE
 )
 source(
   here::here(
-    "scripts",
+    "r",
     "2-post_processing_pipeline",
     "21-post_processing_utilities.R"
   ),
@@ -16,7 +16,7 @@ source(
 )
 source(
   here::here(
-    "scripts",
+    "r",
     "2-post_processing_pipeline",
     "23-post_processing_rule_engine.R"
   ),
@@ -24,7 +24,7 @@ source(
 )
 source(
   here::here(
-    "scripts",
+    "r",
     "2-post_processing_pipeline",
     "22-clean_harmonize_data.R"
   ),

@@ -1,3 +1,26 @@
+options(
+  whep.run_post_processing_pipeline.auto = FALSE,
+  whep.run_pipeline.auto = FALSE
+)
+
+source(here::here("tests", "test_helper.R"), echo = FALSE)
+source(
+  here::here(
+    "r",
+    "2-post_processing_pipeline",
+    "21-post_processing_utilities.R"
+  ),
+  echo = FALSE
+)
+source(
+  here::here(
+    "r",
+    "2-post_processing_pipeline",
+    "25-post_processing_diagnostics.R"
+  ),
+  echo = FALSE
+)
+
 testthat::test_that("preflight flags invalid file naming patterns", {
   root_dir <- tempfile("whep-preflight-")
   dir.create(root_dir, recursive = TRUE)
@@ -110,6 +133,6 @@ testthat::test_that("assert_post_processing_preflight aborts with stage details"
 
   testthat::expect_error(
     assert_post_processing_preflight(bad_result),
-    regexp = "post-processing preflight checks failed"
+    regexp = "Post-processing preflight checks failed"
   )
 })

@@ -3,15 +3,15 @@ options(
 )
 
 source(
-  here::here("scripts", "0-general_pipeline", "02-helpers.R"),
+  here::here("r", "0-general_pipeline", "02-helpers.R"),
   echo = FALSE
 )
 source(
-  here::here("scripts", "3-export_pipeline", "30-export_data.R"),
+  here::here("r", "3-export_pipeline", "30-export_data.R"),
   echo = FALSE
 )
 source(
-  here::here("scripts", "3-export_pipeline", "31-export_lists.R"),
+  here::here("r", "3-export_pipeline", "31-export_lists.R"),
   echo = FALSE
 )
 
@@ -228,4 +228,15 @@ testthat::test_that("normalize_for_comparison drops year column", {
 
   testthat::expect_false("year" %in% names(normalized_dt))
   testthat::expect_true("value" %in% names(normalized_dt))
+  testthat::expect_true("year" %in% names(input_dt))
+  testthat::expect_identical(input_dt$year, c("2020", "2021"))
+})
+
+testthat::test_that("are_list_tables_identical returns FALSE for row-count mismatch", {
+  left_dt <- data.table::data.table(value = c("a", "b"))
+  right_dt <- data.table::data.table(value = c("a"))
+
+  result <- are_list_tables_identical(left_dt, right_dt)
+
+  testthat::expect_false(result)
 })

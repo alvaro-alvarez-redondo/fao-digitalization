@@ -1,8 +1,11 @@
 # tests/2-post_processing_pipeline/test-data-audit.R
-# unit tests for scripts/2-post_processing_pipeline/20-data_audit.R
+# unit tests for R/2-post_processing_pipeline/20-data_audit.R
 
 source(here::here("tests", "test_helper.R"), echo = FALSE)
-source(here::here("scripts", "2-post_processing_pipeline", "20-data_audit.R"), echo = FALSE)
+source(
+  here::here("r", "2-post_processing_pipeline", "20-data_audit.R"),
+  echo = FALSE
+)
 
 
 # --- helper: build audit test config ----------------------------------------

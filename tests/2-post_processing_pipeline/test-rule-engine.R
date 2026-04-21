@@ -1,10 +1,10 @@
 # tests/2-post_processing_pipeline/test-rule-engine.R
-# unit tests for scripts/2-post_processing_pipeline/23-post_processing_rule_engine.R
+# unit tests for R/2-post_processing_pipeline/23-post_processing_rule_engine.R
 
 source(here::here("tests", "test_helper.R"), echo = FALSE)
 source(
   here::here(
-    "scripts",
+    "r",
     "2-post_processing_pipeline",
     "21-post_processing_utilities.R"
   ),
@@ -12,7 +12,7 @@ source(
 )
 source(
   here::here(
-    "scripts",
+    "r",
     "2-post_processing_pipeline",
     "23-post_processing_rule_engine.R"
   ),
@@ -50,14 +50,30 @@ testthat::test_that("coerce_rule_schema errors on missing required columns", {
     stringsAsFactors = FALSE
   )
 
-  testthat::expect_error(
-    coerce_rule_schema(
-      rule_dt = raw_rule_dt,
-      stage_name = "clean",
-      rule_file_id = "test.xlsx"
-    ),
-    "missing required columns"
+  error_message <- tryCatch(
+    {
+      coerce_rule_schema(
+        rule_dt = raw_rule_dt,
+        stage_name = "clean",
+        rule_file_id = "test.xlsx",
+        rule_file_path = "C:/rules/test.xlsx"
+      )
+
+      NA_character_
+    },
+    error = function(condition_value) {
+      conditionMessage(condition_value)
+    }
   )
+
+  testthat::expect_match(error_message, "(?i)missing\\s+required\\s+columns")
+  testthat::expect_match(
+    error_message,
+    "rule file location",
+    ignore.case = TRUE
+  )
+  testthat::expect_match(error_message, "C:/rules/test.xlsx", fixed = TRUE)
+  testthat::expect_match(error_message, "stage: clean", fixed = TRUE)
 })
 
 testthat::test_that("coerce_rule_schema errors on duplicate columns after normalization", {
@@ -77,7 +93,7 @@ testthat::test_that("coerce_rule_schema errors on duplicate columns after normal
       stage_name = "clean",
       rule_file_id = "test.xlsx"
     ),
-    "duplicate columns"
+    "(?i)duplicate\\s+columns"
   )
 })
 
@@ -160,14 +176,155 @@ testthat::test_that("validate_canonical_rules fails for NA in structural columns
     value_target = "kilogram"
   )
 
-  testthat::expect_error(
-    validate_canonical_rules(
-      rules_dt = rules_dt,
-      dataset_dt = dataset_dt,
-      rule_file_id = "test.xlsx",
-      stage_name = "clean"
-    ),
-    "missing values in required columns"
+  error_message <- tryCatch(
+    {
+      validate_canonical_rules(
+        rules_dt = rules_dt,
+        dataset_dt = dataset_dt,
+        rule_file_id = "test.xlsx",
+        rule_file_path = "C:/rules/test.xlsx",
+        stage_name = "clean"
+      )
+
+      NA_character_
+    },
+    error = function(condition_value) {
+      conditionMessage(condition_value)
+    }
+  )
+
+  testthat::expect_match(
+    error_message,
+    "(?i)missing\\s+values\\s+in\\s+required\\s+columns"
+  )
+  testthat::expect_match(
+    error_message,
+    "rule file location",
+    ignore.case = TRUE
+  )
+  testthat::expect_match(error_message, "stage: clean", fixed = TRUE)
+  testthat::expect_match(
+    error_message,
+    "rule rows with missing required values",
+    ignore.case = TRUE
+  )
+})
+
+testthat::test_that("validate_canonical_rules reports missing dataset columns with row context", {
+  dataset_dt <- data.table::data.table(
+    product = c("Wheat"),
+    unit = c("kg")
+  )
+
+  rules_dt <- data.table::data.table(
+    column_source = "missing_source_column",
+    value_source_raw = "Wheat",
+    value_source = "Wheat",
+    column_target = "missing_target_column",
+    value_target_raw = "kg",
+    value_target = "kilogram"
+  )
+
+  error_message <- tryCatch(
+    {
+      validate_canonical_rules(
+        rules_dt = rules_dt,
+        dataset_dt = dataset_dt,
+        rule_file_id = "clean_missing_columns.xlsx",
+        rule_file_path = "C:/rules/clean_missing_columns.xlsx",
+        stage_name = "clean"
+      )
+
+      NA_character_
+    },
+    error = function(condition_value) {
+      conditionMessage(condition_value)
+    }
+  )
+
+  testthat::expect_match(
+    error_message,
+    "Rule columns are not present in dataset",
+    ignore.case = TRUE
+  )
+  testthat::expect_match(
+    error_message,
+    "missing source columns in dataset",
+    ignore.case = TRUE
+  )
+  testthat::expect_match(
+    error_message,
+    "missing target columns in dataset",
+    ignore.case = TRUE
+  )
+  testthat::expect_match(
+    error_message,
+    "rule rows referencing missing dataset columns",
+    ignore.case = TRUE
+  )
+  testthat::expect_match(
+    error_message,
+    "C:/rules/clean_missing_columns.xlsx",
+    fixed = TRUE
+  )
+})
+
+testthat::test_that("validate_canonical_rules reports type-compatibility violations with row previews", {
+  dataset_dt <- data.table::data.table(
+    amount = as.numeric(1),
+    unit = "kg"
+  )
+
+  rules_dt <- data.table::data.table(
+    column_source = "amount",
+    value_source_raw = "not_numeric",
+    value_source = NA_character_,
+    column_target = "unit",
+    value_target_raw = "kg",
+    value_target = "kilogram"
+  )
+
+  error_message <- tryCatch(
+    {
+      validate_canonical_rules(
+        rules_dt = rules_dt,
+        dataset_dt = dataset_dt,
+        rule_file_id = "clean_type_cast.xlsx",
+        rule_file_path = "C:/rules/clean_type_cast.xlsx",
+        stage_name = "clean"
+      )
+
+      NA_character_
+    },
+    error = function(condition_value) {
+      conditionMessage(condition_value)
+    }
+  )
+
+  testthat::expect_match(
+    error_message,
+    "Type compatibility validation failed",
+    ignore.case = TRUE
+  )
+  testthat::expect_match(
+    error_message,
+    "expected type:\\s*numeric",
+    ignore.case = TRUE
+  )
+  testthat::expect_match(
+    error_message,
+    "invalid rule values (preview)",
+    fixed = TRUE
+  )
+  testthat::expect_match(
+    error_message,
+    "rule rows with invalid values",
+    ignore.case = TRUE
+  )
+  testthat::expect_match(
+    error_message,
+    "C:/rules/clean_type_cast.xlsx",
+    fixed = TRUE
   )
 })
 
@@ -246,6 +403,53 @@ testthat::test_that("validate_canonical_rules rejects duplicated conditional key
   )
 })
 
+testthat::test_that("validate_canonical_rules reports duplicate key location and row previews", {
+  dataset_dt <- data.table::data.table(
+    product = "wine",
+    variable = "area"
+  )
+
+  rules_dt <- data.table::data.table(
+    column_source = c("product", "product", "product"),
+    value_source_raw = c("wine", "wine", "wine"),
+    value_source = c("wine", "wine", "wine"),
+    column_target = c("variable", "variable", "variable"),
+    value_target_raw = c("area", "area", "area"),
+    value_target = c("area", "area", "area")
+  )
+
+  error_message <- tryCatch(
+    {
+      validate_canonical_rules(
+        rules_dt = rules_dt,
+        dataset_dt = dataset_dt,
+        rule_file_id = "clean_footnotes.xlsx",
+        rule_file_path = "C:/rules/clean_footnotes.xlsx",
+        stage_name = "clean"
+      )
+
+      NA_character_
+    },
+    error = function(condition_value) {
+      conditionMessage(condition_value)
+    }
+  )
+
+  testthat::expect_match(
+    error_message,
+    "rule file location",
+    ignore.case = TRUE
+  )
+  testthat::expect_match(
+    error_message,
+    "C:/rules/clean_footnotes.xlsx",
+    fixed = TRUE
+  )
+  testthat::expect_match(error_message, "uniqueness key", ignore.case = TRUE)
+  testthat::expect_match(error_message, "duplicate key #1", ignore.case = TRUE)
+  testthat::expect_match(error_message, "rows=\\[1, 2, 3\\]")
+})
+
 
 # --- encode / decode target rule values --------------------------------------
 
@@ -286,6 +490,26 @@ testthat::test_that("resolve_target_update_strategy supports per-column override
     resolve_target_update_strategy("unit"),
     "last_rule_wins"
   )
+})
+
+testthat::test_that("resolve_tokenized_target_condition_columns includes concatenate targets and footnotes", {
+  tokenized_columns <- resolve_tokenized_target_condition_columns()
+
+  testthat::expect_true("notes" %in% tokenized_columns)
+  testthat::expect_true("footnotes" %in% tokenized_columns)
+})
+
+testthat::test_that("match_rule_target_condition_values supports tokenized matching", {
+  current_values <- c("borders: 1937; source a", "borders: 1945", NA_character_)
+  condition_values <- c("borders: 1937", "borders: 1937", NA_character_)
+
+  result <- match_rule_target_condition_values(
+    current_values = current_values,
+    condition_values = condition_values,
+    tokenized_target = TRUE
+  )
+
+  testthat::expect_identical(result, c(TRUE, FALSE, TRUE))
 })
 
 
@@ -380,6 +604,60 @@ testthat::test_that("apply_conditional_rule_group applies empty target as NA", {
   testthat::expect_equal(result$data$unit[[2]], "kg")
 })
 
+testthat::test_that("apply_conditional_rule_group matches concatenated notes target conditions", {
+  dataset_dt <- data.table::data.table(
+    hemisphere = "total__HEMISPHERE_PLACEHOLDER__north borders: 1937",
+    notes = "borders: 1937; iia"
+  )
+
+  group_rules <- data.table::data.table(
+    column_source = "hemisphere",
+    value_source_raw = "total__HEMISPHERE_PLACEHOLDER__north borders: 1937",
+    value_source = "north",
+    column_target = "notes",
+    value_target_raw = "borders: 1937",
+    value_target = NA_character_
+  )
+
+  result <- apply_conditional_rule_group(
+    dataset_dt = dataset_dt,
+    group_rules = group_rules,
+    stage_name = "clean",
+    dataset_name = "demo",
+    rule_file_id = "test.xlsx",
+    execution_timestamp_utc = "2026-01-01T00:00:00Z"
+  )
+
+  testthat::expect_equal(result$data$hemisphere[[1]], "north")
+})
+
+testthat::test_that("apply_conditional_rule_group does not audit normalized-equivalent no-op matches", {
+  dataset_dt <- data.table::data.table(
+    footnotes = "__australian mandate__"
+  )
+
+  group_rules <- data.table::data.table(
+    column_source = "footnotes",
+    value_source_raw = "australian mandate",
+    value_source = "__australian mandate__",
+    column_target = "footnotes",
+    value_target_raw = "australian mandate",
+    value_target = "__australian mandate__"
+  )
+
+  result <- apply_conditional_rule_group(
+    dataset_dt = dataset_dt,
+    group_rules = group_rules,
+    stage_name = "clean",
+    dataset_name = "demo",
+    rule_file_id = "test.xlsx",
+    execution_timestamp_utc = "2026-01-01T00:00:00Z"
+  )
+
+  testthat::expect_equal(result$data$footnotes[[1]], "__australian mandate__")
+  testthat::expect_equal(nrow(result$audit), 0L)
+})
+
 
 # --- apply_rule_payload ------------------------------------------------------
 
@@ -428,6 +706,136 @@ testthat::test_that("apply_rule_payload returns empty audit for zero rules", {
 
   testthat::expect_true(is.list(result))
   testthat::expect_equal(nrow(result$audit), 0L)
+})
+
+testthat::test_that("apply_rule_payload prepared execution plan matches direct execution", {
+  dataset_dt <- data.table::data.table(
+    product = c("Wheat", "Rice"),
+    unit = c("kg", "kg"),
+    variable = c("Prod", "Prod")
+  )
+
+  canonical_rules <- data.table::data.table(
+    column_source = c("product", "product"),
+    value_source_raw = c("Wheat", "Rice"),
+    value_source = c(NA_character_, NA_character_),
+    column_target = c("unit", "unit"),
+    value_target_raw = c("kg", "kg"),
+    value_target = c("kilogram", "gram")
+  )
+
+  prepared_payload <- prepare_rule_payload_execution_plan(
+    canonical_rules = canonical_rules,
+    stage_name = "clean"
+  )
+
+  direct_result <- apply_rule_payload(
+    dataset_dt = data.table::copy(dataset_dt),
+    canonical_rules = canonical_rules,
+    stage_name = "clean",
+    dataset_name = "demo",
+    rule_file_id = "test.xlsx",
+    execution_timestamp_utc = "2026-01-01T00:00:00Z"
+  )
+
+  prepared_result <- apply_rule_payload(
+    dataset_dt = data.table::copy(dataset_dt),
+    canonical_rules = canonical_rules,
+    stage_name = "clean",
+    dataset_name = "demo",
+    rule_file_id = "test.xlsx",
+    execution_timestamp_utc = "2026-01-01T00:00:00Z",
+    prepared_payload = prepared_payload
+  )
+
+  testthat::expect_equal(prepared_result$data, direct_result$data)
+  testthat::expect_equal(prepared_result$audit, direct_result$audit)
+  testthat::expect_equal(
+    prepared_result$changed_value_count,
+    direct_result$changed_value_count
+  )
+})
+
+testthat::test_that("apply_rule_payload trigger_columns filters execution to dependent groups", {
+  dataset_dt <- data.table::data.table(
+    product = c("Wheat", "Rice"),
+    unit = c("kg", "kg"),
+    variable = c("Prod", "Prod"),
+    notes = c("old", "old")
+  )
+
+  canonical_rules <- data.table::data.table(
+    column_source = c("product", "variable"),
+    value_source_raw = c("Wheat", "Prod"),
+    value_source = c(NA_character_, NA_character_),
+    column_target = c("unit", "notes"),
+    value_target_raw = c("kg", "old"),
+    value_target = c("kilogram", "production-note")
+  )
+
+  prepared_payload <- prepare_rule_payload_execution_plan(
+    canonical_rules = canonical_rules,
+    stage_name = "clean"
+  )
+
+  filtered_result <- apply_rule_payload(
+    dataset_dt = data.table::copy(dataset_dt),
+    canonical_rules = canonical_rules,
+    stage_name = "clean",
+    dataset_name = "demo",
+    rule_file_id = "test.xlsx",
+    execution_timestamp_utc = "2026-01-01T00:00:00Z",
+    prepared_payload = prepared_payload,
+    trigger_columns = c("product")
+  )
+
+  testthat::expect_equal(filtered_result$data$unit[[1]], "kilogram")
+  testthat::expect_equal(filtered_result$data$notes[[1]], "old")
+  testthat::expect_true("unit" %in% filtered_result$changed_columns)
+  testthat::expect_false("notes" %in% filtered_result$changed_columns)
+})
+
+testthat::test_that("apply_conditional_rule_group enforces exactly one group payload input", {
+  dataset_dt <- data.table::data.table(product = "Wheat", unit = "kg")
+  group_rules <- data.table::data.table(
+    column_source = "product",
+    value_source_raw = "Wheat",
+    value_source = NA_character_,
+    column_target = "unit",
+    value_target_raw = "kg",
+    value_target = "kilogram"
+  )
+
+  prepared_group <- prepare_conditional_rule_group(
+    group_rules = group_rules,
+    stage_name = "clean"
+  )
+
+  testthat::expect_error(
+    apply_conditional_rule_group(
+      dataset_dt = data.table::copy(dataset_dt),
+      group_rules = NULL,
+      prepared_group = NULL,
+      stage_name = "clean",
+      dataset_name = "demo",
+      rule_file_id = "test.xlsx",
+      execution_timestamp_utc = "2026-01-01T00:00:00Z"
+    ),
+    "exactly one"
+  )
+
+  testthat::expect_error(
+    apply_conditional_rule_group(
+      dataset_dt = data.table::copy(dataset_dt),
+      group_rules = group_rules,
+      prepared_group = prepared_group,
+      stage_name = "clean",
+      dataset_name = "demo",
+      rule_file_id = "test.xlsx",
+      execution_timestamp_utc = "2026-01-01T00:00:00Z"
+    ),
+    "exactly one"
+  )
 })
 
 
@@ -514,7 +922,10 @@ testthat::test_that("apply_footnote_rules handles multi-footnote split and recon
     execution_timestamp_utc = "2026-01-01T00:00:00Z"
   )
 
-  testthat::expect_equal(result$data$footnotes[[1]], "note A; replaced B; note C")
+  testthat::expect_equal(
+    result$data$footnotes[[1]],
+    "note A; replaced B; note C"
+  )
 })
 
 testthat::test_that("apply_footnote_rules preserves footnote order", {
@@ -649,7 +1060,10 @@ testthat::test_that("apply_footnote_rules handles comma-containing footnotes", {
     execution_timestamp_utc = "2026-01-01T00:00:00Z"
   )
 
-  testthat::expect_equal(result$data$footnotes[[1]], "comma preserved; simple note")
+  testthat::expect_equal(
+    result$data$footnotes[[1]],
+    "comma preserved; simple note"
+  )
 })
 
 testthat::test_that("apply_footnote_rules applies target column updates", {
@@ -824,10 +1238,17 @@ testthat::test_that("apply_footnote_rules generates compatible audit structure",
   )
 
   expected_columns <- c(
-    "dataset_name", "column_source", "value_source_raw",
-    "value_source_result", "column_target", "value_target_raw",
-    "value_target_result", "affected_rows",
-    "execution_timestamp_utc", "rule_file_identifier", "execution_stage"
+    "dataset_name",
+    "column_source",
+    "value_source_raw",
+    "value_source_result",
+    "column_target",
+    "value_target_raw",
+    "value_target_result",
+    "affected_rows",
+    "execution_timestamp_utc",
+    "rule_file_identifier",
+    "execution_stage"
   )
   testthat::expect_true(all(expected_columns %in% names(result$audit)))
   testthat::expect_equal(result$audit$dataset_name[[1]], "demo")
@@ -862,6 +1283,34 @@ testthat::test_that("apply_footnote_rules works with harmonize stage", {
 
   testthat::expect_equal(result$data$footnotes[[1]], "harmonized")
   testthat::expect_equal(result$audit$execution_stage[[1]], "harmonize")
+})
+
+testthat::test_that("apply_footnote_rules does not audit normalized-equivalent no-op matches", {
+  dataset_dt <- data.table::data.table(
+    product = "Wheat",
+    footnotes = "__australian mandate__"
+  )
+
+  footnote_rules <- data.table::data.table(
+    column_source = "footnotes",
+    value_source_raw = "australian mandate",
+    value_source = "__australian mandate__",
+    column_target = "footnotes",
+    value_target_raw = "australian mandate",
+    value_target = "__australian mandate__"
+  )
+
+  result <- apply_footnote_rules(
+    dataset_dt = dataset_dt,
+    footnote_rules = footnote_rules,
+    stage_name = "clean",
+    dataset_name = "demo",
+    rule_file_id = "test.xlsx",
+    execution_timestamp_utc = "2026-01-01T00:00:00Z"
+  )
+
+  testthat::expect_equal(result$data$footnotes[[1]], "__australian mandate__")
+  testthat::expect_equal(nrow(result$audit), 0L)
 })
 
 testthat::test_that("apply_rule_payload routes footnote rules to apply_footnote_rules", {
@@ -1035,4 +1484,33 @@ testthat::test_that("apply_footnote_rules skips source rewrite when target condi
 
   testthat::expect_equal(result$data$product[[1]], "bovine")
   testthat::expect_equal(result$data$footnotes[[1]], "large")
+})
+
+testthat::test_that("apply_footnote_rules matches concatenated notes target conditions", {
+  dataset_dt <- data.table::data.table(
+    product = "Wheat",
+    notes = "borders: 1937; iia",
+    footnotes = "conditional fn"
+  )
+
+  footnote_rules <- data.table::data.table(
+    column_source = "footnotes",
+    value_source_raw = "conditional fn",
+    value_source = NA_character_,
+    column_target = "notes",
+    value_target_raw = "borders: 1937",
+    value_target = "matched-note"
+  )
+
+  result <- apply_footnote_rules(
+    dataset_dt = dataset_dt,
+    footnote_rules = footnote_rules,
+    stage_name = "clean",
+    dataset_name = "demo",
+    rule_file_id = "test.xlsx",
+    execution_timestamp_utc = "2026-01-01T00:00:00Z"
+  )
+
+  testthat::expect_equal(result$data$notes[[1]], "borders: 1937; iia; matched-note")
+  testthat::expect_true(is.na(result$data$footnotes[[1]]))
 })

@@ -1,13 +1,13 @@
 # tests/3-export_pipeline/test-export-lists.R
-# unit tests for scripts/3-export_pipeline/31-export_lists.R
+# unit tests for R/3-export_pipeline/31-export_lists.R
 
 source(here::here("tests", "test_helper.R"), echo = FALSE)
 source(
-  here::here("scripts", "3-export_pipeline", "30-export_data.R"),
+  here::here("r", "3-export_pipeline", "30-export_data.R"),
   echo = FALSE
 )
 source(
-  here::here("scripts", "3-export_pipeline", "31-export_lists.R"),
+  here::here("r", "3-export_pipeline", "31-export_lists.R"),
   echo = FALSE
 )
 
@@ -238,22 +238,25 @@ testthat::test_that("write_column_lists_workbook writes all three sheets", {
 
 # --- export_lists ------------------------------------------------------------
 
-testthat::test_that("export_lists excludes value/year columns", {
+testthat::test_that("export_lists honors configured lists_to_export columns", {
   config <- build_test_config()
 
   data_objects <- list(
     demo_raw = data.table::data.table(
       country = c("a", "b"),
+      document = c("doc_a.xlsx", "doc_b.xlsx"),
       value = c("1", "2"),
       year = c("2020", "2021")
     ),
     demo_cleaned = data.table::data.table(
       country = c("a", "b"),
+      document = c("doc_a.xlsx", "doc_b.xlsx"),
       value = c("1", "2"),
       year = c("2020", "2021")
     ),
     demo_harmonized = data.table::data.table(
       country = c("a", "b"),
+      document = c("doc_a.xlsx", "doc_b.xlsx"),
       value = c("1", "2"),
       year = c("2020", "2021")
     )
@@ -267,6 +270,37 @@ testthat::test_that("export_lists excludes value/year columns", {
   )
 
   testthat::expect_true("country" %in% names(output_paths))
+  testthat::expect_false("document" %in% names(output_paths))
   testthat::expect_false("value" %in% names(output_paths))
   testthat::expect_false("year" %in% names(output_paths))
+})
+
+testthat::test_that("export_lists includes document only when explicitly configured", {
+  config <- build_test_config()
+  config$export_config$lists_to_export <- c("country", "document")
+
+  data_objects <- list(
+    demo_raw = data.table::data.table(
+      country = c("a", "b"),
+      document = c("doc_a.xlsx", "doc_b.xlsx")
+    ),
+    demo_cleaned = data.table::data.table(
+      country = c("a", "b"),
+      document = c("doc_a.xlsx", "doc_b.xlsx")
+    ),
+    demo_harmonized = data.table::data.table(
+      country = c("a", "b"),
+      document = c("doc_a.xlsx", "doc_b.xlsx")
+    )
+  )
+
+  output_paths <- export_lists(
+    config = config,
+    data_objects = data_objects,
+    overwrite = TRUE,
+    env = new.env(parent = emptyenv())
+  )
+
+  testthat::expect_true("country" %in% names(output_paths))
+  testthat::expect_true("document" %in% names(output_paths))
 })

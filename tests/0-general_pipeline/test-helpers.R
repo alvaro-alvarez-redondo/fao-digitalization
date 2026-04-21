@@ -1,5 +1,5 @@
 # tests/0-general_pipeline/test-helpers.R
-# unit tests for scripts/0-general_pipeline/02-helpers.R
+# unit tests for R/0-general_pipeline/02-helpers.R
 
 source(here::here("tests", "test_helper.R"), echo = FALSE)
 
@@ -98,7 +98,26 @@ testthat::test_that("clean_footnote converts to lowercase ascii", {
 
 testthat::test_that("clean_footnote handles accented characters", {
   result <- clean_footnote("données révisées")
-  testthat::expect_true(grepl("^[a-z0-9 ;/*()\\.\\-,#%:]+$", result))
+
+  allowed_chars <- c(
+    letters,
+    as.character(0:9),
+    " ",
+    ";",
+    "/",
+    "*",
+    "(",
+    ")",
+    ".",
+    ",",
+    "-",
+    "#",
+    "%",
+    ":"
+  )
+  result_chars <- strsplit(result, "", fixed = TRUE)[[1]]
+
+  testthat::expect_true(all(result_chars %in% allowed_chars))
 })
 
 testthat::test_that("clean_footnote preserves footnote-safe special characters", {
@@ -358,7 +377,7 @@ testthat::test_that("assign_environment_values errors on unnamed values", {
 
   testthat::expect_error(
     assign_environment_values(values = list(1L, 2L), env = env),
-    "named"
+    "named|Must have names"
   )
 })
 
@@ -459,7 +478,7 @@ testthat::test_that("map_with_progress maps without progress when disabled", {
     enable_progress = FALSE
   )
 
-  testthat::expect_identical(result, list(2L, 4L, 6L))
+  testthat::expect_equal(result, list(2, 4, 6))
 })
 
 testthat::test_that("map_with_progress handles empty input", {

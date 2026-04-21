@@ -1,5 +1,5 @@
 # tests/0-general_pipeline/test-setup.R
-# unit tests for scripts/0-general_pipeline/01-setup.R
+# unit tests for R/0-general_pipeline/01-setup.R
 
 source(here::here("tests", "test_helper.R"), echo = FALSE)
 

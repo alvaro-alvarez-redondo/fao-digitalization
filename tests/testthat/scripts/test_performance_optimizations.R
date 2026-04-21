@@ -4,9 +4,9 @@ options(
   whep.checkpointing.enabled = FALSE
 )
 
-source(here::here("scripts", "0-general_pipeline", "01-setup.R"), echo = FALSE)
+source(here::here("r", "0-general_pipeline", "01-setup.R"), echo = FALSE)
 source(
-  here::here("scripts", "0-general_pipeline", "02-helpers.R"),
+  here::here("r", "0-general_pipeline", "02-helpers.R"),
   echo = FALSE
 )
 

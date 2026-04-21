@@ -1,0 +1,4 @@
+stage,fn_name,description,best_class,r_squared,slope_per_n,complexity_rank,dominant_in_stage
+1-import,reshape_to_long,melt n-row wide table (20 year cols) to long format,O(n),0.993325150274388,0.000000732071311473494,3,FALSE
+1-import,discover_excel_files,discover synthetic xlsx files with n-scaled workbook count and fixed worksheet size across repeated discovery passes,O(n^2),0.99981813268821,0.00001251702287221,5,FALSE
+1-import,read_excel_file_sheets,read n synthetic workbook sheets (fixed rows per sheet) where n directly represents total sheet reads per timed invocation,O(n^3),0.882323393976547,0.00000000000132563325246402,6,TRUE

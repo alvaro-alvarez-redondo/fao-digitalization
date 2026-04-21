@@ -1,8 +1,8 @@
 # tests/0-general_pipeline/test-run-pipeline.R
-# unit tests for scripts/run_pipeline.R helper utilities
+# unit tests for R/run_pipeline.R helper utilities
 
 source(here::here("tests", "test_helper.R"), echo = FALSE)
-source(here::here("scripts", "run_pipeline.R"), echo = FALSE)
+source(here::here("r", "run_pipeline.R"), echo = FALSE)
 
 
 testthat::test_that("format_post_processing_iteration_count handles valid and missing values", {
@@ -67,5 +67,49 @@ testthat::test_that("build_post_processing_iteration_summary formats determinist
   testthat::expect_identical(
     summary_suffix,
     " | clean loops: 1 | harmonize loops: 5"
+  )
+})
+
+testthat::test_that("run_pipeline_script emits compact non-duplicated failure summary", {
+  root_dir <- build_temp_dir("whep-run-pipeline-script-error-")
+  failing_script <- file.path(root_dir, "failing_pipeline_script.R")
+
+  writeLines(
+    c(
+      "stop(\"Rule uniqueness validation failed for 'clean_footnotes.xlsx'.\\nrule file location: C:/rules/clean_footnotes.xlsx\\nrule rows=[396, 398]\", call. = FALSE)"
+    ),
+    con = failing_script
+  )
+
+  error_message <- tryCatch(
+    {
+      run_pipeline_script(failing_script)
+      NA_character_
+    },
+    error = function(condition_value) {
+      conditionMessage(condition_value)
+    }
+  )
+
+  testthat::expect_match(
+    error_message,
+    "pipeline script execution failed",
+    ignore.case = TRUE
+  )
+  testthat::expect_match(error_message, "script:", ignore.case = TRUE)
+  testthat::expect_match(
+    error_message,
+    "cause:\\s*Rule uniqueness validation failed\\s*for\\s*'clean_footnotes\\.xlsx'\\."
+  )
+  testthat::expect_match(
+    error_message,
+    "location: C:/rules/clean_footnotes.xlsx",
+    fixed = TRUE
+  )
+  testthat::expect_no_match(error_message, "details:", ignore.case = TRUE)
+  testthat::expect_no_match(
+    error_message,
+    "Caused by error",
+    ignore.case = TRUE
   )
 })

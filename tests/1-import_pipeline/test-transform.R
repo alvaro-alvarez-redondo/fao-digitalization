@@ -1,11 +1,11 @@
 # tests/1-import_pipeline/test-transform.R
-# unit tests for scripts/1-import_pipeline/12-transform.R
+# unit tests for R/1-import_pipeline/12-transform.R
 
 source(here::here("tests", "test_helper.R"), echo = FALSE)
-source(here::here("scripts", "1-import_pipeline", "10-file_io.R"), echo = FALSE)
-source(here::here("scripts", "1-import_pipeline", "11-reading.R"), echo = FALSE)
+source(here::here("r", "1-import_pipeline", "10-file_io.R"), echo = FALSE)
+source(here::here("r", "1-import_pipeline", "11-reading.R"), echo = FALSE)
 source(
-  here::here("scripts", "1-import_pipeline", "12-transform.R"),
+  here::here("r", "1-import_pipeline", "12-transform.R"),
   echo = FALSE
 )
 
@@ -139,7 +139,6 @@ testthat::test_that("reshape_to_long converts wide to long format", {
 testthat::test_that("reshape_to_long preserves hemisphere column when present", {
   dt <- data.table::data.table(
     hemisphere = c("northern", "southern"),
-<<<<<<< HEAD
     continent = c("Asia", "Europe"),
     country = c("Japan", "France"),
     product = c("wheat", "rice"),
@@ -148,35 +147,21 @@ testthat::test_that("reshape_to_long preserves hemisphere column when present", 
     footnotes = c(NA_character_, NA_character_),
     `2020` = c("100", "200"),
     `2021` = c("300", "400")
-=======
-    continent = c("Asia", "Africa"),
-    country = c("Japan", "Kenya"),
-    product = c("wheat", "rice"),
-    variable = c("production", "production"),
-    unit = c("tonnes", "tonnes"),
-    footnotes = c(NA_character_, NA_character_),
-    `2020` = c("100", "200")
->>>>>>> 72888f686daaf7dad5df0e347aa5082ae6e1fcce
   )
 
   config <- build_test_config()
   result <- reshape_to_long(dt, config)
 
-<<<<<<< HEAD
   testthat::expect_true(data.table::is.data.table(result))
   testthat::expect_true("hemisphere" %in% names(result))
-  testthat::expect_equal(sort(unique(result$hemisphere)), c("northern", "southern"))
-  testthat::expect_equal(nrow(result), 4L) # 2 rows * 2 years
-})
-
-testthat::test_that("reshape_to_long succeeds when hemisphere column is absent", {
-=======
-  testthat::expect_true("hemisphere" %in% names(result))
-  testthat::expect_equal(result$hemisphere, c("northern", "southern"))
+  testthat::expect_equal(
+    sort(unique(result$hemisphere)),
+    c("northern", "southern")
+  )
+  testthat::expect_equal(nrow(result), 4L)
 })
 
 testthat::test_that("reshape_to_long succeeds without hemisphere column", {
->>>>>>> 72888f686daaf7dad5df0e347aa5082ae6e1fcce
   dt <- data.table::data.table(
     continent = c("Asia", "Europe"),
     country = c("Japan", "France"),
@@ -184,12 +169,7 @@ testthat::test_that("reshape_to_long succeeds without hemisphere column", {
     variable = c("production", "trade"),
     unit = c("tonnes", "tonnes"),
     footnotes = c(NA_character_, NA_character_),
-<<<<<<< HEAD
-    `2020` = c("100", "200"),
-    `2021` = c("300", "400")
-=======
     `2020` = c("100", "200")
->>>>>>> 72888f686daaf7dad5df0e347aa5082ae6e1fcce
   )
 
   config <- build_test_config()
@@ -197,13 +177,8 @@ testthat::test_that("reshape_to_long succeeds without hemisphere column", {
 
   testthat::expect_true(data.table::is.data.table(result))
   testthat::expect_false("hemisphere" %in% names(result))
-<<<<<<< HEAD
-  testthat::expect_equal(nrow(result), 4L) # 2 rows * 2 years
-=======
   testthat::expect_equal(nrow(result), 2L)
->>>>>>> 72888f686daaf7dad5df0e347aa5082ae6e1fcce
 })
-
 
 
 testthat::test_that("add_metadata appends document, notes, yearbook columns", {

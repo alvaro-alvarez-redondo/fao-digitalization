@@ -4,14 +4,14 @@ options(
 )
 
 source(
-  here::here("scripts", "0-general_pipeline", "02-helpers.R"),
+  here::here("r", "0-general_pipeline", "02-helpers.R"),
   echo = FALSE
 )
 source(
-  here::here("scripts", "2-post_processing_pipeline", "24-standardize_units.R"),
+  here::here("r", "2-post_processing_pipeline", "24-standardize_units.R"),
   echo = FALSE
 )
-source(here::here("scripts", "run_pipeline.R"), echo = FALSE)
+source(here::here("r", "run_pipeline.R"), echo = FALSE)
 
 testthat::test_that("assign_environment_values assigns named values deterministically", {
   env <- new.env(parent = emptyenv())
@@ -46,7 +46,7 @@ testthat::test_that("assign_environment_values errors on unnamed values", {
 
   testthat::expect_error(
     assign_environment_values(values = list(1L, 2L), env = env),
-    "named"
+    "named|Must have names"
   )
 })
 
@@ -64,13 +64,13 @@ testthat::test_that("validate_conversion_rules accepts normalized legacy schema"
   testthat::expect_invisible(validate_conversion_rules(normalized_rules))
 })
 
-testthat::test_that("validate_conversion_rules errors on duplicated product/source_unit", {
+testthat::test_that("validate_conversion_rules errors on duplicated product_key/unit_source", {
   duplicate_rules <- data.table::data.table(
-    product = c("wheat", "wheat"),
-    source_unit = c("kg", "kg"),
-    target_unit = c("g", "mg"),
-    multiplier = c(1000, 1000000),
-    addend = c(0, 0)
+    product_key = c("wheat", "wheat"),
+    unit_source = c("kg", "kg"),
+    unit_target = c("g", "mg"),
+    unit_multiplier = c(1000, 1000000),
+    unit_offset = c(0, 0)
   )
 
   testthat::expect_error(
@@ -87,11 +87,11 @@ testthat::test_that("apply_standardize_rules converts values and stabilizes outp
   )
 
   prepared_rules_dt <- prepare_standardize_rules(data.table::data.table(
-    product = "wheat",
-    source_unit = "kg",
-    target_unit = "g",
-    multiplier = 1000,
-    addend = 0
+    product_key = "wheat",
+    unit_source = "kg",
+    unit_target = "g",
+    unit_multiplier = 1000,
+    unit_offset = 0
   ))
 
   result <- apply_standardize_rules(

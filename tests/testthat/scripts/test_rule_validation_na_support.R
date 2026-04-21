@@ -2,13 +2,15 @@ options(
   whep.run_post_processing_pipeline.auto = FALSE
 )
 
+source(here::here("tests", "test_helper.R"), echo = FALSE)
+
 source(
-  here::here("scripts", "0-general_pipeline", "02-helpers.R"),
+  here::here("r", "0-general_pipeline", "02-helpers.R"),
   echo = FALSE
 )
 source(
   here::here(
-    "scripts",
+    "r",
     "2-post_processing_pipeline",
     "21-post_processing_utilities.R"
   ),
@@ -16,7 +18,7 @@ source(
 )
 source(
   here::here(
-    "scripts",
+    "r",
     "2-post_processing_pipeline",
     "23-post_processing_rule_engine.R"
   ),
@@ -33,6 +35,7 @@ testthat::test_that("validate_canonical_rules allows NA in value columns for cle
   rules_dt <- data.table::data.table(
     column_source = c("product", "product"),
     value_source_raw = c(NA_character_, "Rice"),
+    value_source = c(NA_character_, NA_character_),
     column_target = c("unit", "unit"),
     value_target_raw = c(NA_character_, "kg"),
     value_target = c(NA_character_, "kilogram")
@@ -57,6 +60,7 @@ testthat::test_that("validate_canonical_rules remains fail-fast for structural r
   rules_dt <- data.table::data.table(
     column_source = NA_character_,
     value_source_raw = NA_character_,
+    value_source = NA_character_,
     column_target = "unit",
     value_target_raw = "kg",
     value_target = "kilogram"
@@ -69,7 +73,7 @@ testthat::test_that("validate_canonical_rules remains fail-fast for structural r
       rule_file_id = "clean_clean_harmonize_template.xlsx",
       stage_name = "clean"
     ),
-    regexp = "missing values in required columns"
+    regexp = "(?i)missing\\s+values\\s+in\\s+required\\s+columns"
   )
 })
 
@@ -111,6 +115,7 @@ testthat::test_that("validate_canonical_rules allows NA in value columns for har
   rules_dt <- data.table::data.table(
     column_source = c("product", "product"),
     value_source_raw = c(NA_character_, "Rice"),
+    value_source = c(NA_character_, NA_character_),
     column_target = c("variable", "variable"),
     value_target_raw = c(NA_character_, "Prod"),
     value_target = c(NA_character_, "Production")

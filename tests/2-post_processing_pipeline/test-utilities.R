@@ -1,10 +1,10 @@
 # tests/2-post_processing_pipeline/test-utilities.R
-# unit tests for scripts/2-post_processing_pipeline/21-post_processing_utilities.R
+# unit tests for R/2-post_processing_pipeline/21-post_processing_utilities.R
 
 source(here::here("tests", "test_helper.R"), echo = FALSE)
 source(
   here::here(
-    "scripts",
+    "r",
     "2-post_processing_pipeline",
     "21-post_processing_utilities.R"
   ),
@@ -111,6 +111,9 @@ testthat::test_that("read_rule_table reads Excel rule files", {
   rules <- data.frame(
     column_source = "product",
     value_source_raw = "Wheat",
+    column_target = "unit",
+    value_target_raw = "kg",
+    value_target = "kilogram",
     stringsAsFactors = FALSE
   )
   create_test_xlsx(rules, file_path)
@@ -174,7 +177,10 @@ testthat::test_that("read_rule_table errors when no Excel worksheet matches rule
 
   writexl::write_xlsx(
     list(
-      metadata = data.frame(note = "not a rule table", stringsAsFactors = FALSE),
+      metadata = data.frame(
+        note = "not a rule table",
+        stringsAsFactors = FALSE
+      ),
       diagnostics = data.frame(status = "ok", stringsAsFactors = FALSE)
     ),
     path = file_path
@@ -182,7 +188,7 @@ testthat::test_that("read_rule_table errors when no Excel worksheet matches rule
 
   testthat::expect_error(
     read_rule_table(file_path),
-    "No worksheets with matching rule columns found"
+    "(?i)No\\s+worksheets\\s+with\\s+matching\\s+rule\\s+columns\\s+found"
   )
 })
 
@@ -206,11 +212,18 @@ testthat::test_that("load_stage_rule_payloads discovers rule files for a stage",
   )
 
   result <- load_stage_rule_payloads(config = config, stage_name = "clean")
+  expected_rule_path <- normalizePath(
+    file.path(config$paths$data$imports$cleaning, "clean_rules_test.csv"),
+    winslash = "/",
+    mustWork = FALSE
+  )
 
   testthat::expect_true(is.list(result))
   testthat::expect_true(length(result) >= 1L)
   testthat::expect_true("rule_file_id" %in% names(result[[1]]))
+  testthat::expect_true("rule_file_path" %in% names(result[[1]]))
   testthat::expect_true("raw_rules" %in% names(result[[1]]))
+  testthat::expect_identical(result[[1]]$rule_file_path, expected_rule_path)
 })
 
 testthat::test_that("load_stage_rule_payloads returns empty list for empty directory", {
@@ -257,6 +270,8 @@ testthat::test_that("build_layer_diagnostics returns structured diagnostics", {
   )
 
   testthat::expect_true(is.list(result))
-  testthat::expect_identical(result$clean$rows_in, 100L)
-  testthat::expect_identical(result$clean$rows_out, 100L)
+  testthat::expect_identical(result$layer_name, "clean")
+  testthat::expect_identical(result$rows_in, 100L)
+  testthat::expect_identical(result$rows_out, 100L)
+  testthat::expect_identical(result$matched_count, 8L)
 })

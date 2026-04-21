@@ -517,70 +517,76 @@ NULL
         )
         read_cfg <- .build_excel_read_benchmark_config(cfg, import_folder)
         available_paths <- .resolve_excel_benchmark_read_paths(read_cfg)
-
         sheet_refs <- .build_excel_sheet_reference_table(available_paths)
-        if (nrow(sheet_refs) > 0L) {
-          data.table::setorder(sheet_refs, file_path, sheet_name)
-        }
 
-        selected_refs <- if (nrow(sheet_refs) > 0L) {
-          selected_count <- min(sheet_reads_target, nrow(sheet_refs))
-          sheet_refs[seq_len(selected_count)]
+        workbook_sheet_map <- if (nrow(sheet_refs) > 0L) {
+          split(
+            as.character(sheet_refs$sheet_name),
+            as.character(sheet_refs$file_path)
+          )
         } else {
-          sheet_refs
+          list()
         }
 
-        selected_paths <- as.character(selected_refs$file_path)
-        selected_sheets <- as.character(selected_refs$sheet_name)
+        workbook_reads_target <- max(
+          1L,
+          as.integer(ceiling(sheet_reads_target / excel_fixture_sheet_count))
+        )
+
+        selected_workbooks <- if (length(available_paths) > 0L) {
+          available_paths[seq_len(min(workbook_reads_target, length(available_paths)))]
+        } else {
+          character(0)
+        }
 
         function() {
-          if (length(selected_paths) == 0L) {
-            return(invisible(list(rows = 0L, errors = 0L, sheet_reads = 0L)))
+          if (length(selected_workbooks) == 0L) {
+            return(invisible(list(
+              rows = 0L,
+              errors = 0L,
+              sheet_reads = 0L,
+              workbook_reads = 0L
+            )))
           }
 
           total_rows <- 0L
           total_errors <- 0L
-          total_sheet_reads <- 0L
+          total_workbook_reads <- 0L
 
           for (iter_i in seq_len(excel_read_repeats_per_iteration)) {
             iter_idx <- seq(
               from = iter_i,
-              to = length(selected_paths),
+              to = length(selected_workbooks),
               by = excel_read_repeats_per_iteration
             )
             if (length(iter_idx) == 0L) {
               next
             }
 
-            read_results <- lapply(iter_idx, function(ref_i) {
-              read_excel_sheet(
-                file_path = selected_paths[[ref_i]],
-                sheet_name = selected_sheets[[ref_i]],
-                config = read_cfg
-              )
-            })
+            workbook_batch_paths <- selected_workbooks[iter_idx]
+            batch_result <- read_workbook_batch(
+              file_paths = workbook_batch_paths,
+              config = read_cfg,
+              sheet_names_by_file = workbook_sheet_map
+            )
 
-            total_rows <- total_rows + sum(vapply(read_results, function(result_i) {
-              if (is.null(result_i$data)) {
-                return(0L)
-              }
-              as.integer(nrow(result_i$data))
+            total_rows <- total_rows + sum(vapply(batch_result$read_data_list, function(dt_i) {
+              as.integer(nrow(dt_i))
             }, integer(1)))
 
-            total_errors <- total_errors + sum(vapply(read_results, function(result_i) {
-              if (is.null(result_i$errors)) {
-                return(0L)
-              }
-              as.integer(length(result_i$errors))
-            }, integer(1)))
-
-            total_sheet_reads <- total_sheet_reads + length(read_results)
+            total_errors <- total_errors + as.integer(length(batch_result$errors))
+            total_workbook_reads <- total_workbook_reads + length(workbook_batch_paths)
           }
+
+          total_sheet_reads <- as.integer(
+            total_workbook_reads * excel_fixture_sheet_count
+          )
 
           return(invisible(list(
             rows = total_rows,
             errors = total_errors,
-            sheet_reads = total_sheet_reads
+            sheet_reads = total_sheet_reads,
+            workbook_reads = total_workbook_reads
           )))
         }
       }
@@ -601,11 +607,11 @@ NULL
   na_frac <- cfg$na_fraction
 
   conversion_rules_raw <- data.table::data.table(
-    product = rep(.ca_products, each = 3L),
-    source_unit = rep(c("tonnes", "kg_ha", "ha"), times = length(.ca_products)),
-    target_unit = rep(c("kg", "kg_per_ha_std", "ha_std"), times = length(.ca_products)),
-    multiplier = rep(c(1000, 1, 1), times = length(.ca_products)),
-    addend = 0
+    product_key = rep(.ca_products, each = 3L),
+    unit_source = rep(c("tonnes", "kg_ha", "ha"), times = length(.ca_products)),
+    unit_target = rep(c("kg", "kg_per_ha_std", "ha_std"), times = length(.ca_products)),
+    unit_multiplier = rep(c(1000, 1, 1), times = length(.ca_products)),
+    unit_offset = 0
   )
 
   list(

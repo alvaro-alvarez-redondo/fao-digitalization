@@ -1,10 +1,10 @@
 # tests/2-post_processing_pipeline/test-clean-harmonize.R
-# integration tests for scripts/2-post_processing_pipeline/22-clean_harmonize_data.R
+# integration tests for R/2-post_processing_pipeline/22-clean_harmonize_data.R
 
 source(here::here("tests", "test_helper.R"), echo = FALSE)
 source(
   here::here(
-    "scripts",
+    "r",
     "2-post_processing_pipeline",
     "21-post_processing_utilities.R"
   ),
@@ -12,7 +12,7 @@ source(
 )
 source(
   here::here(
-    "scripts",
+    "r",
     "2-post_processing_pipeline",
     "23-post_processing_rule_engine.R"
   ),
@@ -20,7 +20,7 @@ source(
 )
 source(
   here::here(
-    "scripts",
+    "r",
     "2-post_processing_pipeline",
     "22-clean_harmonize_data.R"
   ),
@@ -84,6 +84,8 @@ testthat::test_that("run_cleaning_layer_batch applies clean rules", {
 
   audit <- attr(result, "layer_audit")
   testthat::expect_true(nrow(audit) >= 1L)
+  testthat::expect_true("loop" %in% names(audit))
+  testthat::expect_true(all(audit$loop >= 1L))
 })
 
 
@@ -431,7 +433,10 @@ testthat::test_that("clean multi-pass detects deterministic two-state cycle with
   diagnostics <- attr(result, "layer_diagnostics")
 
   testthat::expect_true(diagnostics$multi_pass$cycle_detected)
-  testthat::expect_identical(diagnostics$multi_pass$stop_reason, "cycle_detected")
+  testthat::expect_identical(
+    diagnostics$multi_pass$stop_reason,
+    "cycle_detected"
+  )
   testthat::expect_true(diagnostics$multi_pass$passes_executed >= 2L)
 })
 
@@ -514,8 +519,13 @@ testthat::test_that("clean multi-pass reports max_passes reached before converge
 
   testthat::expect_equal(result$unit[[1]], "quintal")
   testthat::expect_true(is.na(result$notes[[1]]))
-  testthat::expect_true(diagnostics$multi_pass$max_passes_reached_before_convergence)
-  testthat::expect_identical(diagnostics$multi_pass$stop_reason, "max_passes_reached")
+  testthat::expect_true(
+    diagnostics$multi_pass$max_passes_reached_before_convergence
+  )
+  testthat::expect_identical(
+    diagnostics$multi_pass$stop_reason,
+    "max_passes_reached"
+  )
 })
 
 testthat::test_that("clean multi-pass treats net-zero-change pass as convergence, not cycle", {
@@ -567,7 +577,177 @@ testthat::test_that("clean multi-pass treats net-zero-change pass as convergence
   testthat::expect_equal(result$unit[[1]], "a")
   testthat::expect_true(diagnostics$multi_pass$converged)
   testthat::expect_false(diagnostics$multi_pass$cycle_detected)
-  testthat::expect_identical(diagnostics$multi_pass$stop_reason, "converged_zero_change")
+  testthat::expect_identical(
+    diagnostics$multi_pass$stop_reason,
+    "converged_zero_change"
+  )
+})
+
+testthat::test_that("clean footnote rewrites are audited only on effective change loops", {
+  config <- build_test_config()
+
+  clean_rules <- data.frame(
+    column_source = "footnotes",
+    value_source_raw = "australian mandate",
+    value_source = "__australian mandate__",
+    column_target = "footnotes",
+    value_target_raw = "australian mandate",
+    value_target = "__australian mandate__",
+    stringsAsFactors = FALSE
+  )
+  create_clean_rule_file(
+    config = config,
+    rules_df = clean_rules,
+    filename = "clean_footnotes_loop_audit.csv"
+  )
+
+  input_dt <- data.frame(
+    footnotes = "australian mandate",
+    stringsAsFactors = FALSE
+  )
+
+  result <- run_cleaning_layer_batch(
+    dataset_dt = input_dt,
+    config = config,
+    dataset_name = "demo"
+  )
+
+  audit_dt <- attr(result, "layer_audit")
+
+  testthat::expect_equal(result$footnotes[[1]], "__australian mandate__")
+  testthat::expect_identical(sort(unique(audit_dt$loop)), 1L)
+})
+
+testthat::test_that("clean stage persists runtime cache artifact deterministically", {
+  config <- build_test_config()
+
+  clean_rules <- data.frame(
+    column_source = "product",
+    value_source_raw = "Wheat",
+    column_target = "unit",
+    value_target_raw = "kg",
+    value_target = "kilogram",
+    stringsAsFactors = FALSE
+  )
+  create_clean_rule_file(config, clean_rules)
+
+  input_dt <- data.frame(
+    product = c("Wheat", "Rice"),
+    unit = c("kg", "kg"),
+    stringsAsFactors = FALSE
+  )
+
+  invisible(run_cleaning_layer_batch(
+    dataset_dt = input_dt,
+    config = config,
+    dataset_name = "demo"
+  ))
+
+  runtime_cache_settings <- resolve_stage_runtime_cache_settings(config)
+  cache_file_path <- build_stage_runtime_cache_file_path(
+    config = config,
+    runtime_cache_settings = runtime_cache_settings
+  )
+
+  testthat::expect_true(file.exists(cache_file_path))
+
+  cache_entries <- read_stage_runtime_cache_entries(
+    cache_file_path = cache_file_path,
+    runtime_cache_settings = runtime_cache_settings
+  )
+  testthat::expect_true(length(cache_entries) >= 1L)
+  testthat::expect_true(any(startsWith(names(cache_entries), "clean::")))
+})
+
+testthat::test_that("clean stage payload bundle can be reloaded from disk cache", {
+  config <- build_test_config()
+
+  clean_rules <- data.frame(
+    column_source = "product",
+    value_source_raw = "Wheat",
+    column_target = "unit",
+    value_target_raw = "kg",
+    value_target = "kilogram",
+    stringsAsFactors = FALSE
+  )
+  create_clean_rule_file(config, clean_rules)
+
+  input_dt <- data.frame(
+    product = c("Wheat", "Rice"),
+    unit = c("kg", "kg"),
+    stringsAsFactors = FALSE
+  )
+
+  invisible(run_cleaning_layer_batch(
+    dataset_dt = input_dt,
+    config = config,
+    dataset_name = "demo"
+  ))
+
+  first_bundle <- get_cached_stage_payload_bundle(
+    config = config,
+    stage_name = "clean"
+  )
+  runtime_cache_settings <- resolve_stage_runtime_cache_settings(config)
+  cache_file_path <- build_stage_runtime_cache_file_path(
+    config = config,
+    runtime_cache_settings = runtime_cache_settings
+  )
+
+  rm(
+    list = ls(.stage_payload_bundle_cache, all.names = TRUE),
+    envir = .stage_payload_bundle_cache
+  )
+
+  disk_bundle <- load_stage_payload_bundle_from_disk(
+    cache_file_path = cache_file_path,
+    runtime_cache_settings = runtime_cache_settings,
+    cache_key = first_bundle$cache_key
+  )
+
+  testthat::expect_true(is.list(disk_bundle))
+  testthat::expect_identical(disk_bundle$cache_key, first_bundle$cache_key)
+  testthat::expect_true(length(disk_bundle$canonical_payloads) >= 1L)
+})
+
+testthat::test_that("stage payload cache key changes when rule file contents change", {
+  config <- build_test_config()
+
+  clean_rules <- data.frame(
+    column_source = "product",
+    value_source_raw = "Wheat",
+    column_target = "unit",
+    value_target_raw = "kg",
+    value_target = "kilogram",
+    stringsAsFactors = FALSE
+  )
+  rule_file_name <- "clean_cache_key_test.csv"
+  create_clean_rule_file(config, clean_rules, filename = rule_file_name)
+
+  key_before <- build_stage_payload_cache_key(
+    config = config,
+    stage_name = "clean"
+  )
+
+  updated_rules <- rbind(
+    clean_rules,
+    data.frame(
+      column_source = "product",
+      value_source_raw = "Rice",
+      column_target = "unit",
+      value_target_raw = "kg",
+      value_target = "gram",
+      stringsAsFactors = FALSE
+    )
+  )
+  create_clean_rule_file(config, updated_rules, filename = rule_file_name)
+
+  key_after <- build_stage_payload_cache_key(
+    config = config,
+    stage_name = "clean"
+  )
+
+  testthat::expect_false(identical(key_before, key_after))
 })
 
 testthat::test_that("harmonize stage inherits missing stage controls from defaults when config overrides are partial", {
@@ -606,8 +786,13 @@ testthat::test_that("harmonize stage inherits missing stage controls from defaul
   )
 
   diagnostics <- attr(result, "layer_diagnostics")
-  expected_harmonize_max_passes <- get_pipeline_constants()$post_processing$multi_pass$max_passes_by_stage[["harmonize"]]
+  expected_harmonize_max_passes <- get_pipeline_constants()$post_processing$multi_pass$max_passes_by_stage[[
+    "harmonize"
+  ]]
 
   testthat::expect_equal(result$unit[[1]], "kilogram")
-  testthat::expect_equal(diagnostics$multi_pass$max_passes, expected_harmonize_max_passes)
+  testthat::expect_equal(
+    diagnostics$multi_pass$max_passes,
+    expected_harmonize_max_passes
+  )
 })

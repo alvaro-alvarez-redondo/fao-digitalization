@@ -13,7 +13,7 @@ This repository is a script-oriented R pipeline that processes WHEP source workb
 3. Post-processing (audit, cleaning, unit standardization, harmonization)
 4. Export (processed layer workbooks and unique-list outputs)
 
-Execution is orchestrated by `scripts/run_pipeline.R`, which sources stage runners in fixed order.
+Execution is orchestrated by `R/run_pipeline.R`, which sources stage runners in fixed order.
 
 ## 3. Installation (renv enforced)
 
@@ -37,15 +37,15 @@ renv::snapshot()
 
 ## 4. Dependency Management
 
-- Runtime dependencies and load/check helpers are defined in `scripts/0-general_pipeline/00-dependencies.R`.
-- Project setup constants and configuration constructors are defined in `scripts/0-general_pipeline/01-setup.R`.
-- Shared helpers are defined in `scripts/0-general_pipeline/02-helpers.R`.
+- Runtime dependencies and load/check helpers are defined in `R/0-general_pipeline/00-dependencies.R`.
+- Project setup constants and configuration constructors are defined in `R/0-general_pipeline/01-setup.R`.
+- Shared helpers are defined in `R/0-general_pipeline/02-helpers.R`.
 - Dependency installation and version locking are expected to be managed via `renv`.
 
 ## 5. Quick Start (deterministic example)
 
 ```r
-source(here::here("scripts", "run_pipeline.R"), local = TRUE)
+source(here::here("r", "run_pipeline.R"), local = TRUE)
 
 options(
   whep.run_pipeline.auto = FALSE,
@@ -57,15 +57,15 @@ options(
 
 run_pipeline(
   show_view = FALSE,
-  pipeline_root = here::here("scripts")
+  pipeline_root = here::here("r")
 )
 ```
 
 ## 6. Exported API Overview
 
-Primary API exposed via `scripts/run_pipeline.R`:
+Primary API exposed via `R/run_pipeline.R`:
 
-- `run_pipeline(show_view = interactive(), pipeline_root = here::here("scripts"))`
+- `run_pipeline(show_view = interactive(), pipeline_root = here::here("r"))`
 
 Core stage entry points used by the orchestrator:
 
@@ -87,16 +87,16 @@ Contract helpers:
 
 ## 7. Architecture Overview
 
-- `scripts/0-general_pipeline/`
+- `R/0-general_pipeline/`
   - `00-dependencies.R`: dependency registry/check/load
   - `01-setup.R`: constants and configuration
   - `02-helpers.R`: shared utility functions
   - `run_general_pipeline.R`: stage bootstrap
-- `scripts/1-import_pipeline/`: file IO, reading, transforms, validation, import runner
-- `scripts/2-post_processing_pipeline/`: audit, post-processing utilities, rule engine, clean, standardize units, harmonize, diagnostics, post-processing runner
-- `scripts/3-export_pipeline/`: processed-data and unique-list exporters, export runner
-- `scripts/run_pipeline.R`: global orchestrator
-- `tests/testthat/scripts/`: deterministic `testthat` suites
+- `R/1-import_pipeline/`: file IO, reading, transforms, validation, import runner
+- `R/2-post_processing_pipeline/`: audit, post-processing utilities, rule engine, clean, standardize units, harmonize, diagnostics, post-processing runner
+- `R/3-export_pipeline/`: processed-data and unique-list exporters, export runner
+- `R/run_pipeline.R`: global orchestrator
+- `tests/testthat/R/`: deterministic `testthat` suites
 
 ## 8. Engineering Standards
 
@@ -121,7 +121,7 @@ Enable parallel processing:
 
 ```r
 future::plan(future::multisession, workers = 4)
-source(here::here("scripts", "run_pipeline.R"), local = TRUE)
+source(here::here("r", "run_pipeline.R"), local = TRUE)
 ```
 
 When parallel backends are active, these stages run in parallel:
@@ -170,7 +170,7 @@ source(here::here("tests", "testthat", "test_all.r"), echo = FALSE)
 Run test directory directly:
 
 ```r
-testthat::test_dir(here::here("tests", "testthat", "scripts"), reporter = "summary")
+testthat::test_dir(here::here("tests", "testthat", "r"), reporter = "summary")
 ```
 
 Coverage notes:

@@ -7,11 +7,11 @@
 #' @noRd
 NULL
 
-.perf_orchestration_path <- if (requireNamespace("here", quietly = TRUE)) {
-  here::here("perf", "perf_pipeline", "p9-orchestration.R")
-} else {
-  file.path(getwd(), "perf", "perf_pipeline", "p9-orchestration.R")
-}
+ .perf_orchestration_path <- if (requireNamespace("here", quietly = TRUE)) {
+   here::here("perf", "perf_pipeline", "p9-orchestration.R")
+ } else {
+   file.path(getwd(), "perf", "perf_pipeline", "p9-orchestration.R")
+ }
 source(.perf_orchestration_path, echo = FALSE, local = FALSE)
 
 # ── execute analysis ─────────────────────────────────────────────────────────

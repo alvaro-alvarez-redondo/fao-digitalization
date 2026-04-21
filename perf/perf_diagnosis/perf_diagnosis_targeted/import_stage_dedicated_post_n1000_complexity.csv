@@ -1,0 +1,4 @@
+stage,fn_name,description,best_class,r_squared,slope_per_n,complexity_rank,dominant_in_stage
+1-import,reshape_to_long,melt n-row wide table (20 year cols) to long format,unknown,,,7,TRUE
+1-import,discover_excel_files,discover synthetic xlsx files with n-scaled workbook count and fixed worksheet size across repeated discovery passes,unknown,,,7,TRUE
+1-import,read_excel_file_sheets,read n synthetic workbook sheets (fixed rows per sheet) where n directly represents total sheet reads per timed invocation,unknown,,,7,TRUE
