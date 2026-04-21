@@ -841,6 +841,25 @@ concatenate_existing_and_incoming_values <- function(
     is.na(incoming_values_norm) | trimws(incoming_values_norm) == ""
   ] <- NA_character_
 
+  split_deduplicate_tokens <- function(values_chr) {
+    lapply(values_chr, function(single_value) {
+      if (is.na(single_value)) {
+        return(character(0))
+      }
+
+      split_tokens <- strsplit(single_value, ";", fixed = TRUE)[[1]]
+      split_tokens <- trimws(split_tokens)
+      split_tokens <- split_tokens[nzchar(split_tokens)]
+
+      if (length(split_tokens) == 0L) {
+        return(character(0))
+      }
+
+      dedup_mask <- !duplicated(split_tokens)
+      return(split_tokens[dedup_mask])
+    })
+  }
+
   merged_values <- incoming_values_norm
   existing_only_mask <- !is.na(existing_values_norm) & is.na(incoming_values_norm)
   both_present_mask <- !is.na(existing_values_norm) & !is.na(incoming_values_norm)
@@ -850,10 +869,20 @@ concatenate_existing_and_incoming_values <- function(
   }
 
   if (any(both_present_mask)) {
-    merged_values[both_present_mask] <- paste(
-      existing_values_norm[both_present_mask],
-      incoming_values_norm[both_present_mask],
-      sep = delimiter
+    existing_tokens <- split_deduplicate_tokens(existing_values_norm[both_present_mask])
+    incoming_tokens <- split_deduplicate_tokens(incoming_values_norm[both_present_mask])
+
+    merged_values[both_present_mask] <- vapply(
+      seq_along(existing_tokens),
+      FUN.VALUE = character(1),
+      FUN = function(idx) {
+        merged_tokens <- c(existing_tokens[[idx]], incoming_tokens[[idx]])
+        merged_tokens <- merged_tokens[!duplicated(merged_tokens)]
+        if (length(merged_tokens) == 0L) {
+          return(NA_character_)
+        }
+        paste(merged_tokens, collapse = delimiter)
+      }
     )
   }
 
@@ -995,18 +1024,42 @@ apply_target_updates_with_strategy <- function(
   if (isTRUE(apply_condition_match)) {
     has_condition <- !is.na(updates_dt[[condition_column]])
     if (any(has_condition)) {
+      conditioned_updates_raw <- updates_dt[has_condition]
       current_values <- dataset_dt[[target_column]][
-        updates_dt$row_id_internal[has_condition]
+        conditioned_updates_raw$row_id_internal
       ]
       condition_matches <- match_rule_target_condition_values(
         current_values = current_values,
-        condition_values = updates_dt[[condition_column]][has_condition],
+        condition_values = conditioned_updates_raw[[condition_column]],
         tokenized_target = target_column %in% tokenized_target_condition_columns
       )
 
-      conditioned_updates <- updates_dt[has_condition][
-        condition_matches
-      ]
+      conditioned_updates <- conditioned_updates_raw[condition_matches]
+
+      is_wildcard_condition <- !is.na(conditioned_updates[[condition_column]]) &
+        trimws(as.character(conditioned_updates[[condition_column]])) ==
+        strategy_config$rule_match_wildcard_token
+
+      if (any(is_wildcard_condition)) {
+        wildcard_idx <- which(is_wildcard_condition)
+        wildcard_current_values <- dataset_dt[[target_column]][
+          conditioned_updates$row_id_internal[wildcard_idx]
+        ]
+        wildcard_candidate_values <- conditioned_updates[[value_column]][wildcard_idx]
+
+        wildcard_value_already_present <- match_rule_target_condition_values(
+          current_values = wildcard_current_values,
+          condition_values = wildcard_candidate_values,
+          tokenized_target = target_column %in% tokenized_target_condition_columns
+        )
+
+        if (any(wildcard_value_already_present)) {
+          conditioned_updates <- conditioned_updates[
+            -wildcard_idx[wildcard_value_already_present]
+          ]
+        }
+      }
+
       unconditional_updates <- updates_dt[!has_condition]
 
       updates_dt <- data.table::rbindlist(

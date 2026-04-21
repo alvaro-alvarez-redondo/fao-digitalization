@@ -1157,6 +1157,34 @@ testthat::test_that("apply_footnote_rules appends concatenated notes to existing
   )
 })
 
+testthat::test_that("apply_footnote_rules deduplicates concatenated notes values", {
+  dataset_dt <- data.table::data.table(
+    product = "Wheat",
+    notes = "composition: unspec",
+    footnotes = "fn_note_dup"
+  )
+
+  footnote_rules <- data.table::data.table(
+    column_source = "footnotes",
+    value_source_raw = "fn_note_dup",
+    value_source = NA_character_,
+    column_target = "notes",
+    value_target_raw = NA_character_,
+    value_target = "composition: unspec"
+  )
+
+  result <- apply_footnote_rules(
+    dataset_dt = dataset_dt,
+    footnote_rules = footnote_rules,
+    stage_name = "clean",
+    dataset_name = "demo",
+    rule_file_id = "test.xlsx",
+    execution_timestamp_utc = "2026-01-01T00:00:00Z"
+  )
+
+  testthat::expect_equal(result$data$notes[[1]], "composition: unspec")
+})
+
 testthat::test_that("apply_footnote_rules handles NA footnotes rows", {
   dataset_dt <- data.table::data.table(
     product = c("Wheat", "Rice"),
@@ -1513,4 +1541,33 @@ testthat::test_that("apply_footnote_rules matches concatenated notes target cond
 
   testthat::expect_equal(result$data$notes[[1]], "borders: 1937; iia; matched-note")
   testthat::expect_true(is.na(result$data$footnotes[[1]]))
+})
+
+testthat::test_that("__ANY__ target-condition skips append when note already exists", {
+  dataset_dt <- data.table::data.table(
+    product = c("Wheat", "Rice"),
+    notes = c("composition: unspec", "quality: high"),
+    footnotes = c("conditional fn", "conditional fn")
+  )
+
+  footnote_rules <- data.table::data.table(
+    column_source = "footnotes",
+    value_source_raw = "conditional fn",
+    value_source = NA_character_,
+    column_target = "notes",
+    value_target_raw = "__ANY__",
+    value_target = "composition: unspec"
+  )
+
+  result <- apply_footnote_rules(
+    dataset_dt = dataset_dt,
+    footnote_rules = footnote_rules,
+    stage_name = "clean",
+    dataset_name = "demo",
+    rule_file_id = "test.xlsx",
+    execution_timestamp_utc = "2026-01-01T00:00:00Z"
+  )
+
+  testthat::expect_equal(result$data$notes[[1]], "composition: unspec")
+  testthat::expect_equal(result$data$notes[[2]], "quality: high; composition: unspec")
 })
