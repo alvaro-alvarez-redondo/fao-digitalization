@@ -665,10 +665,39 @@ testthat::test_that("clean notes concatenate when target condition uses wildcard
   testthat::expect_equal(result$unit[[1]], "kilogram")
   testthat::expect_equal(
     result$notes[[1]],
-    "existing note; converted from kg"
+    "converted from kg; existing note"
   )
   testthat::expect_true(diagnostics$multi_pass$converged)
   testthat::expect_true(diagnostics$multi_pass$passes_executed >= 2L)
+})
+
+testthat::test_that("clean and harmonize stages canonicalize notes/footnotes cell ordering after loops", {
+  config <- build_test_config()
+
+  input_dt <- data.frame(
+    unit = "kg",
+    notes = "zeta; alpha; alpha",
+    footnotes = "fn_b; fn_a; fn_b",
+    stringsAsFactors = FALSE
+  )
+
+  clean_result <- run_cleaning_layer_batch(
+    dataset_dt = input_dt,
+    config = config,
+    dataset_name = "demo"
+  )
+
+  harmonize_result <- run_harmonize_layer_batch(
+    dataset_dt = input_dt,
+    config = config,
+    dataset_name = "demo"
+  )
+
+  testthat::expect_equal(clean_result$notes[[1]], "alpha; zeta")
+  testthat::expect_equal(clean_result$footnotes[[1]], "fn_a; fn_b")
+
+  testthat::expect_equal(harmonize_result$notes[[1]], "alpha; zeta")
+  testthat::expect_equal(harmonize_result$footnotes[[1]], "fn_a; fn_b")
 })
 
 testthat::test_that("clean notes blank target condition is not wildcard", {

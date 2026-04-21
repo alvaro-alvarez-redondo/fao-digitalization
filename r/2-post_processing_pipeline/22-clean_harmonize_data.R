@@ -35,6 +35,77 @@ load_harmonize_rule_payloads <- function(config) {
   return(load_stage_rule_payloads(config = config, stage_name = "harmonize"))
 }
 
+#' @title Canonicalize semicolon-delimited cells
+#' @description Deduplicates and alphabetically sorts semicolon-delimited tokens
+#' within each non-missing cell, then reconstructs deterministic cell strings.
+#' @param values Atomic vector of cell values.
+#' @param delimiter Character scalar output delimiter.
+#' @return Character vector with canonicalized values.
+canonicalize_semicolon_delimited_cells <- function(
+  values,
+  delimiter = get_pipeline_constants()$post_processing$target_update_strategies$concatenate_delimiter
+) {
+  checkmate::assert_atomic(values, any.missing = TRUE)
+  checkmate::assert_string(delimiter, min.chars = 1)
+
+  values_chr <- as.character(values)
+  values_chr[is.na(values_chr) | trimws(values_chr) == ""] <- NA_character_
+
+  non_missing_idx <- which(!is.na(values_chr))
+  if (length(non_missing_idx) == 0L) {
+    return(values_chr)
+  }
+
+  values_chr[non_missing_idx] <- vapply(
+    values_chr[non_missing_idx],
+    FUN.VALUE = character(1),
+    FUN = function(single_value) {
+      split_tokens <- strsplit(single_value, ";", fixed = TRUE)[[1]]
+      split_tokens <- trimws(split_tokens)
+      split_tokens <- split_tokens[nzchar(split_tokens)]
+
+      if (length(split_tokens) == 0L) {
+        return(NA_character_)
+      }
+
+      unique_tokens <- split_tokens[!duplicated(split_tokens)]
+      sorted_tokens <- sort(unique_tokens, method = "radix")
+      paste(sorted_tokens, collapse = delimiter)
+    }
+  )
+
+  return(values_chr)
+}
+
+#' @title Canonicalize post-loop concatenated annotation columns
+#' @description Applies per-cell semicolon token canonicalization to notes and
+#' footnotes after stage loops complete, preserving global loop performance.
+#' @param dataset_dt Data table mutated by reference.
+#' @return Invisible logical scalar indicating whether any column was touched.
+canonicalize_post_loop_annotation_columns <- function(dataset_dt) {
+  checkmate::assert_data_table(dataset_dt)
+
+  annotation_columns <- intersect(c("notes", "footnotes"), names(dataset_dt))
+  if (length(annotation_columns) == 0L) {
+    return(invisible(FALSE))
+  }
+
+  delimiter <- get_pipeline_constants()$post_processing$target_update_strategies$concatenate_delimiter
+
+  for (column_name in annotation_columns) {
+    data.table::set(
+      dataset_dt,
+      j = column_name,
+      value = canonicalize_semicolon_delimited_cells(
+        values = dataset_dt[[column_name]],
+        delimiter = delimiter
+      )
+    )
+  }
+
+  return(invisible(TRUE))
+}
+
 #' @title Resolve stage multi-pass controls
 #' @description Resolves and validates stage-specific multi-pass controls,
 #' applying configuration overrides over centralized defaults.
@@ -758,6 +829,8 @@ run_rule_stage_layer_batch <- function(
       break
     }
   }
+
+  canonicalize_post_loop_annotation_columns(working_data)
 
   stage_audit <- data.table::rbindlist(
     all_pass_audit_tables,
