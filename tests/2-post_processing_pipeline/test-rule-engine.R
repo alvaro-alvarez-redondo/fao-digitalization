@@ -631,6 +631,34 @@ testthat::test_that("apply_conditional_rule_group matches concatenated notes tar
   testthat::expect_equal(result$data$hemisphere[[1]], "north")
 })
 
+testthat::test_that("apply_conditional_rule_group treats blank target condition as unconditional for notes", {
+  dataset_dt <- data.table::data.table(
+    hemisphere = "total__HEMISPHERE_PLACEHOLDER__north borders: 1945",
+    notes = "borders: 1945"
+  )
+
+  group_rules <- data.table::data.table(
+    column_source = "hemisphere",
+    value_source_raw = "total__HEMISPHERE_PLACEHOLDER__north borders: 1945",
+    value_source = "north",
+    column_target = "notes",
+    value_target_raw = "",
+    value_target = "borders: 1945"
+  )
+
+  result <- apply_conditional_rule_group(
+    dataset_dt = data.table::copy(dataset_dt),
+    group_rules = group_rules,
+    stage_name = "clean",
+    dataset_name = "demo",
+    rule_file_id = "test.xlsx",
+    execution_timestamp_utc = "2026-01-01T00:00:00Z"
+  )
+
+  testthat::expect_equal(result$data$hemisphere[[1]], "north")
+  testthat::expect_equal(result$data$notes[[1]], "borders: 1945")
+})
+
 testthat::test_that("apply_conditional_rule_group does not audit normalized-equivalent no-op matches", {
   dataset_dt <- data.table::data.table(
     footnotes = "__australian mandate__"
@@ -1155,6 +1183,33 @@ testthat::test_that("apply_footnote_rules appends concatenated notes to existing
     result$data$notes[[1]],
     "existing note; note_01; note_02"
   )
+})
+
+testthat::test_that("apply_footnote_rules treats blank target condition as unconditional", {
+  dataset_dt <- data.table::data.table(
+    notes = "existing note",
+    footnotes = "fn_note_01"
+  )
+
+  footnote_rules <- data.table::data.table(
+    column_source = "footnotes",
+    value_source_raw = "fn_note_01",
+    value_source = NA_character_,
+    column_target = "notes",
+    value_target_raw = "",
+    value_target = "alpha note"
+  )
+
+  result <- apply_footnote_rules(
+    dataset_dt = data.table::copy(dataset_dt),
+    footnote_rules = footnote_rules,
+    stage_name = "clean",
+    dataset_name = "dataset",
+    rule_file_id = "rules",
+    execution_timestamp_utc = "2025-01-01T00:00:00Z"
+  )
+
+  testthat::expect_equal(result$data$notes[[1]], "alpha note; existing note")
 })
 
 testthat::test_that("apply_footnote_rules does not duplicate notes already present", {

@@ -1208,6 +1208,10 @@ apply_conditional_rule_group <- function(
     trimws(value_source_result) == "",
     value_source_result := NA_character_
   ]
+  normalized_rules[
+    !is.na(value_target_raw) & trimws(value_target_raw) == "",
+    value_target_raw := NA_character_
+  ]
 
   data.table::setindex(normalized_rules, source_key)
 
@@ -1433,6 +1437,10 @@ apply_footnote_rules <- function(
   normalized_rules[
     trimws(value_source_result) == "",
     value_source_result := NA_character_
+  ]
+  normalized_rules[
+    !is.na(value_target_raw) & trimws(value_target_raw) == "",
+    value_target_raw := NA_character_
   ]
   data.table::setindex(normalized_rules, source_key)
 
