@@ -785,20 +785,46 @@ concatenate_existing_and_incoming_values <- function(
     is.na(incoming_values_norm) | trimws(incoming_values_norm) == ""
   ] <- NA_character_
 
-  merged_values <- incoming_values_norm
+  merge_tokens <- function(existing_value, incoming_value) {
+    if (is.na(existing_value) && is.na(incoming_value)) {
+      return(NA_character_)
+    }
+
+    split_value_tokens <- function(value) {
+      if (is.na(value)) {
+        return(character(0))
+      }
+
+      # Tokenized matching for notes/footnotes is semicolon-based across the
+      # rule engine; split on ";" and normalize whitespace so deduplication is
+      # stable even when spacing differs (e.g. "a;b" vs "a; b").
+      tokens <- strsplit(value, ";", fixed = TRUE)[[1]]
+      tokens <- trimws(tokens)
+      tokens[nzchar(tokens)]
+    }
+
+    existing_tokens <- split_value_tokens(existing_value)
+    incoming_tokens <- split_value_tokens(incoming_value)
+
+    merged_tokens <- unique(c(existing_tokens, incoming_tokens))
+    merged_tokens <- merged_tokens[order(tolower(merged_tokens), merged_tokens)]
+    if (length(merged_tokens) == 0L) {
+      return(NA_character_)
+    }
+
+    return(paste(merged_tokens, collapse = delimiter))
+  }
+
+  merged_values <- mapply(
+    FUN = merge_tokens,
+    existing_value = existing_values_norm,
+    incoming_value = incoming_values_norm,
+    USE.NAMES = FALSE
+  )
   existing_only_mask <- !is.na(existing_values_norm) & is.na(incoming_values_norm)
-  both_present_mask <- !is.na(existing_values_norm) & !is.na(incoming_values_norm)
 
   if (any(existing_only_mask)) {
     merged_values[existing_only_mask] <- existing_values_norm[existing_only_mask]
-  }
-
-  if (any(both_present_mask)) {
-    merged_values[both_present_mask] <- paste(
-      existing_values_norm[both_present_mask],
-      incoming_values_norm[both_present_mask],
-      sep = delimiter
-    )
   }
 
   return(merged_values)
@@ -1528,6 +1554,8 @@ apply_footnote_rules <- function(
         if (length(valid) == 0L) {
           NA_character_
         } else {
+          valid <- unique(valid)
+          valid <- valid[order(tolower(valid), valid)]
           paste(valid, collapse = "; ")
         }
       }

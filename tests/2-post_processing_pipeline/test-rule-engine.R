@@ -1157,6 +1157,119 @@ testthat::test_that("apply_footnote_rules appends concatenated notes to existing
   )
 })
 
+testthat::test_that("apply_footnote_rules does not duplicate notes already present", {
+  dataset_dt <- data.table::data.table(
+    notes = "existing note; note_01",
+    footnotes = "fn_note_01"
+  )
+
+  footnote_rules <- data.table::data.table(
+    column_source = "footnotes",
+    value_source_raw = "fn_note_01",
+    value_source = NA_character_,
+    column_target = "notes",
+    value_target_raw = NA_character_,
+    value_target = "note_01"
+  )
+
+  result <- apply_footnote_rules(
+    dataset_dt = data.table::copy(dataset_dt),
+    footnote_rules = footnote_rules,
+    stage_name = "clean",
+    dataset_name = "dataset",
+    rule_file_id = "rules",
+    execution_timestamp_utc = "2025-01-01T00:00:00Z"
+  )
+
+  testthat::expect_equal(result$data$notes[[1]], "existing note; note_01")
+})
+
+testthat::test_that("apply_footnote_rules deduplicates notes with inconsistent semicolon spacing", {
+  dataset_dt <- data.table::data.table(
+    notes = "existing note;note_01",
+    footnotes = "fn_note_01; fn_note_02"
+  )
+
+  footnote_rules <- data.table::data.table(
+    column_source = c("footnotes", "footnotes"),
+    value_source_raw = c("fn_note_01", "fn_note_02"),
+    value_source = c(NA_character_, NA_character_),
+    column_target = c("notes", "notes"),
+    value_target_raw = c(NA_character_, NA_character_),
+    value_target = c("note_01", "note_02")
+  )
+
+  result <- apply_footnote_rules(
+    dataset_dt = data.table::copy(dataset_dt),
+    footnote_rules = footnote_rules,
+    stage_name = "clean",
+    dataset_name = "dataset",
+    rule_file_id = "rules",
+    execution_timestamp_utc = "2025-01-01T00:00:00Z"
+  )
+
+  testthat::expect_equal(
+    result$data$notes[[1]],
+    "existing note; note_01; note_02"
+  )
+})
+
+testthat::test_that("apply_footnote_rules alphabetically orders concatenated notes tokens", {
+  dataset_dt <- data.table::data.table(
+    notes = "zulu note",
+    footnotes = "fn_note_01; fn_note_02"
+  )
+
+  footnote_rules <- data.table::data.table(
+    column_source = c("footnotes", "footnotes"),
+    value_source_raw = c("fn_note_01", "fn_note_02"),
+    value_source = c(NA_character_, NA_character_),
+    column_target = c("notes", "notes"),
+    value_target_raw = c(NA_character_, NA_character_),
+    value_target = c("alpha note", "mango note")
+  )
+
+  result <- apply_footnote_rules(
+    dataset_dt = data.table::copy(dataset_dt),
+    footnote_rules = footnote_rules,
+    stage_name = "clean",
+    dataset_name = "dataset",
+    rule_file_id = "rules",
+    execution_timestamp_utc = "2025-01-01T00:00:00Z"
+  )
+
+  testthat::expect_equal(
+    result$data$notes[[1]],
+    "alpha note; mango note; zulu note"
+  )
+})
+
+testthat::test_that("apply_footnote_rules alphabetically orders reconstructed footnotes", {
+  dataset_dt <- data.table::data.table(
+    footnotes = "zeta flag; alpha mark"
+  )
+
+  footnote_rules <- data.table::data.table(
+    column_source = "footnotes",
+    value_source_raw = "unmatched value",
+    value_source = "still unmatched",
+    column_target = "footnotes",
+    value_target_raw = NA_character_,
+    value_target = NA_character_
+  )
+
+  result <- apply_footnote_rules(
+    dataset_dt = data.table::copy(dataset_dt),
+    footnote_rules = footnote_rules,
+    stage_name = "clean",
+    dataset_name = "dataset",
+    rule_file_id = "rules",
+    execution_timestamp_utc = "2025-01-01T00:00:00Z"
+  )
+
+  testthat::expect_equal(result$data$footnotes[[1]], "alpha mark; zeta flag")
+})
+
 testthat::test_that("apply_footnote_rules handles NA footnotes rows", {
   dataset_dt <- data.table::data.table(
     product = c("Wheat", "Rice"),
