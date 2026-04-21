@@ -720,6 +720,48 @@ testthat::test_that("apply_rule_payload applies multiple rule groups", {
   testthat::expect_true(nrow(result$audit) >= 2L)
 })
 
+testthat::test_that("apply_rule_payload handles duplicate note mapping from multiple source columns", {
+  dataset_dt <- data.table::data.table(
+    hemisphere = "total__HEMISPHERE_PLACEHOLDER__north borders: 1945",
+    continent = "world",
+    country = "total__HEMISPHERE_PLACEHOLDER__north (excl. ussr) borders: 1945",
+    product = "hop",
+    variable = "area",
+    unit = "1000 hectare",
+    year = "1934-1938",
+    value = 49,
+    notes = "borders: 1945",
+    footnotes = NA_character_,
+    yearbook = "iia_crops_1939",
+    document = "r_iia_crops_1939_133_134_hop.xlsx"
+  )
+
+  canonical_rules <- data.table::data.table(
+    column_source = c("hemisphere", "country"),
+    value_source_raw = c(
+      "total__HEMISPHERE_PLACEHOLDER__north borders: 1945",
+      "total__HEMISPHERE_PLACEHOLDER__north (excl. ussr) borders: 1945"
+    ),
+    value_source = c("north", "total (excl. ussr)"),
+    column_target = c("notes", "notes"),
+    value_target_raw = c("", ""),
+    value_target = c("borders: 1945", "borders: 1945")
+  )
+
+  result <- apply_rule_payload(
+    dataset_dt = data.table::copy(dataset_dt),
+    canonical_rules = canonical_rules,
+    stage_name = "clean",
+    dataset_name = "demo",
+    rule_file_id = "clean_notes.xlsx",
+    execution_timestamp_utc = "2026-01-01T00:00:00Z"
+  )
+
+  testthat::expect_equal(result$data$hemisphere[[1]], "north")
+  testthat::expect_equal(result$data$country[[1]], "total (excl. ussr)")
+  testthat::expect_equal(result$data$notes[[1]], "borders: 1945")
+})
+
 testthat::test_that("apply_rule_payload returns empty audit for zero rules", {
   dataset_dt <- data.table::data.table(product = "Wheat", unit = "kg")
 
