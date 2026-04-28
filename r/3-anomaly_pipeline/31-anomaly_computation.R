@@ -188,25 +188,41 @@ compute_outliers_table <- function(source_dt, anomaly_config) {
   value_column <- anomaly_config$value_column
   boundary_tolerance <- anomaly_config$boundary_tolerance
 
-  scored_dt <- source_dt[, {
-    q1 <- stats::quantile(get(value_column), probs = 0.25, na.rm = TRUE, names = FALSE, type = 7)
-    q3 <- stats::quantile(get(value_column), probs = 0.75, na.rm = TRUE, names = FALSE, type = 7)
-    iqr_value <- q3 - q1
-    lower_bound <- q1 - (anomaly_config$iqr_multiplier * iqr_value)
-    upper_bound <- q3 + (anomaly_config$iqr_multiplier * iqr_value)
-    value_vector <- get(value_column)
+  outlier_stats <- source_dt[
+    ,
+    .(
+      iqr_q1 = stats::quantile(
+        get(value_column),
+        probs = 0.25,
+        na.rm = TRUE,
+        names = FALSE,
+        type = 7
+      ),
+      iqr_q3 = stats::quantile(
+        get(value_column),
+        probs = 0.75,
+        na.rm = TRUE,
+        names = FALSE,
+        type = 7
+      )
+    ),
+    by = group_columns
+  ]
 
-    .SD[, `:=`(
-      iqr_q1 = q1,
-      iqr_q3 = q3,
-      iqr_value = iqr_value,
-      iqr_lower_bound = lower_bound,
-      iqr_upper_bound = upper_bound,
-      is_outlier = value_vector < lower_bound | value_vector > upper_bound,
-      is_boundary_condition = abs(value_vector - lower_bound) <= boundary_tolerance |
-        abs(value_vector - upper_bound) <= boundary_tolerance
-    )]
-  }, by = group_columns]
+  outlier_stats[, iqr_value := iqr_q3 - iqr_q1]
+  outlier_stats[, iqr_lower_bound := iqr_q1 - (anomaly_config$iqr_multiplier * iqr_value)]
+  outlier_stats[, iqr_upper_bound := iqr_q3 + (anomaly_config$iqr_multiplier * iqr_value)]
+
+  scored_dt <- outlier_stats[source_dt, on = group_columns]
+
+  scored_dt[, is_outlier :=
+    get(value_column) < iqr_lower_bound |
+      get(value_column) > iqr_upper_bound
+  ]
+  scored_dt[, is_boundary_condition :=
+    abs(get(value_column) - iqr_lower_bound) <= boundary_tolerance |
+      abs(get(value_column) - iqr_upper_bound) <= boundary_tolerance
+  ]
 
   outlier_dt <- scored_dt[is_outlier == TRUE]
   data.table::setorderv(
