@@ -134,7 +134,6 @@ run_postpro_pipeline_batch <- function(
       dataset_dt = raw_dt,
       config = config
     )
-    audited_raw_dt <- sort_pipeline_stage_dt(audited_raw_dt)
 
     progress(
       "Post-Processing Pipeline Progress: initializing audit directories"
