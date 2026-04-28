@@ -37,6 +37,7 @@ get_pipeline_constants <- function() {
       general = "whep.run_general_pipeline.auto",
       import = "whep.run_import_pipeline.auto",
       postpro = "whep.run_postpro_pipeline.auto",
+      anomaly = "whep.run_anomaly_pipeline.auto",
       export = "whep.run_export_pipeline.auto"
     ),
     toggle_options = list(
@@ -64,6 +65,7 @@ get_pipeline_constants <- function() {
         "run_general_pipeline.R",
         "run_import_pipeline.R",
         "run_postpro_pipeline.R",
+        "run_anomaly_pipeline.R",
         "run_export_pipeline.R"
       )
     ),
@@ -73,6 +75,11 @@ get_pipeline_constants <- function() {
       clean = "whep_data_clean",
       normalize = "whep_data_normalize",
       harmonize = "whep_data_harmonize",
+      anomaly_bundle = "whep_anomaly_bundle",
+      tendencies = "whep_tendencies",
+      outliers = "whep_outliers",
+      anomalies = "whep_anomalies",
+      anomaly_diagnostics = "whep_anomaly_diagnostics",
       export_paths = "export_paths",
       collected_reading_errors = "collected_reading_errors",
       collected_errors = "collected_errors",
@@ -269,8 +276,8 @@ load_pipeline_config <- function(
         harmonization = build_path("data", "1-import", "13-harmonize_import")
       ),
       export = list(
-        lists = build_path("data", "3-export", "lists"),
-        processed = build_path("data", "3-export", "processed_data")
+        lists = build_path("data", "4-export", "lists"),
+        processed = build_path("data", "4-export", "processed_data")
       ),
       audit = list(
         audit_root_dir = audit_root_dir,
@@ -342,6 +349,23 @@ load_pipeline_config <- function(
     "document"
   )
 
+
+
+  anomaly_config <- list(
+    group_by = c("hemisphere", "continent", "country", "product", "variable", "unit"),
+    value_column = "value",
+    year_column = "year",
+    time_key_column = "yearbook",
+    include_mean = TRUE,
+    iqr_multiplier = 1.5,
+    mad_z_threshold = 3.5,
+    mad_scale_constant = 0.6745,
+    min_group_size = 5L,
+    boundary_tolerance = 1e-12,
+    schema_version = "1.0.0",
+    generated_at_utc = "1970-01-01T00:00:00Z"
+  )
+
   export_config <- list(
     data_suffix = ".xlsx",
     list_suffix = "_unique.xlsx",
@@ -370,6 +394,7 @@ load_pipeline_config <- function(
     column_id = columns$id,
     column_order = column_order,
     export_config = export_config,
+    anomaly_config = anomaly_config,
     audit_columns = audit_columns,
     performance = get_pipeline_constants()$performance,
     postpro = list(

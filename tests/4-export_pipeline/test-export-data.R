@@ -1,13 +1,13 @@
-# tests/3-export_pipeline/test-export-data.R
-# unit tests for R/3-export_pipeline/30-export_data.R
+# tests/4-export_pipeline/test-export-data.R
+# unit tests for R/4-export_pipeline/30-export_data.R
 
 source(here::here("tests", "test_helper.R"), echo = FALSE)
 source(
-  here::here("r", "3-export_pipeline", "30-export_data.R"),
+  here::here("r", "4-export_pipeline", "30-export_data.R"),
   echo = FALSE
 )
 source(
-  here::here("r", "3-export_pipeline", "31-export_lists.R"),
+  here::here("r", "4-export_pipeline", "31-export_lists.R"),
   echo = FALSE
 )
 

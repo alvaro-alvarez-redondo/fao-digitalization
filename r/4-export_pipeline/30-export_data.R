@@ -141,7 +141,7 @@ write_processed_table_fast <- function(data_dt, output_path, overwrite = TRUE) {
 #' @title Export processed layer tables
 #' @description Detects all layer tables for traceability, then export only the
 #' layers listed in `config$export_config$export_layers` (default:
-#' `"harmonize"`) into `data/3-export/processed_data` using the
+#' `"harmonize"`) into `data/4-export/processed_data` using the
 #' high-performance writer. Callers must ensure the processed-data export
 #' directory exists before calling this function (see `run_export_pipeline`).
 #' @param config Named configuration list.

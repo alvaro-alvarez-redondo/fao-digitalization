@@ -11,6 +11,7 @@ options(
   whep.run_general_pipeline.auto = FALSE,
   whep.run_import_pipeline.auto = FALSE,
   whep.run_postpro_pipeline.auto = FALSE,
+  whep.run_anomaly_pipeline.auto = FALSE,
   whep.run_export_pipeline.auto = FALSE,
   whep.checkpointing.enabled = FALSE
 )
@@ -54,8 +55,8 @@ build_test_config <- function(root_dir = NULL) {
     "1-import",
     "13-harmonize_import"
   )
-  processed_dir <- file.path(root_dir, "data", "3-export", "processed_data")
-  lists_dir <- file.path(root_dir, "data", "3-export", "lists")
+  processed_dir <- file.path(root_dir, "data", "4-export", "processed_data")
+  lists_dir <- file.path(root_dir, "data", "4-export", "lists")
   audit_root_dir <- file.path(root_dir, "data", "2-postpro")
   audit_dir <- file.path(
     audit_root_dir,
@@ -152,6 +153,27 @@ build_test_config <- function(root_dir = NULL) {
     ),
     defaults = list(notes_value = NA_character_),
     messages = list(show_missing_product_metadata_warning = FALSE),
+    anomaly_config = list(
+      group_by = c(
+        "hemisphere",
+        "continent",
+        "country",
+        "product",
+        "variable",
+        "unit"
+      ),
+      value_column = "value",
+      year_column = "year",
+      time_key_column = "yearbook",
+      include_mean = TRUE,
+      iqr_multiplier = 1.5,
+      mad_z_threshold = 3.5,
+      mad_scale_constant = 0.6745,
+      min_group_size = 5L,
+      boundary_tolerance = 1e-12,
+      schema_version = "1.0.0",
+      generated_at_utc = "1970-01-01T00:00:00Z"
+    ),
     export_config = list(
       data_suffix = ".xlsx",
       list_suffix = "_list.xlsx",

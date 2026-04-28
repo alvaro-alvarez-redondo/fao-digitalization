@@ -196,8 +196,8 @@ resolve_pipeline_files <- function(pipeline_root) {
 
   checkmate::assert_character(
     stage_runner_names,
-    min.len = 4,
-    max.len = 4,
+    min.len = 5,
+    max.len = 5,
     any.missing = FALSE
   )
 
@@ -205,7 +205,8 @@ resolve_pipeline_files <- function(pipeline_root) {
     "0-general_pipeline",
     "1-import_pipeline",
     "2-postpro_pipeline",
-    "3-export_pipeline"
+    "3-anomaly_pipeline",
+    "4-export_pipeline"
   )
 
   pipeline_files <- file.path(

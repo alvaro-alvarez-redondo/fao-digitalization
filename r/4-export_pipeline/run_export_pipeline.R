@@ -12,14 +12,15 @@ if (!exists("get_pipeline_constants", mode = "function", inherits = TRUE)) {
 
 export_scripts <- c(
   "30-export_data.R",
-  "31-export_lists.R"
+  "31-export_lists.R",
+  "32-export_anomaly_bundle.R"
 )
 
 purrr::walk(
   export_scripts,
   \(script_name) {
     source(
-      here::here("r", "3-export_pipeline", script_name),
+      here::here("r", "4-export_pipeline", script_name),
       echo = FALSE
     )
   }
@@ -76,7 +77,7 @@ run_export_pipeline <- function(
   ))
 
   export_result <- progressr::with_progress({
-    progress <- progressr::progressor(along = seq_len(2L))
+    progress <- progressr::progressor(along = seq_len(3L))
 
     processed_paths <- export_processed_data(
       config = config,
@@ -94,9 +95,20 @@ run_export_pipeline <- function(
     )
     progress("export pipeline: lists workbooks")
 
+    anomaly_bundle <- collect_anomaly_bundle_for_export(env = env)
+    assert_anomaly_bundle_export_contract(anomaly_bundle)
+
+    anomaly_export_path <- export_anomaly_bundle(
+      config = config,
+      anomaly_bundle = anomaly_bundle,
+      overwrite = overwrite
+    )
+    progress("export pipeline: anomaly workbook")
+
     return(list(
       processed_paths = processed_paths,
-      lists_paths = lists_paths
+      lists_paths = lists_paths,
+      anomaly_path = anomaly_export_path
     ))
   })
 
@@ -115,7 +127,7 @@ assert_export_paths_contract <- function(export_result) {
   checkmate::assert_list(export_result, any.missing = FALSE)
   checkmate::assert_names(
     names(export_result),
-    must.include = c("processed_paths", "lists_paths")
+    must.include = c("processed_paths", "lists_paths", "anomaly_path")
   )
   checkmate::assert_character(
     export_result$processed_paths,
@@ -127,6 +139,7 @@ assert_export_paths_contract <- function(export_result) {
     min.len = 1,
     names = "named"
   )
+  checkmate::assert_string(export_result$anomaly_path, min.chars = 1)
 
   return(invisible(TRUE))
 }
