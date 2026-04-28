@@ -67,7 +67,11 @@ get_pipeline_constants <- function() {
         "variable",
         "unit",
         "year",
-        "notes"
+        "value",
+        "notes",
+        "footnotes",
+        "yearbook",
+        "document"
       )
     ),
     script_names = list(

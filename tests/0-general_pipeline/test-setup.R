@@ -27,7 +27,11 @@ testthat::test_that("get_pipeline_constants returns a named list with required k
       "variable",
       "unit",
       "year",
-      "notes"
+      "value",
+      "notes",
+      "footnotes",
+      "yearbook",
+      "document"
     )
   )
   testthat::expect_false(constants$postpro$runtime_cache$enabled)

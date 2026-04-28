@@ -580,7 +580,7 @@ coerce_to_data_table <- function(x, min_rows = 0L) {
 #' @description Applies deterministic row sorting for pipeline stage outputs
 #' using the canonical business key order:
 #' `hemisphere`, `continent`, `country`, `product`, `variable`, `unit`,
-#' `year`, and `notes`.
+#' `year`, `value`, `notes`, `footnotes`, `yearbook`, and `document`.
 #' Missing sort columns are ignored, and sorting is skipped when none are
 #' present.
 #' @param dt Data frame or `data.table` to sort.
