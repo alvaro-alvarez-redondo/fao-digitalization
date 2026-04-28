@@ -16,6 +16,24 @@ testthat::test_that("get_pipeline_constants returns a named list with required k
   testthat::expect_true("na_match_key" %in% names(constants))
   testthat::expect_true("auto_run_options" %in% names(constants))
   testthat::expect_true("object_names" %in% names(constants))
+  testthat::expect_true("sorting" %in% names(constants))
+  testthat::expect_identical(
+    constants$sorting$stage_row_order,
+    c(
+      "hemisphere",
+      "continent",
+      "country",
+      "product",
+      "variable",
+      "unit",
+      "year",
+      "value",
+      "notes",
+      "footnotes",
+      "yearbook",
+      "document"
+    )
+  )
   testthat::expect_false(constants$postpro$runtime_cache$enabled)
   testthat::expect_false(
     constants$postpro$schema_validation_cache$enabled
@@ -41,6 +59,11 @@ testthat::test_that("load_pipeline_config builds a valid config object", {
   testthat::expect_true("export_config" %in% names(config))
   testthat::expect_true("project_root" %in% names(config))
   testthat::expect_true("postpro" %in% names(config))
+  testthat::expect_true("sorting" %in% names(config))
+  testthat::expect_identical(
+    config$sorting$stage_row_order,
+    get_pipeline_constants()$sorting$stage_row_order
+  )
   testthat::expect_true("multi_pass" %in% names(config$postpro))
 })
 
