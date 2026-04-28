@@ -1,8 +1,6 @@
 ---
 name: hard-coding
 description: 'Centralize all hard-coded literals into 01-setup.R.'
-argument-hint: Which hard-coded values should be centralized?
-agent: agent
 ---
 
 ## Mandatory Actions

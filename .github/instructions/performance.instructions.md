@@ -1,8 +1,6 @@
 ---
 name: performance
 description: 'Identify and optimize performance-critical code in R repository.'
-argument-hint: What performance rules should be enforced?
-agent: agent
 ---
 
 ## Mandatory Actions

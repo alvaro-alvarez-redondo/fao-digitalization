@@ -9,7 +9,7 @@
 #' @param config named list containing `column_required` as a non-empty character
 #' vector.
 #' @return named list with `errors` as a character vector and `data` as a data
-#' table with normalized mandatory columns.
+#' table with normalize mandatory columns.
 #' @importFrom checkmate assert_data_frame assert_list assert_character
 #' @importFrom data.table as.data.table copy
 #' @examples
@@ -154,24 +154,45 @@ validate_year_values <- function(dt) {
       end_yr <- as.integer(parts[2])
 
       if (start_yr > end_yr) {
-        errors <- c(errors, paste0(
-          "year range '", yr, "' has start year greater than end year"
-        ))
+        errors <- c(
+          errors,
+          paste0(
+            "year range '",
+            yr,
+            "' has start year greater than end year"
+          )
+        )
       }
 
       if (start_yr < min_year || end_yr > max_year) {
-        errors <- c(errors, paste0(
-          "year range '", yr, "' contains year outside plausible range [",
-          min_year, ", ", max_year, "]"
-        ))
+        errors <- c(
+          errors,
+          paste0(
+            "year range '",
+            yr,
+            "' contains year outside plausible range [",
+            min_year,
+            ", ",
+            max_year,
+            "]"
+          )
+        )
       }
     } else if (grepl("^\\d{4}$", yr)) {
       yr_int <- as.integer(yr)
       if (yr_int < min_year || yr_int > max_year) {
-        errors <- c(errors, paste0(
-          "year value '", yr, "' is outside plausible range [",
-          min_year, ", ", max_year, "]"
-        ))
+        errors <- c(
+          errors,
+          paste0(
+            "year value '",
+            yr,
+            "' is outside plausible range [",
+            min_year,
+            ", ",
+            max_year,
+            "]"
+          )
+        )
       }
     }
   }
@@ -210,11 +231,15 @@ validate_long_dt <- function(long_dt, config) {
   )
 
   mandatory_result <- validate_mandatory_fields_dt(long_dt, config)
-  year_result      <- validate_year_values(mandatory_result$data)
+  year_result <- validate_year_values(mandatory_result$data)
   duplicate_result <- detect_duplicates_dt(year_result$data)
 
   return(list(
     data = mandatory_result$data,
-    errors = c(mandatory_result$errors, year_result$errors, duplicate_result$errors)
+    errors = c(
+      mandatory_result$errors,
+      year_result$errors,
+      duplicate_result$errors
+    )
   ))
 }

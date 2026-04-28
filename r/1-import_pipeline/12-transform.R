@@ -23,7 +23,11 @@ identify_year_columns <- function(df, config) {
   candidate_cols <- all_cols[!all_cols %in% non_year_cols]
   year_pattern <- get_pipeline_constants()$patterns$year_column
 
-  year_columns <- candidate_cols[grepl(year_pattern, candidate_cols, perl = TRUE)]
+  year_columns <- candidate_cols[grepl(
+    year_pattern,
+    candidate_cols,
+    perl = TRUE
+  )]
 
   return(year_columns)
 }
@@ -36,7 +40,7 @@ identify_year_columns <- function(df, config) {
 #' @param product_name character scalar product label from file metadata.
 #' @param config named list containing `column_required` as a non-empty character
 #' vector.
-#' @return data frame with required columns present and normalized key text fields.
+#' @return data frame with required columns present and normalize key text fields.
 #' @importFrom checkmate check_character check_data_frame check_list check_string
 #' @examples
 #' df_example <- data.frame(variable = "yield", continent = "asia", country = "india")
@@ -65,7 +69,10 @@ normalize_key_fields <- function(df, product_name, config) {
     data_dt_names
   )
   if (length(norm_cols) > 0L) {
-    data_dt[, (norm_cols) := lapply(.SD, normalize_string_impl), .SDcols = norm_cols]
+    data_dt[,
+      (norm_cols) := lapply(.SD, normalize_string_impl),
+      .SDcols = norm_cols
+    ]
   }
 
   if ("footnotes" %in% data_dt_names) {
@@ -85,7 +92,7 @@ normalize_key_fields <- function(df, product_name, config) {
 #' reshaping.
 #' @param df data table or data frame with potential year columns.
 #' @param config named list containing `column_order` as a character vector.
-#' @return input table with cleaned names and year columns converted to character.
+#' @return input table with clean names and year columns converted to character.
 #' @importFrom checkmate check_character check_data_frame check_list
 #' @importFrom data.table setnames
 #' @examples

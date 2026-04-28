@@ -1,8 +1,6 @@
 ---
 name: best-practices
 description: 'Enforce production-grade R script standards.'
-argument-hint: Which best practices should be applied to scripts?
-agent: agent
 ---
 
 ## Mandatory Actions

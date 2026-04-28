@@ -44,16 +44,16 @@ testthat::test_that("normalize_key_fields normalizes expected text columns", {
 
 testthat::test_that("extract_file_metadata parses yearbook and product deterministically", {
   file_paths <- c(
-    "data/1-import/10-raw_imports/whep_yb_2020_2021_a_b_wheat.xlsx",
-    "data/1-import/10-raw_imports/whep_yb_2019_2020_c_d_rice_grain.xlsx",
-    "data/1-import/10-raw_imports/invalid_name.xlsx"
+    "data/1-import/10-raw_import/whep_yb_2020_2021_a_b_wheat.xlsx",
+    "data/1-import/10-raw_import/whep_yb_2019_2020_c_d_rice_grain.xlsx",
+    "data/1-import/10-raw_import/invalid_name.xlsx"
   )
 
   out <- extract_file_metadata(file_paths)
 
-  testthat::expect_equal(out$yearbook[[1]], "yb_2020_2021")
+  testthat::expect_equal(out$yearbook[[1]], "yb_2020")
   testthat::expect_equal(out$product[[1]], "wheat")
-  testthat::expect_equal(out$yearbook[[2]], "yb_2019_2020")
+  testthat::expect_equal(out$yearbook[[2]], "yb_2019")
   testthat::expect_equal(out$product[[2]], "rice_grain")
   testthat::expect_true(is.na(out$yearbook[[3]]))
   testthat::expect_true(is.na(out$product[[3]]))

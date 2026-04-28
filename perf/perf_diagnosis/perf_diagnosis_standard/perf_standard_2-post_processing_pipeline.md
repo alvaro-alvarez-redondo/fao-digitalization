@@ -1,6 +1,6 @@
-# Pipeline Performance Report: perf_2-post_processing_pipeline
+# Pipeline Performance Report: perf_2-postpro_pipeline
 
-- Stage identifier: 2-post_processing
+- Stage identifier: 2-postpro
 - Preset: standard
 - Total functions benchmarked: 3
 - Dominant complexity class: O(n)

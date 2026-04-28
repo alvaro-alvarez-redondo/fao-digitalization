@@ -82,6 +82,7 @@ testthat::test_that("extract_file_metadata extracts yearbook and product in sing
   testthat::expect_true("product" %in% names(result))
   testthat::expect_true(all(!is.na(result$yearbook)))
   testthat::expect_true(all(!is.na(result$product)))
+  testthat::expect_identical(result$yearbook, c("yb_2019", "yb_2020"))
 })
 
 

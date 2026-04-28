@@ -12,7 +12,7 @@ build_temp_test_paths <- function(root_name) {
 }
 
 testthat::test_that("resolve_audit_root_dir returns configured scalar or NULL", {
-  testthat::expect_null(resolve_audit_root_dir(list(exports = list())))
+  testthat::expect_null(resolve_audit_root_dir(list(export = list())))
 
   audit_root <- resolve_audit_root_dir(
     list(data = list(audit = list(audit_root_dir = file.path("tmp", "audit"))))
@@ -24,7 +24,7 @@ testthat::test_that("resolve_audit_root_dir returns configured scalar or NULL", 
 testthat::test_that("create_required_directories handles generic path lists without audit structure", {
   base_dir <- build_temp_test_paths("whep_directory_contracts_generic")
   paths <- list(
-    exports = list(
+    export = list(
       lists = file.path(base_dir, "lists"),
       workbook = file.path(base_dir, "reports", "summary.xlsx")
     )
@@ -32,14 +32,14 @@ testthat::test_that("create_required_directories handles generic path lists with
 
   created_directories <- create_required_directories(paths)
 
-  normalized_created <- vapply(
+  normalize_created <- vapply(
     created_directories,
     function(path_i) {
       normalizePath(path_i, winslash = "/", mustWork = FALSE)
     },
     character(1)
   )
-  normalized_expected <- vapply(
+  normalize_expected <- vapply(
     c(file.path(base_dir, "lists"), file.path(base_dir, "reports")),
     function(path_i) {
       normalizePath(path_i, winslash = "/", mustWork = FALSE)
@@ -50,7 +50,7 @@ testthat::test_that("create_required_directories handles generic path lists with
   testthat::expect_true(dir.exists(file.path(base_dir, "lists")))
   testthat::expect_true(dir.exists(file.path(base_dir, "reports")))
   testthat::expect_true(
-    all(normalized_expected %in% normalized_created)
+    all(normalize_expected %in% normalize_created)
   )
 })
 
@@ -58,8 +58,8 @@ testthat::test_that("create_required_directories excludes audit root tree when c
   base_dir <- build_temp_test_paths("whep_directory_contracts_audit")
   paths <- list(
     data = list(
-      imports = list(
-        raw = file.path(base_dir, "imports", "raw")
+      import = list(
+        raw = file.path(base_dir, "import", "raw")
       ),
       audit = list(
         audit_root_dir = file.path(base_dir, "audit"),
@@ -70,7 +70,7 @@ testthat::test_that("create_required_directories excludes audit root tree when c
 
   created_directories <- create_required_directories(paths)
 
-  testthat::expect_true(dir.exists(file.path(base_dir, "imports", "raw")))
+  testthat::expect_true(dir.exists(file.path(base_dir, "import", "raw")))
   testthat::expect_false(dir.exists(file.path(base_dir, "audit")))
   testthat::expect_false(any(startsWith(
     created_directories,

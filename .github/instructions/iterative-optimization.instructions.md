@@ -1,8 +1,6 @@
 ---
 name: iterative-optimization
 description: 'Encourage iterative and deep analysis for complex R refactor or performance tasks.'
-argument-hint: How aggressively should the AI iterate and optimize code?
-agent: agent
 ---
 
 ## Purpose

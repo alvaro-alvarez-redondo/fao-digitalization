@@ -15,7 +15,7 @@ if (!exists("get_pipeline_constants", mode = "function", inherits = TRUE)) {
 #' @param script_path Character scalar script path.
 #' @return Invisibly returns `TRUE`.
 #' @importFrom checkmate assert_string
-source_post_processing_script <- function(script_path) {
+source_postpro_script <- function(script_path) {
   checkmate::assert_string(script_path, min.chars = 1)
 
   if (!file.exists(script_path)) {
@@ -44,42 +44,42 @@ source_post_processing_script <- function(script_path) {
 #' @param pipeline_root Character scalar path to post-processing script folder.
 #' @return Invisibly returns `TRUE`.
 #' @importFrom checkmate assert_string
-source_post_processing_scripts <- function(
-  pipeline_root = here::here("r", "2-post_processing_pipeline")
+source_postpro_scripts <- function(
+  pipeline_root = here::here("r", "2-postpro_pipeline")
 ) {
   checkmate::assert_string(pipeline_root, min.chars = 1)
 
   script_names <- c(
     "20-data_audit.R",
-    "21-post_processing_utilities.R",
-    "23-post_processing_rule_engine.R",
+    "21-postpro_utilities.R",
+    "23-postpro_rule_engine.R",
     "22-clean_harmonize_data.R",
     "24-standardize_units.R",
-    "25-post_processing_diagnostics.R"
+    "25-postpro_diagnostics.R"
   )
 
   purrr::walk(script_names, function(script_name) {
-    source_post_processing_script(fs::path(pipeline_root, script_name))
+    source_postpro_script(fs::path(pipeline_root, script_name))
   })
 
   return(invisible(TRUE))
 }
 
-source_post_processing_scripts()
+source_postpro_scripts()
 
 #' @title Run units standardization stage
-#' @description Executes units standardization using the cleaned dataset and
+#' @description Executes units standardization using the clean dataset and
 #' pipeline configuration.
-#' @param cleaned_dt Cleaned dataset to standardize.
+#' @param clean_dt clean dataset to standardize.
 #' @param config Named configuration list.
 #' @return Standardized dataset returned by `run_standardize_units_layer_batch`.
 #' @importFrom checkmate assert_data_frame assert_list
-run_units_standardization_stage <- function(cleaned_dt, config) {
-  checkmate::assert_data_frame(cleaned_dt, min.rows = 0)
+run_units_standardization_stage <- function(clean_dt, config) {
+  checkmate::assert_data_frame(clean_dt, min.rows = 0)
   checkmate::assert_list(config, min.len = 1)
 
   return(run_standardize_units_layer_batch(
-    cleaned_dt = cleaned_dt,
+    clean_dt = clean_dt,
     config = config
   ))
 }
@@ -115,7 +115,7 @@ get_required_object_or_null <- function(object_name, env) {
 #' @return Post-processed `data.table` with `pipeline_diagnostics` attribute.
 #' @importFrom checkmate assert_data_frame assert_list assert_string
 #' @importFrom progressr with_progress progressor
-run_post_processing_pipeline_batch <- function(
+run_postpro_pipeline_batch <- function(
   raw_dt,
   config,
   dataset_name = get_pipeline_constants()$dataset_default_name
@@ -138,70 +138,88 @@ run_post_processing_pipeline_batch <- function(
     progress(
       "Post-Processing Pipeline Progress: initializing audit directories"
     )
-    audit_paths <- initialize_post_processing_audit_root(config)
+    audit_paths <- initialize_postpro_output_root(config)
 
     progress("Post-Processing Pipeline Progress: generating rule templates")
-    template_paths <- generate_post_processing_rule_templates(
+    template_paths <- generate_postpro_rule_templates(
       config = config,
       overwrite = TRUE
     )
 
     progress("Post-Processing Pipeline Progress: collecting preflight checks")
-    preflight_result <- collect_post_processing_preflight(
+    preflight_result <- collect_postpro_preflight(
       config = config,
       dataset_columns = colnames(audited_raw_dt),
       expected_columns = colnames(audited_raw_dt)
     )
 
     progress("Post-Processing Pipeline Progress: asserting preflight checks")
-    assert_post_processing_preflight(preflight_result)
+    assert_postpro_preflight(preflight_result)
 
     progress("Post-Processing Pipeline Progress: running clean layer")
-    cleaned_dt <- run_cleaning_layer_batch(
+    clean_dt <- run_cleaning_layer_batch(
       dataset_dt = audited_raw_dt,
       config = config,
       dataset_name = dataset_name
     )
 
     progress("Post-Processing Pipeline Progress: running standardize layer")
-    normalized_dt <- run_units_standardization_stage(
-      cleaned_dt = cleaned_dt,
+    normalize_dt <- run_units_standardization_stage(
+      clean_dt = clean_dt,
       config = config
     )
 
     progress("Post-Processing Pipeline Progress: running harmonize layer")
-    harmonized_dt <- run_harmonize_layer_batch(
-      dataset_dt = normalized_dt,
+    harmonize_dt <- run_harmonize_layer_batch(
+      dataset_dt = normalize_dt,
       config = config,
       dataset_name = dataset_name
     )
 
-    clean_audit <- attr(cleaned_dt, "layer_audit")
-    harmonize_audit <- attr(harmonized_dt, "layer_audit")
+    clean_audit <- attr(clean_dt, "layer_audit")
+    standardize_audit <- attr(normalize_dt, "layer_audit")
+    standardize_rules <- attr(normalize_dt, "layer_rules")
+    standardize_matched_rule_counts <- attr(
+      normalize_dt,
+      "layer_matched_rule_counts"
+    )
+    harmonize_audit <- attr(harmonize_dt, "layer_audit")
     harmonize_overwrite_events <- attr(
-      harmonized_dt,
+      harmonize_dt,
       "layer_last_rule_wins_overwrites"
     )
 
+    if (!is.data.frame(standardize_rules)) {
+      standardize_rules <- data.table::data.table()
+    }
+
+    if (!is.data.frame(standardize_matched_rule_counts)) {
+      standardize_matched_rule_counts <- data.table::data.table()
+    }
+
     progress("Post-Processing Pipeline Progress: persisting diagnostics")
-    audit_output_path <- persist_post_processing_audit(
+    audit_output_path <- persist_postpro_audit(
       clean_audit_dt = clean_audit,
       harmonize_audit_dt = harmonize_audit,
-      standardize_rows_dt = attr(normalized_dt, "aggregated_source_rows"),
-      final_stage_dt = harmonized_dt,
+      standardize_audit_dt = standardize_audit,
+      standardize_rules_dt = standardize_rules,
+      standardize_matched_rule_counts_dt = standardize_matched_rule_counts,
+      final_stage_dt = harmonize_dt,
       last_rule_wins_overwrites_dt = harmonize_overwrite_events,
       config = config
     )
 
     diagnostics <- list(
-      clean = attr(cleaned_dt, "layer_diagnostics"),
-      standardize_units = attr(normalized_dt, "layer_diagnostics"),
-      harmonize = attr(harmonized_dt, "layer_diagnostics"),
+      clean = attr(clean_dt, "layer_diagnostics"),
+      standardize_units = attr(normalize_dt, "layer_diagnostics"),
+      harmonize = attr(harmonize_dt, "layer_diagnostics"),
       outputs = list(
         audit_output_path = audit_output_path,
         audit_root_dir = audit_paths$audit_root_dir,
         diagnostics_dir = audit_paths$diagnostics_dir,
         templates_dir = audit_paths$templates_dir,
+        audit_dir = audit_paths$audit_dir,
+        runtime_cache_dir = audit_paths$runtime_cache_dir,
         clean_harmonize_template_path = template_paths[[
           "clean_harmonize_template"
         ]],
@@ -209,11 +227,11 @@ run_post_processing_pipeline_batch <- function(
       )
     )
 
-    attr(harmonized_dt, "pipeline_diagnostics") <- diagnostics
-    attr(harmonized_dt, "stage_cleaned") <- cleaned_dt
-    attr(harmonized_dt, "stage_normalized") <- normalized_dt
+    attr(harmonize_dt, "pipeline_diagnostics") <- diagnostics
+    attr(harmonize_dt, "stage_clean") <- clean_dt
+    attr(harmonize_dt, "stage_normalize") <- normalize_dt
 
-    return(harmonized_dt)
+    return(harmonize_dt)
   }))
 }
 
@@ -223,7 +241,7 @@ run_post_processing_pipeline_batch <- function(
 #' @param env Environment for object resolution and assignment.
 #' @return Invisibly returns post-processed dataset or `NULL`.
 #' @importFrom checkmate assert_flag assert_environment
-run_post_processing_pipeline_auto <- function(auto_run, env = .GlobalEnv) {
+run_postpro_pipeline_auto <- function(auto_run, env = .GlobalEnv) {
   checkmate::assert_flag(auto_run)
   checkmate::assert_environment(env)
 
@@ -243,7 +261,7 @@ run_post_processing_pipeline_auto <- function(auto_run, env = .GlobalEnv) {
     return(invisible(NULL))
   }
 
-  harmonized_dt <- run_post_processing_pipeline_batch(
+  harmonize_dt <- run_postpro_pipeline_batch(
     raw_dt = raw_value,
     config = config_value,
     dataset_name = pipeline_constants$dataset_default_name
@@ -258,24 +276,24 @@ run_post_processing_pipeline_auto <- function(auto_run, env = .GlobalEnv) {
   }
 
   assignment_values <- list(
-    attr(harmonized_dt, "stage_cleaned"),
-    attr(harmonized_dt, "stage_normalized"),
-    harmonized_dt
+    attr(harmonize_dt, "stage_clean"),
+    attr(harmonize_dt, "stage_normalize"),
+    harmonize_dt
   )
   names(assignment_values) <- c(
-    pipeline_constants$object_names$cleaned,
-    pipeline_constants$object_names$normalized,
-    pipeline_constants$object_names$harmonized
+    pipeline_constants$object_names$clean,
+    pipeline_constants$object_names$normalize,
+    pipeline_constants$object_names$harmonize
   )
 
   assign_environment_values(values = assignment_values, env = env)
 
-  return(invisible(harmonized_dt))
+  return(invisible(harmonize_dt))
 }
 
-run_post_processing_pipeline_auto(
+run_postpro_pipeline_auto(
   auto_run = isTRUE(getOption(
-    get_pipeline_constants()$auto_run_options$post_processing,
+    get_pipeline_constants()$auto_run_options$postpro,
     TRUE
   ))
 )

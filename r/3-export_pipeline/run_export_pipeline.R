@@ -1,5 +1,5 @@
 # script: run_export_pipeline.r
-# description: source export components and run deterministic per-layer exports
+# description: source export components and run deterministic per-layer export
 # for processed data and lists workbooks.
 
 if (!exists("get_pipeline_constants", mode = "function", inherits = TRUE)) {
@@ -26,7 +26,7 @@ purrr::walk(
 )
 
 #' @title Run export pipeline
-#' @description Detects available layer data tables and exports per-layer
+#' @description Detects available layer data tables and export per-layer
 #' processed-data and lists workbooks.
 #' @param config Named configuration list.
 #' @param data_objects Optional named list of data.frame/data.table objects.
@@ -56,13 +56,13 @@ run_export_pipeline <- function(
   # function inside a loop needs to call ensure_directories_exist / fs::dir_create
   processed_dir <- get_config_string(
     config = config,
-    path = c("paths", "data", "exports", "processed"),
-    field_name = "config$paths$data$exports$processed"
+    path = c("paths", "data", "export", "processed"),
+    field_name = "config$paths$data$export$processed"
   )
   lists_dir <- get_config_string(
     config = config,
-    path = c("paths", "data", "exports", "lists"),
-    field_name = "config$paths$data$exports$lists"
+    path = c("paths", "data", "export", "lists"),
+    field_name = "config$paths$data$export$lists"
   )
   ensure_directories_exist(
     c(here::here(processed_dir), here::here(lists_dir)),

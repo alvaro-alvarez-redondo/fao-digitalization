@@ -1,5 +1,5 @@
 options(
-  whep.run_post_processing_pipeline.auto = FALSE,
+  whep.run_postpro_pipeline.auto = FALSE,
   whep.run_pipeline.auto = FALSE,
   whep.checkpointing.enabled = FALSE
 )

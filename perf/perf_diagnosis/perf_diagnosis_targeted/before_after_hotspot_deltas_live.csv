@@ -1,4 +1,0 @@
-"hotspot","before_median_s","after_median_s","median_delta_s","median_delta_pct","before_mean_s","after_mean_s","n_reps"
-"import_read_workbook_batch_duplicate_paths",1.69,0.0600000000000005,-1.63,-96.4497041420118,1.86333333333333,0.0666666666666667,3
-"post_aggregate_standardized_rows_sparse_duplicates",0.32,0.17,-0.15,-46.8750000000001,0.316666666666667,0.166666666666666,3
-"post_extract_aggregated_rows_sparse_duplicates",0.18,0.15,-0.0299999999999994,-16.6666666666663,0.17,0.15,3

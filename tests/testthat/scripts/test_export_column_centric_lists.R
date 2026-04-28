@@ -22,7 +22,7 @@ testthat::test_that("collect_union_columns returns deterministic union", {
       year = c("2020", "2021")
     ),
     clean = data.table::data.table(country = c("a", "c")),
-    standardize = data.table::data.table(unit = c("kg", "t")),
+    normalize = data.table::data.table(unit = c("kg", "t")),
     harmonize = data.table::data.table(country = c("a"), value = c("1"))
   )
 
@@ -38,7 +38,7 @@ testthat::test_that("build_column_unique_cache returns empty vectors for missing
   layer_by_sheet <- list(
     raw = data.table::data.table(country = c("a", "b")),
     clean = data.table::data.table(),
-    standardize = data.table::data.table(),
+    normalize = data.table::data.table(),
     harmonize = data.table::data.table(country = c("a", "c"))
   )
 
@@ -49,16 +49,19 @@ testthat::test_that("build_column_unique_cache returns empty vectors for missing
   testthat::expect_setequal(cache$raw$country, c("a", "b"))
 })
 
-testthat::test_that("export_lists excludes standardized sheet and value/year workbooks", {
+testthat::test_that("export_lists excludes normalize standalone sheet and value/year workbooks", {
   lists_dir <- tempfile("lists-export-")
 
   config <- list(
     paths = list(
       data = list(
-        exports = list(
+        export = list(
           lists = lists_dir
         )
       )
+    ),
+    export_config = list(
+      lists_to_export = c("country")
     )
   )
 
@@ -68,17 +71,17 @@ testthat::test_that("export_lists excludes standardized sheet and value/year wor
       value = c("1", "2"),
       year = c("2020", "2021")
     ),
-    demo_cleaned = data.table::data.table(
+    demo_clean = data.table::data.table(
       country = c("a", "b"),
       value = c("1", "2"),
       year = c("2020", "2021")
     ),
-    demo_normalized = data.table::data.table(
+    demo_normalize = data.table::data.table(
       country = c("a", "b"),
       value = c("1", "2"),
       year = c("2020", "2021")
     ),
-    demo_harmonized = data.table::data.table(
+    demo_harmonize = data.table::data.table(
       country = c("a", "b"),
       value = c("1", "2"),
       year = c("2020", "2021")
@@ -97,16 +100,16 @@ testthat::test_that("export_lists excludes standardized sheet and value/year wor
   testthat::expect_false("year" %in% names(output_paths))
 
   workbook_sheets <- readxl::excel_sheets(output_paths[["country"]])
-  testthat::expect_false("standardize" %in% workbook_sheets)
+  testthat::expect_false("normalize" %in% workbook_sheets)
 })
 
-testthat::test_that("write_column_lists_workbook writes raw_clean_harmonize for all-equal tables", {
+testthat::test_that("write_column_lists_workbook writes raw_clean_normalize_harmonize for all-equal tables", {
   lists_dir <- tempfile("lists-equal-")
 
   config <- list(
     paths = list(
       data = list(
-        exports = list(
+        export = list(
           lists = lists_dir
         )
       )
@@ -116,6 +119,7 @@ testthat::test_that("write_column_lists_workbook writes raw_clean_harmonize for 
   unique_cache <- list(
     raw = list(country = c("a", "b")),
     clean = list(country = c("a", "b")),
+    normalize = list(country = c("a", "b")),
     harmonize = list(country = c("a", "b"))
   )
 
@@ -128,20 +132,21 @@ testthat::test_that("write_column_lists_workbook writes raw_clean_harmonize for 
 
   workbook_sheets <- readxl::excel_sheets(workbook_path)
 
-  testthat::expect_setequal(workbook_sheets, c("raw_clean_harmonize"))
+  testthat::expect_setequal(workbook_sheets, c("raw_clean_normalize_harmonize"))
   testthat::expect_false("raw" %in% workbook_sheets)
   testthat::expect_false("clean" %in% workbook_sheets)
+  testthat::expect_false("normalize" %in% workbook_sheets)
   testthat::expect_false("harmonize" %in% workbook_sheets)
-  testthat::expect_false("clean_harmonize" %in% workbook_sheets)
+  testthat::expect_false("clean_normalize_harmonize" %in% workbook_sheets)
 })
 
-testthat::test_that("write_column_lists_workbook writes raw + clean_harmonize when clean/harmonize equal", {
+testthat::test_that("write_column_lists_workbook writes raw + clean_normalize_harmonize when clean/normalize/harmonize equal", {
   lists_dir <- tempfile("lists-different-")
 
   config <- list(
     paths = list(
       data = list(
-        exports = list(
+        export = list(
           lists = lists_dir
         )
       )
@@ -151,6 +156,7 @@ testthat::test_that("write_column_lists_workbook writes raw + clean_harmonize wh
   unique_cache <- list(
     raw = list(country = c("a", "b")),
     clean = list(country = c("c", "d")),
+    normalize = list(country = c("c", "d")),
     harmonize = list(country = c("c", "d"))
   )
 
@@ -163,18 +169,19 @@ testthat::test_that("write_column_lists_workbook writes raw + clean_harmonize wh
 
   workbook_sheets <- readxl::excel_sheets(workbook_path)
 
-  testthat::expect_setequal(workbook_sheets, c("raw", "clean_harmonize"))
+  testthat::expect_setequal(workbook_sheets, c("raw", "clean_normalize_harmonize"))
   testthat::expect_false("clean" %in% workbook_sheets)
+  testthat::expect_false("normalize" %in% workbook_sheets)
   testthat::expect_false("harmonize" %in% workbook_sheets)
 })
 
-testthat::test_that("write_column_lists_workbook writes raw, clean, harmonize when all differ", {
+testthat::test_that("write_column_lists_workbook writes raw, clean, normalize, harmonize when all differ", {
   lists_dir <- tempfile("lists-all-different-")
 
   config <- list(
     paths = list(
       data = list(
-        exports = list(
+        export = list(
           lists = lists_dir
         )
       )
@@ -184,7 +191,8 @@ testthat::test_that("write_column_lists_workbook writes raw, clean, harmonize wh
   unique_cache <- list(
     raw = list(country = c("a", "b")),
     clean = list(country = c("c", "d")),
-    harmonize = list(country = c("e", "f"))
+    normalize = list(country = c("e", "f")),
+    harmonize = list(country = c("g", "h"))
   )
 
   workbook_path <- write_column_lists_workbook(
@@ -196,8 +204,11 @@ testthat::test_that("write_column_lists_workbook writes raw, clean, harmonize wh
 
   workbook_sheets <- readxl::excel_sheets(workbook_path)
 
-  testthat::expect_setequal(workbook_sheets, c("raw", "clean", "harmonize"))
-  testthat::expect_false("raw_clean_harmonize" %in% workbook_sheets)
+  testthat::expect_setequal(
+    workbook_sheets,
+    c("raw", "clean", "normalize", "harmonize")
+  )
+  testthat::expect_false("raw_clean_normalize_harmonize" %in% workbook_sheets)
 })
 
 testthat::test_that("clean/harmonize comparison ignores row and column order differences", {
@@ -224,10 +235,10 @@ testthat::test_that("normalize_for_comparison drops year column", {
     value = c("x", "y")
   )
 
-  normalized_dt <- normalize_for_comparison(input_dt)
+  normalize_dt <- normalize_for_comparison(input_dt)
 
-  testthat::expect_false("year" %in% names(normalized_dt))
-  testthat::expect_true("value" %in% names(normalized_dt))
+  testthat::expect_false("year" %in% names(normalize_dt))
+  testthat::expect_true("value" %in% names(normalize_dt))
   testthat::expect_true("year" %in% names(input_dt))
   testthat::expect_identical(input_dt$year, c("2020", "2021"))
 })

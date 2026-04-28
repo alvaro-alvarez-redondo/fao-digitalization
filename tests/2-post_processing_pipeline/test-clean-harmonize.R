@@ -1,27 +1,27 @@
-# tests/2-post_processing_pipeline/test-clean-harmonize.R
-# integration tests for R/2-post_processing_pipeline/22-clean_harmonize_data.R
+# tests/2-postpro_pipeline/test-clean-harmonize.R
+# integration tests for R/2-postpro_pipeline/22-clean_harmonize_data.R
 
 source(here::here("tests", "test_helper.R"), echo = FALSE)
 source(
   here::here(
     "r",
-    "2-post_processing_pipeline",
-    "21-post_processing_utilities.R"
+    "2-postpro_pipeline",
+    "21-postpro_utilities.R"
   ),
   echo = FALSE
 )
 source(
   here::here(
     "r",
-    "2-post_processing_pipeline",
-    "23-post_processing_rule_engine.R"
+    "2-postpro_pipeline",
+    "23-postpro_rule_engine.R"
   ),
   echo = FALSE
 )
 source(
   here::here(
     "r",
-    "2-post_processing_pipeline",
+    "2-postpro_pipeline",
     "22-clean_harmonize_data.R"
   ),
   echo = FALSE
@@ -36,7 +36,7 @@ create_clean_rule_file <- function(
 ) {
   readr::write_csv(
     rules_df,
-    file.path(config$paths$data$imports$cleaning, filename)
+    file.path(config$paths$data$import$cleaning, filename)
   )
 }
 
@@ -47,7 +47,7 @@ create_harmonize_rule_file <- function(
 ) {
   readr::write_csv(
     rules_df,
-    file.path(config$paths$data$imports$harmonization, filename)
+    file.path(config$paths$data$import$harmonization, filename)
   )
 }
 
@@ -153,20 +153,20 @@ testthat::test_that("clean and harmonize pipeline applies both stages sequential
     stringsAsFactors = FALSE
   )
 
-  cleaned <- run_cleaning_layer_batch(
+  clean <- run_cleaning_layer_batch(
     dataset_dt = input_dt,
     config = config,
     dataset_name = "demo"
   )
-  harmonized <- run_harmonize_layer_batch(
-    dataset_dt = cleaned,
+  harmonize <- run_harmonize_layer_batch(
+    dataset_dt = clean,
     config = config,
     dataset_name = "demo"
   )
 
-  testthat::expect_equal(harmonized$unit[[1]], "kilogram")
-  testthat::expect_equal(harmonized$variable[[1]], "Production")
-  testthat::expect_equal(harmonized$variable[[2]], "Prod")
+  testthat::expect_equal(harmonize$unit[[1]], "kilogram")
+  testthat::expect_equal(harmonize$variable[[1]], "Production")
+  testthat::expect_equal(harmonize$variable[[2]], "Prod")
 })
 
 
@@ -210,7 +210,7 @@ testthat::test_that("clean stage applies optional source rewrites", {
   clean_rules <- data.frame(
     column_source = "product",
     value_source_raw = "Wheat",
-    value_source = "Wheat cleaned",
+    value_source = "Wheat clean",
     column_target = "unit",
     value_target_raw = "kg",
     value_target = "kilogram",
@@ -230,7 +230,7 @@ testthat::test_that("clean stage applies optional source rewrites", {
     dataset_name = "demo"
   )
 
-  testthat::expect_equal(result$product[[1]], "Wheat cleaned")
+  testthat::expect_equal(result$product[[1]], "Wheat clean")
   testthat::expect_equal(result$product[[2]], "Rice")
   testthat::expect_equal(result$unit[[1]], "kilogram")
 })
@@ -482,7 +482,7 @@ testthat::test_that("clean multi-pass detects deterministic two-state cycle with
 
 testthat::test_that("clean multi-pass aborts on cycle when cycle_policy is abort", {
   config <- build_test_config()
-  config$post_processing <- list(
+  config$postpro <- list(
     multi_pass = list(cycle_policy = "abort")
   )
 
@@ -518,7 +518,7 @@ testthat::test_that("clean multi-pass aborts on cycle when cycle_policy is abort
 
 testthat::test_that("clean multi-pass reports max_passes reached before convergence", {
   config <- build_test_config()
-  config$post_processing <- list(
+  config$postpro <- list(
     multi_pass = list(
       enabled_by_stage = c(clean = TRUE, harmonize = TRUE),
       max_passes_by_stage = c(clean = 1L, harmonize = 10L)
@@ -531,7 +531,7 @@ testthat::test_that("clean multi-pass reports max_passes reached before converge
     value_source = c("quintal", NA_character_),
     column_target = c("unit", "notes"),
     value_target_raw = c("quintals", NA_character_),
-    value_target = c("quintal", "normalized"),
+    value_target = c("quintal", "normalize"),
     stringsAsFactors = FALSE
   )
   create_clean_rule_file(
@@ -625,13 +625,13 @@ testthat::test_that("clean multi-pass treats net-zero-change pass as convergence
 
 testthat::test_that("clean notes concatenate when target condition uses wildcard token", {
   config <- build_test_config()
-  config$post_processing <- list(
+  config$postpro <- list(
     multi_pass = list(
       enabled_by_stage = c(clean = TRUE, harmonize = TRUE),
       max_passes_by_stage = c(clean = 5L, harmonize = 10L)
     )
   )
-  wildcard_token <- get_pipeline_constants()$post_processing$rule_match_wildcard_token
+  wildcard_token <- get_pipeline_constants()$postpro$rule_match_wildcard_token
 
   clean_rules <- data.frame(
     column_source = "unit",
@@ -665,15 +665,44 @@ testthat::test_that("clean notes concatenate when target condition uses wildcard
   testthat::expect_equal(result$unit[[1]], "kilogram")
   testthat::expect_equal(
     result$notes[[1]],
-    "existing note; converted from kg"
+    "converted from kg; existing note"
   )
   testthat::expect_true(diagnostics$multi_pass$converged)
   testthat::expect_true(diagnostics$multi_pass$passes_executed >= 2L)
 })
 
+testthat::test_that("clean and harmonize stages canonicalize notes/footnotes cell ordering after loops", {
+  config <- build_test_config()
+
+  input_dt <- data.frame(
+    unit = "kg",
+    notes = "zeta; alpha; alpha",
+    footnotes = "fn_b; fn_a; fn_b",
+    stringsAsFactors = FALSE
+  )
+
+  clean_result <- run_cleaning_layer_batch(
+    dataset_dt = input_dt,
+    config = config,
+    dataset_name = "demo"
+  )
+
+  harmonize_result <- run_harmonize_layer_batch(
+    dataset_dt = input_dt,
+    config = config,
+    dataset_name = "demo"
+  )
+
+  testthat::expect_equal(clean_result$notes[[1]], "alpha; zeta")
+  testthat::expect_equal(clean_result$footnotes[[1]], "fn_a; fn_b")
+
+  testthat::expect_equal(harmonize_result$notes[[1]], "alpha; zeta")
+  testthat::expect_equal(harmonize_result$footnotes[[1]], "fn_a; fn_b")
+})
+
 testthat::test_that("clean notes blank target condition is not wildcard", {
   config <- build_test_config()
-  wildcard_token <- get_pipeline_constants()$post_processing$rule_match_wildcard_token
+  wildcard_token <- get_pipeline_constants()$postpro$rule_match_wildcard_token
 
   clean_rules <- data.frame(
     column_source = "unit",
@@ -917,7 +946,7 @@ testthat::test_that("stage payload cache key changes when rule file contents cha
 
 testthat::test_that("harmonize stage inherits missing stage controls from defaults when config overrides are partial", {
   config <- build_test_config()
-  config$post_processing <- list(
+  config$postpro <- list(
     multi_pass = list(
       max_passes_by_stage = c(clean = 2L)
     )
@@ -951,7 +980,7 @@ testthat::test_that("harmonize stage inherits missing stage controls from defaul
   )
 
   diagnostics <- attr(result, "layer_diagnostics")
-  expected_harmonize_max_passes <- get_pipeline_constants()$post_processing$multi_pass$max_passes_by_stage[[
+  expected_harmonize_max_passes <- get_pipeline_constants()$postpro$multi_pass$max_passes_by_stage[[
     "harmonize"
   ]]
 

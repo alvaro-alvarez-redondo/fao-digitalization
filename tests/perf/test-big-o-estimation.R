@@ -734,7 +734,7 @@ testthat::test_that("stage 2 benchmark catalog includes additional post-processi
   cfg <- utils::modifyList(
     get_analysis_config(),
     list(
-      stages = c("2-post_processing"),
+      stages = c("2-postpro"),
       input_sizes = c(100L),
       n_reps = 1L
     )
@@ -750,7 +750,7 @@ testthat::test_that("stage 2 benchmark catalog includes additional post-processi
   testthat::expect_true(all(expected %in% names(defs)))
   testthat::expect_true(all(vapply(
     defs[expected],
-    function(bm) identical(bm$stage, "2-post_processing"),
+    function(bm) identical(bm$stage, "2-postpro"),
     logical(1)
   )))
 })
@@ -759,13 +759,13 @@ testthat::test_that("stage 2 benchmark factories execute without error", {
   cfg <- utils::modifyList(
     get_analysis_config(),
     list(
-      stages = c("2-post_processing"),
+      stages = c("2-postpro"),
       input_sizes = c(100L),
       n_reps = 1L
     )
   )
 
-  defs <- build_stage_benchmarks("2-post_processing", cfg)
+  defs <- build_stage_benchmarks("2-postpro", cfg)
   expected <- c(
     "apply_standardize_rules",
     "extract_aggregated_rows",
@@ -861,7 +861,7 @@ testthat::test_that("export_results_markdown writes a file without error", {
   )))
   testthat::expect_true(file.exists(file.path(
     out_dir,
-    "perf_quick_2-post_processing_pipeline.md"
+    "perf_quick_2-postpro_pipeline.md"
   )))
   testthat::expect_true(file.exists(file.path(
     out_dir,

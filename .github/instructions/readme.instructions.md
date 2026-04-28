@@ -1,8 +1,6 @@
 ---
 name: readme-generator
 description: 'Generate production-grade README.md reflecting post-refactor repository state.'
-argument-hint: What structure and style should the README follow?
-agent: agent
 ---
 
 ## Mandatory Structure (fixed order)

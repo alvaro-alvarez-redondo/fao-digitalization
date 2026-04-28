@@ -36,20 +36,20 @@ run_pipeline <- function(
   checkmate::assert_flag(show_view)
   checkmate::assert_string(pipeline_root, na.ok = FALSE, min.chars = 1)
 
-  normalized_pipeline_root <- normalizePath(
+  normalize_pipeline_root <- normalizePath(
     path = pipeline_root,
     winslash = "/",
     mustWork = FALSE
   )
 
-  if (!dir.exists(normalized_pipeline_root)) {
+  if (!dir.exists(normalize_pipeline_root)) {
     cli::cli_abort(
-      "pipeline root does not exist: {.path {normalized_pipeline_root}}"
+      "pipeline root does not exist: {.path {normalize_pipeline_root}}"
     )
   }
 
   pipeline_files <- resolve_pipeline_files(
-    pipeline_root = normalized_pipeline_root
+    pipeline_root = normalize_pipeline_root
   )
 
   purrr::walk(pipeline_files, run_pipeline_script)
@@ -57,7 +57,7 @@ run_pipeline <- function(
   maybe_view_pipeline_output(show_view = show_view)
 
   elapsed_seconds <- (proc.time() - pipeline_start_time)[["elapsed"]]
-  iteration_summary <- build_post_processing_iteration_summary()
+  iteration_summary <- build_postpro_iteration_summary()
   cli::cli_alert_success(
     paste0(
       "Pipeline completed in {.strong {format_elapsed_time(elapsed_seconds)}}",
@@ -74,16 +74,16 @@ run_pipeline <- function(
 #' @param env Environment used to resolve pipeline output objects.
 #' @return Character scalar summary suffix.
 #' @keywords internal
-build_post_processing_iteration_summary <- function(env = .GlobalEnv) {
+build_postpro_iteration_summary <- function(env = .GlobalEnv) {
   checkmate::assert_environment(env)
 
-  loop_counts <- get_post_processing_iteration_loop_counts(env = env)
+  loop_counts <- get_postpro_iteration_loop_counts(env = env)
 
   paste0(
     " | clean loops: ",
-    format_post_processing_iteration_count(loop_counts$clean),
+    format_postpro_iteration_count(loop_counts$clean),
     " | harmonize loops: ",
-    format_post_processing_iteration_count(loop_counts$harmonize)
+    format_postpro_iteration_count(loop_counts$harmonize)
   )
 }
 
@@ -93,7 +93,7 @@ build_post_processing_iteration_summary <- function(env = .GlobalEnv) {
 #' @param count Integer scalar loop count.
 #' @return Character scalar formatted loop count.
 #' @keywords internal
-format_post_processing_iteration_count <- function(count) {
+format_postpro_iteration_count <- function(count) {
   count_value <- suppressWarnings(as.integer(count[[1L]]))
 
   if (length(count_value) == 0L || is.na(count_value)) {
@@ -105,32 +105,32 @@ format_post_processing_iteration_count <- function(count) {
 
 #' @title Get post-processing iteration loop counts
 #' @description Extracts clean and harmonize pass counts from the
-#'   `pipeline_diagnostics` attribute attached to the harmonized dataset.
+#'   `pipeline_diagnostics` attribute attached to the harmonize dataset.
 #' @param env Environment used to resolve pipeline output objects.
 #' @return Named list with integer scalars `clean` and `harmonize`.
 #' @keywords internal
-get_post_processing_iteration_loop_counts <- function(env = .GlobalEnv) {
+get_postpro_iteration_loop_counts <- function(env = .GlobalEnv) {
   checkmate::assert_environment(env)
 
   pipeline_constants <- get_pipeline_constants()
-  harmonized_name <- pipeline_constants$object_names$harmonized
+  harmonize_name <- pipeline_constants$object_names$harmonize
 
-  if (!exists(harmonized_name, envir = env, inherits = TRUE)) {
+  if (!exists(harmonize_name, envir = env, inherits = TRUE)) {
     return(list(clean = NA_integer_, harmonize = NA_integer_))
   }
 
-  harmonized_dt <- get(harmonized_name, envir = env, inherits = TRUE)
-  pipeline_diagnostics <- attr(harmonized_dt, "pipeline_diagnostics")
+  harmonize_dt <- get(harmonize_name, envir = env, inherits = TRUE)
+  pipeline_diagnostics <- attr(harmonize_dt, "pipeline_diagnostics")
 
   if (!is.list(pipeline_diagnostics)) {
     return(list(clean = NA_integer_, harmonize = NA_integer_))
   }
 
   list(
-    clean = extract_post_processing_stage_pass_count(
+    clean = extract_postpro_stage_pass_count(
       pipeline_diagnostics$clean
     ),
-    harmonize = extract_post_processing_stage_pass_count(
+    harmonize = extract_postpro_stage_pass_count(
       pipeline_diagnostics$harmonize
     )
   )
@@ -142,7 +142,7 @@ get_post_processing_iteration_loop_counts <- function(env = .GlobalEnv) {
 #' @param stage_diagnostics Stage diagnostics list.
 #' @return Integer scalar pass count or `NA_integer_`.
 #' @keywords internal
-extract_post_processing_stage_pass_count <- function(stage_diagnostics) {
+extract_postpro_stage_pass_count <- function(stage_diagnostics) {
   if (!is.list(stage_diagnostics) || !is.list(stage_diagnostics$multi_pass)) {
     return(NA_integer_)
   }
@@ -204,7 +204,7 @@ resolve_pipeline_files <- function(pipeline_root) {
   stage_directories <- c(
     "0-general_pipeline",
     "1-import_pipeline",
-    "2-post_processing_pipeline",
+    "2-postpro_pipeline",
     "3-export_pipeline"
   )
 
@@ -263,9 +263,9 @@ maybe_view_pipeline_output <- function(show_view) {
   if (show_view) {
     pipeline_constants <- get_pipeline_constants()
     object_priority <- c(
-      pipeline_constants$object_names$harmonized,
-      pipeline_constants$object_names$normalized,
-      pipeline_constants$object_names$cleaned,
+      pipeline_constants$object_names$harmonize,
+      pipeline_constants$object_names$normalize,
+      pipeline_constants$object_names$clean,
       pipeline_constants$object_names$raw
     )
 

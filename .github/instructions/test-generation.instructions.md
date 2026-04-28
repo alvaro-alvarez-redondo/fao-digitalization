@@ -1,8 +1,6 @@
 ---
 name: test-generation
 description: 'Generate or refactor tests for all modified or exported R functions.'
-argument-hint: What testing rules should be applied?
-agent: agent
 ---
 
 ## Required Test Types

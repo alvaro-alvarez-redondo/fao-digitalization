@@ -3,7 +3,11 @@ suppressPackageStartupMessages({
   library(here)
 })
 
-source(here::here("perf", "perf_pipeline", "p9-orchestration.R"), echo = FALSE, local = FALSE)
+source(
+  here::here("perf", "perf_pipeline", "p9-orchestration.R"),
+  echo = FALSE,
+  local = FALSE
+)
 
 args <- commandArgs(trailingOnly = TRUE)
 iter_label <- if (length(args) > 0L && nzchar(args[[1L]])) {
@@ -30,12 +34,23 @@ cfg$excel_read_max_sheet_reads_per_iteration <- 45L
 cfg$excel_read_repeats_per_iteration <- 4L
 
 hotspots <- data.table::data.table(
-  stage = c("1-import", "2-post_processing", "2-post_processing", "2-post_processing"),
-  fn_name = c("read_excel_file_sheets", "apply_standardize_rules", "aggregate_standardized_rows", "extract_aggregated_rows")
+  stage = c("1-import", "2-postpro", "2-postpro", "2-postpro"),
+  fn_name = c(
+    "read_excel_file_sheets",
+    "apply_standardize_rules",
+    "aggregate_standardized_rows",
+    "extract_aggregated_rows"
+  )
 )
 
 run_hotspot <- function(stage_id, fn_name, row_index) {
-  cat(sprintf("[hotspot %d/%d] %s :: %s\n", row_index, nrow(hotspots), stage_id, fn_name))
+  cat(sprintf(
+    "[hotspot %d/%d] %s :: %s\n",
+    row_index,
+    nrow(hotspots),
+    stage_id,
+    fn_name
+  ))
   set.seed(cfg$rng_seed + as.integer(row_index))
   defs <- build_stage_benchmarks(stage_id, cfg)
   bm <- defs[[fn_name]]
@@ -74,11 +89,19 @@ for (idx in seq_len(nrow(hotspots))) {
   )
 }
 
-raw_dt <- data.table::rbindlist(lapply(results, function(x) x$raw), use.names = TRUE, fill = TRUE)
-summary_dt <- data.table::rbindlist(lapply(results, function(x) x$summary), use.names = TRUE, fill = TRUE)
+raw_dt <- data.table::rbindlist(
+  lapply(results, function(x) x$raw),
+  use.names = TRUE,
+  fill = TRUE
+)
+summary_dt <- data.table::rbindlist(
+  lapply(results, function(x) x$summary),
+  use.names = TRUE,
+  fill = TRUE
+)
 
-leaderboard <- summary_dt[
-  , .(
+leaderboard <- summary_dt[,
+  .(
     overall_median_s = stats::median(median_s),
     max_n = max(as.integer(n)),
     max_n_median_s = median_s[which.max(n)],
@@ -88,12 +111,26 @@ leaderboard <- summary_dt[
   by = .(stage, fn_name)
 ][order(-max_n_median_s, -overall_median_s)]
 
-output_dir <- here::here("perf", "perf_diagnosis", "perf_diagnosis_targeted", "iterative_loop")
+output_dir <- here::here(
+  "perf",
+  "perf_diagnosis",
+  "perf_diagnosis_targeted",
+  "iterative_loop"
+)
 dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
 
-data.table::fwrite(raw_dt, file.path(output_dir, sprintf("heavy_confirm_%s_raw.csv", iter_label)))
-data.table::fwrite(summary_dt, file.path(output_dir, sprintf("heavy_confirm_%s_summary.csv", iter_label)))
-data.table::fwrite(leaderboard, file.path(output_dir, sprintf("heavy_confirm_%s_leaderboard.csv", iter_label)))
+data.table::fwrite(
+  raw_dt,
+  file.path(output_dir, sprintf("heavy_confirm_%s_raw.csv", iter_label))
+)
+data.table::fwrite(
+  summary_dt,
+  file.path(output_dir, sprintf("heavy_confirm_%s_summary.csv", iter_label))
+)
+data.table::fwrite(
+  leaderboard,
+  file.path(output_dir, sprintf("heavy_confirm_%s_leaderboard.csv", iter_label))
+)
 
 cat(sprintf(
   "[done] heavy confirmation %s at %s\n",

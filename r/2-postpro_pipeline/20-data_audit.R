@@ -2,11 +2,11 @@
 # description: validate consolidated pipeline data, isolate invalid records,
 # and export deterministic audit artifacts.
 
-#' @title prepare audit root directory
+#' @title prepare audit output directory
 #' @description safely remove previous audit folder if it exists.
 #' when deletion fails due to permissions or file locks, keeps the existing
 #' folder and continues with an informational message so the pipeline can still write outputs.
-#' @param audit_root_dir character scalar path to the root audit folder.
+#' @param audit_root_dir character scalar path to the audit output folder.
 #' @return invisible logical scalar: TRUE if folder existed and was deleted,
 #' FALSE when folder did not exist or could not be removed.
 #' @examples
@@ -97,11 +97,11 @@ load_audit_config <- function(config) {
   }
 
   assert_or_abort(checkmate::check_string(
-    config$paths$data$imports$raw,
+    config$paths$data$import$raw,
     min.chars = 1
   ))
   assert_or_abort(checkmate::check_string(
-    config$paths$data$audit$audit_file_path,
+    config$paths$data$audit$audit_dir,
     min.chars = 1
   ))
 
@@ -110,11 +110,11 @@ load_audit_config <- function(config) {
 
 #' @title resolve audit output paths
 #' @description compute audit output paths without creating directories.
-#' @param audit_root_dir character scalar root audit directory.
+#' @param audit_root_dir character scalar audit output directory.
 #' @param audit_file_name character scalar excel file name.
 #' @return named list with `audit_root_dir` and `audit_file_path`.
 #' @examples
-#' resolve_audit_output_paths("data/2-post_processing/data_audit", "audit.xlsx")
+#' resolve_audit_output_paths("data/2-postpro/audit", "audit.xlsx")
 #' @export
 resolve_audit_output_paths <- function(
   audit_root_dir,
@@ -374,7 +374,7 @@ resolve_audit_columns_by_type <- function(config) {
 #'   audit_columns = c("document"),
 #'   paths = list(
 #'     data = list(
-#'       imports = list(raw = tempdir()),
+#'       import = list(raw = tempdir()),
 #'       audit = list(
 #'         audit_file_path = fs::path(tempdir(), "audit.xlsx")
 #'       )
@@ -532,7 +532,7 @@ audit_data_output <- function(dataset_dt, config) {
 
   load_audit_config(config)
 
-  audit_output_dir <- fs::path_dir(config$paths$data$audit$audit_file_path)
+  audit_output_dir <- config$paths$data$audit$audit_dir
 
   assert_or_abort(checkmate::check_string(audit_output_dir, min.chars = 1))
 

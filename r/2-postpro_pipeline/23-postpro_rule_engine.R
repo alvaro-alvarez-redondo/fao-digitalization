@@ -14,7 +14,7 @@
 #' @importFrom checkmate assert_data_frame assert_string
 coerce_rule_schema <- function(rule_dt, stage_name, rule_file_id) {
   checkmate::assert_data_frame(rule_dt, min.rows = 0)
-  validated_stage_name <- validate_post_processing_stage_name(stage_name)
+  validated_stage_name <- validate_postpro_stage_name(stage_name)
   checkmate::assert_string(rule_file_id, min.chars = 1)
 
   canonical_columns <- get_canonical_rule_columns()
@@ -23,19 +23,19 @@ coerce_rule_schema <- function(rule_dt, stage_name, rule_file_id) {
   canonical_dt <- data.table::as.data.table(rule_dt)
   available_columns <- colnames(canonical_dt)
 
-  normalized_columns <- sub(stage_prefix, "", available_columns)
-  duplicated_normalized_columns <- normalized_columns[duplicated(
-    normalized_columns
+  normalize_columns <- sub(stage_prefix, "", available_columns)
+  duplicated_normalize_columns <- normalize_columns[duplicated(
+    normalize_columns
   )]
 
-  if (length(duplicated_normalized_columns) > 0L) {
+  if (length(duplicated_normalize_columns) > 0L) {
     cli::cli_abort(c(
       "Rule file {.file {rule_file_id}} contains duplicate columns after stage-prefix normalization.",
-      "x" = paste(unique(duplicated_normalized_columns), collapse = ", ")
+      "x" = paste(unique(duplicated_normalize_columns), collapse = ", ")
     ))
   }
 
-  data.table::setnames(canonical_dt, available_columns, normalized_columns)
+  data.table::setnames(canonical_dt, available_columns, normalize_columns)
   available_columns <- colnames(canonical_dt)
 
   source_result_column <- get_stage_source_value_column(validated_stage_name)
@@ -85,7 +85,7 @@ normalize_rule_values_for_validation <- function(
   na_placeholder = get_pipeline_constants()$na_placeholder
 ) {
   checkmate::assert_data_frame(rules_dt, min.rows = 0)
-  validate_post_processing_stage_name(stage_name)
+  validate_postpro_stage_name(stage_name)
   checkmate::assert_string(na_placeholder, min.chars = 1)
 
   allowed_na_columns <- intersect(
@@ -261,7 +261,7 @@ validate_canonical_rules <- function(
   checkmate::assert_data_frame(rules_dt, min.rows = 0)
   checkmate::assert_data_frame(dataset_dt, min.rows = 0)
   checkmate::assert_string(rule_file_id, min.chars = 1)
-  validated_stage_name <- validate_post_processing_stage_name(stage_name)
+  validated_stage_name <- validate_postpro_stage_name(stage_name)
 
   required_columns <- get_canonical_rule_columns()
   missing_rule_columns <- setdiff(required_columns, colnames(rules_dt))
@@ -409,7 +409,7 @@ validate_canonical_rules <- function(
 #' @importFrom checkmate assert_data_frame
 build_conditional_rule_dictionary <- function(rules_dt, stage_name) {
   checkmate::assert_data_frame(rules_dt, min.rows = 0)
-  validated_stage_name <- validate_post_processing_stage_name(stage_name)
+  validated_stage_name <- validate_postpro_stage_name(stage_name)
 
   if (nrow(rules_dt) == 0L) {
     return(list())
@@ -519,7 +519,7 @@ encode_rule_match_key <- function(
 #' @return Named list with `apply_once_before_stage`, `apply_each_pass`, and
 #' `excluded_columns`.
 resolve_rule_match_normalization_settings <- function() {
-  settings <- get_pipeline_constants()$post_processing$rule_match_normalization
+  settings <- get_pipeline_constants()$postpro$rule_match_normalization
   checkmate::assert_list(settings, min.len = 1)
 
   apply_once_before_stage <- isTRUE(settings$apply_once_before_stage)
@@ -563,12 +563,12 @@ empty_last_rule_wins_overwrite_events_dt <- function() {
 #' @return Named list with default strategy, supported strategies,
 #' concatenate delimiter, and optional per-column overrides.
 get_target_update_strategy_config <- function() {
-  strategy_config <- get_pipeline_constants()$post_processing$target_update_strategies
+  strategy_config <- get_pipeline_constants()$postpro$target_update_strategies
 
   if (is.null(strategy_config)) {
     cli::cli_abort(c(
       "missing target-update strategy configuration in pipeline constants.",
-      "x" = "expected get_pipeline_constants()$post_processing$target_update_strategies"
+      "x" = "expected get_pipeline_constants()$postpro$target_update_strategies"
     ))
   }
 
@@ -661,7 +661,7 @@ resolve_target_update_strategy <- function(
 #' enabled for `last_rule_wins` target updates.
 #' @return Logical scalar fast-path toggle.
 resolve_last_rule_wins_unique_row_fast_path_enabled <- function() {
-  fast_path_config <- get_pipeline_constants()$post_processing$target_update_fast_path
+  fast_path_config <- get_pipeline_constants()$postpro$target_update_fast_path
 
   if (!is.list(fast_path_config)) {
     return(FALSE)
@@ -705,7 +705,7 @@ resolve_tokenized_target_condition_columns <- function(
 #' target values. For tokenized columns, semicolon-delimited current values are
 #' matched by token membership while preserving exact full-string matching.
 #' Wildcards for tokenized columns are explicit and controlled by
-#' `get_pipeline_constants()$post_processing$rule_match_wildcard_token`.
+#' `get_pipeline_constants()$postpro$rule_match_wildcard_token`.
 #' @param current_values Atomic vector of current dataset target values.
 #' @param condition_values Atomic vector of rule target-condition values.
 #' @param tokenized_target Logical scalar enabling tokenized matching.
@@ -716,7 +716,7 @@ match_rule_target_condition_values <- function(
   condition_values,
   tokenized_target = FALSE,
   apply_match_normalization = TRUE,
-  wildcard_token = get_pipeline_constants()$post_processing$rule_match_wildcard_token
+  wildcard_token = get_pipeline_constants()$postpro$rule_match_wildcard_token
 ) {
   checkmate::assert_atomic(current_values, any.missing = TRUE)
   checkmate::assert_atomic(condition_values, any.missing = TRUE)
@@ -767,7 +767,9 @@ match_rule_target_condition_values <- function(
     apply_normalization = apply_match_normalization
   )
 
-  unique_current_values <- unique(current_values_chr[!is.na(current_values_chr)])
+  unique_current_values <- unique(current_values_chr[
+    !is.na(current_values_chr)
+  ])
 
   token_lookup <- setNames(
     lapply(unique_current_values, function(value_chr) {
@@ -841,19 +843,56 @@ concatenate_existing_and_incoming_values <- function(
     is.na(incoming_values_norm) | trimws(incoming_values_norm) == ""
   ] <- NA_character_
 
+  split_deduplicate_tokens <- function(values_chr) {
+    lapply(values_chr, function(single_value) {
+      if (is.na(single_value)) {
+        return(character(0))
+      }
+
+      split_tokens <- strsplit(single_value, ";", fixed = TRUE)[[1]]
+      split_tokens <- trimws(split_tokens)
+      split_tokens <- split_tokens[nzchar(split_tokens)]
+
+      if (length(split_tokens) == 0L) {
+        return(character(0))
+      }
+
+      dedup_mask <- !duplicated(split_tokens)
+      return(split_tokens[dedup_mask])
+    })
+  }
+
   merged_values <- incoming_values_norm
-  existing_only_mask <- !is.na(existing_values_norm) & is.na(incoming_values_norm)
-  both_present_mask <- !is.na(existing_values_norm) & !is.na(incoming_values_norm)
+  existing_only_mask <- !is.na(existing_values_norm) &
+    is.na(incoming_values_norm)
+  both_present_mask <- !is.na(existing_values_norm) &
+    !is.na(incoming_values_norm)
 
   if (any(existing_only_mask)) {
-    merged_values[existing_only_mask] <- existing_values_norm[existing_only_mask]
+    merged_values[existing_only_mask] <- existing_values_norm[
+      existing_only_mask
+    ]
   }
 
   if (any(both_present_mask)) {
-    merged_values[both_present_mask] <- paste(
-      existing_values_norm[both_present_mask],
-      incoming_values_norm[both_present_mask],
-      sep = delimiter
+    existing_tokens <- split_deduplicate_tokens(existing_values_norm[
+      both_present_mask
+    ])
+    incoming_tokens <- split_deduplicate_tokens(incoming_values_norm[
+      both_present_mask
+    ])
+
+    merged_values[both_present_mask] <- vapply(
+      seq_along(existing_tokens),
+      FUN.VALUE = character(1),
+      FUN = function(idx) {
+        merged_tokens <- c(existing_tokens[[idx]], incoming_tokens[[idx]])
+        merged_tokens <- merged_tokens[!duplicated(merged_tokens)]
+        if (length(merged_tokens) == 0L) {
+          return(NA_character_)
+        }
+        paste(merged_tokens, collapse = delimiter)
+      }
     )
   }
 
@@ -887,7 +926,7 @@ count_elementwise_value_changes <- function(before_values, after_values) {
   if (any(comparable_mask)) {
     value_changed[comparable_mask] <-
       as.character(before_values[comparable_mask]) !=
-      as.character(after_values[comparable_mask])
+        as.character(after_values[comparable_mask])
   }
 
   return(as.integer(sum(value_changed)))
@@ -995,18 +1034,45 @@ apply_target_updates_with_strategy <- function(
   if (isTRUE(apply_condition_match)) {
     has_condition <- !is.na(updates_dt[[condition_column]])
     if (any(has_condition)) {
+      conditioned_updates_raw <- updates_dt[has_condition]
       current_values <- dataset_dt[[target_column]][
-        updates_dt$row_id_internal[has_condition]
+        conditioned_updates_raw$row_id_internal
       ]
       condition_matches <- match_rule_target_condition_values(
         current_values = current_values,
-        condition_values = updates_dt[[condition_column]][has_condition],
+        condition_values = conditioned_updates_raw[[condition_column]],
         tokenized_target = target_column %in% tokenized_target_condition_columns
       )
 
-      conditioned_updates <- updates_dt[has_condition][
-        condition_matches
-      ]
+      conditioned_updates <- conditioned_updates_raw[condition_matches]
+
+      is_wildcard_condition <- !is.na(conditioned_updates[[condition_column]]) &
+        trimws(as.character(conditioned_updates[[condition_column]])) ==
+          strategy_config$rule_match_wildcard_token
+
+      if (any(is_wildcard_condition)) {
+        wildcard_idx <- which(is_wildcard_condition)
+        wildcard_current_values <- dataset_dt[[target_column]][
+          conditioned_updates$row_id_internal[wildcard_idx]
+        ]
+        wildcard_candidate_values <- conditioned_updates[[value_column]][
+          wildcard_idx
+        ]
+
+        wildcard_value_already_present <- match_rule_target_condition_values(
+          current_values = wildcard_current_values,
+          condition_values = wildcard_candidate_values,
+          tokenized_target = target_column %in%
+            tokenized_target_condition_columns
+        )
+
+        if (any(wildcard_value_already_present)) {
+          conditioned_updates <- conditioned_updates[
+            -wildcard_idx[wildcard_value_already_present]
+          ]
+        }
+      }
+
       unconditional_updates <- updates_dt[!has_condition]
 
       updates_dt <- data.table::rbindlist(
@@ -1085,7 +1151,9 @@ apply_target_updates_with_strategy <- function(
       )
     ]
 
-    previous_values <- dataset_dt[[target_column]][updates_collapsed$row_id_internal]
+    previous_values <- dataset_dt[[target_column]][
+      updates_collapsed$row_id_internal
+    ]
 
     data.table::set(
       dataset_dt,
@@ -1096,7 +1164,9 @@ apply_target_updates_with_strategy <- function(
 
     changed_value_count <- count_elementwise_value_changes(
       before_values = previous_values,
-      after_values = dataset_dt[[target_column]][updates_collapsed$row_id_internal]
+      after_values = dataset_dt[[target_column]][
+        updates_collapsed$row_id_internal
+      ]
     )
 
     return(list(
@@ -1139,7 +1209,9 @@ apply_target_updates_with_strategy <- function(
       by = .(row_id_internal)
     ]
 
-    existing_values <- dataset_dt[[target_column]][updates_collapsed$row_id_internal]
+    existing_values <- dataset_dt[[target_column]][
+      updates_collapsed$row_id_internal
+    ]
     merged_values <- concatenate_existing_and_incoming_values(
       existing_values = existing_values,
       incoming_values = updates_collapsed$update_value,
@@ -1155,7 +1227,9 @@ apply_target_updates_with_strategy <- function(
 
     changed_value_count <- count_elementwise_value_changes(
       before_values = existing_values,
-      after_values = dataset_dt[[target_column]][updates_collapsed$row_id_internal]
+      after_values = dataset_dt[[target_column]][
+        updates_collapsed$row_id_internal
+      ]
     )
 
     return(list(
@@ -1192,7 +1266,7 @@ apply_conditional_rule_group <- function(
 ) {
   checkmate::assert_data_table(dataset_dt)
   checkmate::assert_data_frame(group_rules, min.rows = 1)
-  validated_stage_name <- validate_post_processing_stage_name(stage_name)
+  validated_stage_name <- validate_postpro_stage_name(stage_name)
   checkmate::assert_string(dataset_name, min.chars = 1)
   checkmate::assert_string(rule_file_id, min.chars = 1)
   checkmate::assert_string(execution_timestamp_utc, min.chars = 1)
@@ -1221,7 +1295,7 @@ apply_conditional_rule_group <- function(
   apply_target_condition_normalization <-
     isTRUE(apply_match_normalization) && !(target_column %in% excluded_columns)
 
-  normalized_rules <- unique(group_dt[, .(
+  normalize_rules <- unique(group_dt[, .(
     column_source,
     value_source_raw,
     source_value_raw = get(source_value_column),
@@ -1248,12 +1322,12 @@ apply_conditional_rule_group <- function(
     )
   ])
 
-  normalized_rules[
+  normalize_rules[
     trimws(value_source_result) == "",
     value_source_result := NA_character_
   ]
 
-  data.table::setindex(normalized_rules, source_key)
+  data.table::setindex(normalize_rules, source_key)
 
   tokenized_target_condition_columns <- resolve_tokenized_target_condition_columns(
     strategy_config = get_target_update_strategy_config()
@@ -1270,7 +1344,7 @@ apply_conditional_rule_group <- function(
     )
   )
 
-  joined_dt <- normalized_rules[
+  joined_dt <- normalize_rules[
     join_input,
     on = .(source_key),
     allow.cartesian = TRUE
@@ -1310,11 +1384,14 @@ apply_conditional_rule_group <- function(
       )
     }
 
-    target_updates <- joined_dt[matched_row_mask, .(
-      row_id,
-      value_target_raw,
-      value_target_result
-    )]
+    target_updates <- joined_dt[
+      matched_row_mask,
+      .(
+        row_id,
+        value_target_raw,
+        value_target_result
+      )
+    ]
 
     update_result <- apply_target_updates_with_strategy(
       dataset_dt = dataset_dt,
@@ -1348,7 +1425,7 @@ apply_conditional_rule_group <- function(
     )
   ]
 
-  audit_dt <- normalized_rules[
+  audit_dt <- normalize_rules[
     matched_counts,
     on = .(
       source_key,
@@ -1408,7 +1485,7 @@ apply_footnote_rules <- function(
 ) {
   checkmate::assert_data_table(dataset_dt)
   checkmate::assert_data_frame(footnote_rules, min.rows = 1)
-  validated_stage_name <- validate_post_processing_stage_name(stage_name)
+  validated_stage_name <- validate_postpro_stage_name(stage_name)
   checkmate::assert_string(dataset_name, min.chars = 1)
   checkmate::assert_string(rule_file_id, min.chars = 1)
   checkmate::assert_string(execution_timestamp_utc, min.chars = 1)
@@ -1466,7 +1543,7 @@ apply_footnote_rules <- function(
 
   # --- step 3: normalize rules and build match keys --------------------------
   rules_dt <- data.table::as.data.table(footnote_rules)
-  normalized_rules <- unique(rules_dt[, .(
+  normalize_rules <- unique(rules_dt[, .(
     column_source = "footnotes",
     value_source_raw,
     source_value_raw = get(source_value_column),
@@ -1487,18 +1564,20 @@ apply_footnote_rules <- function(
       )
     )
   ])
-  normalized_rules[
+  normalize_rules[
     trimws(value_source_result) == "",
     value_source_result := NA_character_
   ]
-  data.table::setindex(normalized_rules, source_key)
+  data.table::setindex(normalize_rules, source_key)
 
   # --- step 4: join footnotes with rules on source key -----------------------
-  fn_long[, source_key := encode_rule_match_key(
-    footnote,
-    apply_normalization = footnote_source_normalization
-  )]
-  joined <- normalized_rules[
+  fn_long[,
+    source_key := encode_rule_match_key(
+      footnote,
+      apply_normalization = footnote_source_normalization
+    )
+  ]
+  joined <- normalize_rules[
     fn_long,
     on = .(source_key),
     allow.cartesian = TRUE
@@ -1534,11 +1613,10 @@ apply_footnote_rules <- function(
         match_rule_target_condition_values(
           current_values = current_target_values,
           condition_values = joined$value_target_raw[target_column_mask],
-          tokenized_target =
-            target_column %in% tokenized_target_condition_columns,
-          apply_match_normalization =
-            isTRUE(apply_match_normalization) &&
-              !(target_column %in% excluded_columns)
+          tokenized_target = target_column %in%
+            tokenized_target_condition_columns,
+          apply_match_normalization = isTRUE(apply_match_normalization) &&
+            !(target_column %in% excluded_columns)
         )
     }
 
@@ -1566,13 +1644,16 @@ apply_footnote_rules <- function(
   )]
 
   # --- step 6: apply target column updates -----------------------------------
-  target_updates <- joined[matched_mask & column_target != "footnotes", .(
-    row_id,
-    footnote_index,
-    column_target,
-    value_target_raw,
-    value_target_result
-  )]
+  target_updates <- joined[
+    matched_mask & column_target != "footnotes",
+    .(
+      row_id,
+      footnote_index,
+      column_target,
+      value_target_raw,
+      value_target_result
+    )
+  ]
   overwrite_event_tables <- list()
   total_target_changed_value_count <- 0L
 
@@ -1619,7 +1700,9 @@ apply_footnote_rules <- function(
         if (any(is_remove, na.rm = TRUE)) {
           NA_character_
         } else if (any(is_replace, na.rm = TRUE)) {
-          replacement_values <- footnote_final[is_replace & !is.na(footnote_final)]
+          replacement_values <- footnote_final[
+            is_replace & !is.na(footnote_final)
+          ]
           if (length(replacement_values) == 0L) {
             NA_character_
           } else {
@@ -1751,7 +1834,7 @@ apply_rule_payload <- function(
 ) {
   checkmate::assert_data_table(dataset_dt)
   checkmate::assert_data_frame(canonical_rules, min.rows = 0)
-  validated_stage_name <- validate_post_processing_stage_name(stage_name)
+  validated_stage_name <- validate_postpro_stage_name(stage_name)
   checkmate::assert_string(dataset_name, min.chars = 1)
   checkmate::assert_string(rule_file_id, min.chars = 1)
   checkmate::assert_string(execution_timestamp_utc, min.chars = 1)

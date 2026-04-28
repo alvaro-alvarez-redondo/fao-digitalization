@@ -1,8 +1,6 @@
 ---
 name: master
 description: 'Define orchestration rules for R repository modernization.'
-argument-hint: What rules should the master orchestrator enforce?
-agent: agent
 ---
 
 ## Purpose

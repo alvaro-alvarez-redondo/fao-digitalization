@@ -1,5 +1,5 @@
 options(
-  whep.run_post_processing_pipeline.auto = FALSE
+  whep.run_postpro_pipeline.auto = FALSE
 )
 
 source(
@@ -9,23 +9,23 @@ source(
 source(
   here::here(
     "r",
-    "2-post_processing_pipeline",
-    "21-post_processing_utilities.R"
+    "2-postpro_pipeline",
+    "21-postpro_utilities.R"
   ),
   echo = FALSE
 )
 source(
   here::here(
     "r",
-    "2-post_processing_pipeline",
-    "23-post_processing_rule_engine.R"
+    "2-postpro_pipeline",
+    "23-postpro_rule_engine.R"
   ),
   echo = FALSE
 )
 source(
   here::here(
     "r",
-    "2-post_processing_pipeline",
+    "2-postpro_pipeline",
     "22-clean_harmonize_data.R"
   ),
   echo = FALSE
@@ -35,12 +35,12 @@ testthat::test_that("clean and harmonize layers apply deterministic rule payload
   root_dir <- tempfile("whep-clean-harmonize-")
   dir.create(root_dir, recursive = TRUE)
 
-  clean_dir <- file.path(root_dir, "data", "1-import", "11-clean_imports")
+  clean_dir <- file.path(root_dir, "data", "1-import", "11-clean_import")
   harmonize_dir <- file.path(
     root_dir,
     "data",
     "1-import",
-    "13-harmonize_imports"
+    "13-harmonize_import"
   )
   dir.create(clean_dir, recursive = TRUE)
   dir.create(harmonize_dir, recursive = TRUE)
@@ -72,7 +72,7 @@ testthat::test_that("clean and harmonize layers apply deterministic rule payload
   config <- list(
     paths = list(
       data = list(
-        imports = list(
+        import = list(
           cleaning = clean_dir,
           harmonization = harmonize_dir
         )
@@ -88,26 +88,26 @@ testthat::test_that("clean and harmonize layers apply deterministic rule payload
     stringsAsFactors = FALSE
   )
 
-  cleaned_dt <- run_cleaning_layer_batch(
+  clean_dt <- run_cleaning_layer_batch(
     dataset_dt = input_dt,
     config = config,
     dataset_name = "demo"
   )
 
-  harmonized_dt <- run_harmonize_layer_batch(
-    dataset_dt = cleaned_dt,
+  harmonize_dt <- run_harmonize_layer_batch(
+    dataset_dt = clean_dt,
     config = config,
     dataset_name = "demo"
   )
 
-  testthat::expect_equal(cleaned_dt$unit[[1]], "kilogram")
-  testthat::expect_equal(cleaned_dt$unit[[2]], "kg")
+  testthat::expect_equal(clean_dt$unit[[1]], "kilogram")
+  testthat::expect_equal(clean_dt$unit[[2]], "kg")
 
-  testthat::expect_equal(harmonized_dt$variable[[1]], "Production")
-  testthat::expect_equal(harmonized_dt$variable[[2]], "Prod")
+  testthat::expect_equal(harmonize_dt$variable[[1]], "Production")
+  testthat::expect_equal(harmonize_dt$variable[[2]], "Prod")
 
-  clean_audit <- attr(cleaned_dt, "layer_audit")
-  harmonize_audit <- attr(harmonized_dt, "layer_audit")
+  clean_audit <- attr(clean_dt, "layer_audit")
+  harmonize_audit <- attr(harmonize_dt, "layer_audit")
 
   testthat::expect_true(nrow(clean_audit) >= 1)
   testthat::expect_true(nrow(harmonize_audit) >= 1)
@@ -152,12 +152,12 @@ testthat::test_that("clean layer auto-creates missing rule-referenced columns", 
   root_dir <- tempfile("whep-clean-missing-cols-")
   dir.create(root_dir, recursive = TRUE)
 
-  clean_dir <- file.path(root_dir, "data", "1-import", "11-clean_imports")
+  clean_dir <- file.path(root_dir, "data", "1-import", "11-clean_import")
   harmonize_dir <- file.path(
     root_dir,
     "data",
     "1-import",
-    "13-harmonize_imports"
+    "13-harmonize_import"
   )
   dir.create(clean_dir, recursive = TRUE)
   dir.create(harmonize_dir, recursive = TRUE)
@@ -179,7 +179,7 @@ testthat::test_that("clean layer auto-creates missing rule-referenced columns", 
   config <- list(
     paths = list(
       data = list(
-        imports = list(
+        import = list(
           cleaning = clean_dir,
           harmonization = harmonize_dir
         )
@@ -194,16 +194,16 @@ testthat::test_that("clean layer auto-creates missing rule-referenced columns", 
     stringsAsFactors = FALSE
   )
 
-  cleaned_dt <- run_cleaning_layer_batch(
+  clean_dt <- run_cleaning_layer_batch(
     dataset_dt = input_dt,
     config = config,
     dataset_name = "demo"
   )
 
-  testthat::expect_true("source_missing" %in% colnames(cleaned_dt))
-  testthat::expect_true("target_missing" %in% colnames(cleaned_dt))
-  testthat::expect_true(all(is.na(cleaned_dt$source_missing)))
-  testthat::expect_true(all(is.na(cleaned_dt$target_missing)))
+  testthat::expect_true("source_missing" %in% colnames(clean_dt))
+  testthat::expect_true("target_missing" %in% colnames(clean_dt))
+  testthat::expect_true(all(is.na(clean_dt$source_missing)))
+  testthat::expect_true(all(is.na(clean_dt$target_missing)))
 })
 
 
@@ -211,12 +211,12 @@ testthat::test_that("clean stage applies optional source rewrites", {
   root_dir <- tempfile("whep-clean-source-rewrite-")
   dir.create(root_dir, recursive = TRUE)
 
-  clean_dir <- file.path(root_dir, "data", "1-import", "11-clean_imports")
+  clean_dir <- file.path(root_dir, "data", "1-import", "11-clean_import")
   harmonize_dir <- file.path(
     root_dir,
     "data",
     "1-import",
-    "13-harmonize_imports"
+    "13-harmonize_import"
   )
   dir.create(clean_dir, recursive = TRUE)
   dir.create(harmonize_dir, recursive = TRUE)
@@ -224,7 +224,7 @@ testthat::test_that("clean stage applies optional source rewrites", {
   clean_rules <- data.frame(
     column_source = "product",
     value_source_raw = "Wheat",
-    value_source = "Wheat cleaned",
+    value_source = "Wheat clean",
     column_target = "unit",
     value_target_raw = "kg",
     value_target = "kilogram",
@@ -239,7 +239,7 @@ testthat::test_that("clean stage applies optional source rewrites", {
   config <- list(
     paths = list(
       data = list(
-        imports = list(
+        import = list(
           cleaning = clean_dir,
           harmonization = harmonize_dir
         )
@@ -253,15 +253,15 @@ testthat::test_that("clean stage applies optional source rewrites", {
     stringsAsFactors = FALSE
   )
 
-  cleaned_dt <- run_cleaning_layer_batch(
+  clean_dt <- run_cleaning_layer_batch(
     dataset_dt = input_dt,
     config = config,
     dataset_name = "demo"
   )
 
-  testthat::expect_equal(cleaned_dt$product[[1]], "Wheat cleaned")
-  testthat::expect_equal(cleaned_dt$product[[2]], "Rice")
-  testthat::expect_equal(cleaned_dt$unit[[1]], "kilogram")
+  testthat::expect_equal(clean_dt$product[[1]], "Wheat clean")
+  testthat::expect_equal(clean_dt$product[[2]], "Rice")
+  testthat::expect_equal(clean_dt$unit[[1]], "kilogram")
 })
 
 
@@ -269,12 +269,12 @@ testthat::test_that("when source and target columns are identical target rewrite
   root_dir <- tempfile("whep-clean-same-column-")
   dir.create(root_dir, recursive = TRUE)
 
-  clean_dir <- file.path(root_dir, "data", "1-import", "11-clean_imports")
+  clean_dir <- file.path(root_dir, "data", "1-import", "11-clean_import")
   harmonize_dir <- file.path(
     root_dir,
     "data",
     "1-import",
-    "13-harmonize_imports"
+    "13-harmonize_import"
   )
   dir.create(clean_dir, recursive = TRUE)
   dir.create(harmonize_dir, recursive = TRUE)
@@ -297,7 +297,7 @@ testthat::test_that("when source and target columns are identical target rewrite
   config <- list(
     paths = list(
       data = list(
-        imports = list(
+        import = list(
           cleaning = clean_dir,
           harmonization = harmonize_dir
         )
@@ -310,14 +310,14 @@ testthat::test_that("when source and target columns are identical target rewrite
     stringsAsFactors = FALSE
   )
 
-  cleaned_dt <- run_cleaning_layer_batch(
+  clean_dt <- run_cleaning_layer_batch(
     dataset_dt = input_dt,
     config = config,
     dataset_name = "demo"
   )
 
-  testthat::expect_equal(cleaned_dt$product[[1]], "Wheat target")
-  testthat::expect_equal(cleaned_dt$product[[2]], "Rice")
+  testthat::expect_equal(clean_dt$product[[1]], "Wheat target")
+  testthat::expect_equal(clean_dt$product[[2]], "Rice")
 })
 
 
@@ -325,12 +325,12 @@ testthat::test_that("harmonize stage applies optional source rewrites", {
   root_dir <- tempfile("whep-harmonize-source-rewrite-")
   dir.create(root_dir, recursive = TRUE)
 
-  clean_dir <- file.path(root_dir, "data", "1-import", "11-clean_imports")
+  clean_dir <- file.path(root_dir, "data", "1-import", "11-clean_import")
   harmonize_dir <- file.path(
     root_dir,
     "data",
     "1-import",
-    "13-harmonize_imports"
+    "13-harmonize_import"
   )
   dir.create(clean_dir, recursive = TRUE)
   dir.create(harmonize_dir, recursive = TRUE)
@@ -353,7 +353,7 @@ testthat::test_that("harmonize stage applies optional source rewrites", {
   config <- list(
     paths = list(
       data = list(
-        imports = list(
+        import = list(
           cleaning = clean_dir,
           harmonization = harmonize_dir
         )
@@ -367,15 +367,15 @@ testthat::test_that("harmonize stage applies optional source rewrites", {
     stringsAsFactors = FALSE
   )
 
-  harmonized_dt <- run_harmonize_layer_batch(
+  harmonize_dt <- run_harmonize_layer_batch(
     dataset_dt = input_dt,
     config = config,
     dataset_name = "demo"
   )
 
-  testthat::expect_equal(harmonized_dt$variable[[1]], "Production")
-  testthat::expect_equal(harmonized_dt$variable[[2]], "Import")
-  testthat::expect_equal(harmonized_dt$unit[[1]], "kilogram")
+  testthat::expect_equal(harmonize_dt$variable[[1]], "Production")
+  testthat::expect_equal(harmonize_dt$variable[[2]], "Import")
+  testthat::expect_equal(harmonize_dt$unit[[1]], "kilogram")
 })
 
 
@@ -383,12 +383,12 @@ testthat::test_that("clean stage blank source rewrite assigns NA on matched rows
   root_dir <- tempfile("whep-clean-source-blank-")
   dir.create(root_dir, recursive = TRUE)
 
-  clean_dir <- file.path(root_dir, "data", "1-import", "11-clean_imports")
+  clean_dir <- file.path(root_dir, "data", "1-import", "11-clean_import")
   harmonize_dir <- file.path(
     root_dir,
     "data",
     "1-import",
-    "13-harmonize_imports"
+    "13-harmonize_import"
   )
   dir.create(clean_dir, recursive = TRUE)
   dir.create(harmonize_dir, recursive = TRUE)
@@ -411,7 +411,7 @@ testthat::test_that("clean stage blank source rewrite assigns NA on matched rows
   config <- list(
     paths = list(
       data = list(
-        imports = list(
+        import = list(
           cleaning = clean_dir,
           harmonization = harmonize_dir
         )
@@ -425,14 +425,14 @@ testthat::test_that("clean stage blank source rewrite assigns NA on matched rows
     stringsAsFactors = FALSE
   )
 
-  cleaned_dt <- run_cleaning_layer_batch(
+  clean_dt <- run_cleaning_layer_batch(
     dataset_dt = input_dt,
     config = config,
     dataset_name = "demo"
   )
 
-  testthat::expect_true(is.na(cleaned_dt$continent[[1]]))
-  testthat::expect_equal(cleaned_dt$continent[[2]], "europe")
-  testthat::expect_equal(cleaned_dt$product[[1]], "asia wheat")
-  testthat::expect_equal(cleaned_dt$product[[2]], "wheat")
+  testthat::expect_true(is.na(clean_dt$continent[[1]]))
+  testthat::expect_equal(clean_dt$continent[[2]], "europe")
+  testthat::expect_equal(clean_dt$product[[1]], "asia wheat")
+  testthat::expect_equal(clean_dt$product[[2]], "wheat")
 })

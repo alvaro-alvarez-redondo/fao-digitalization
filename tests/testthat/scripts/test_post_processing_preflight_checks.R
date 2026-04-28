@@ -1,5 +1,5 @@
 options(
-  whep.run_post_processing_pipeline.auto = FALSE,
+  whep.run_postpro_pipeline.auto = FALSE,
   whep.run_pipeline.auto = FALSE
 )
 
@@ -7,16 +7,16 @@ source(here::here("tests", "test_helper.R"), echo = FALSE)
 source(
   here::here(
     "r",
-    "2-post_processing_pipeline",
-    "21-post_processing_utilities.R"
+    "2-postpro_pipeline",
+    "21-postpro_utilities.R"
   ),
   echo = FALSE
 )
 source(
   here::here(
     "r",
-    "2-post_processing_pipeline",
-    "25-post_processing_diagnostics.R"
+    "2-postpro_pipeline",
+    "25-postpro_diagnostics.R"
   ),
   echo = FALSE
 )
@@ -25,20 +25,20 @@ testthat::test_that("preflight flags invalid file naming patterns", {
   root_dir <- tempfile("whep-preflight-")
   dir.create(root_dir, recursive = TRUE)
 
-  cleaning_dir <- file.path(root_dir, "data", "1-import", "11-clean_imports")
+  cleaning_dir <- file.path(root_dir, "data", "1-import", "11-clean_import")
   harmonization_dir <- file.path(
     root_dir,
     "data",
     "1-import",
-    "13-harmonize_imports"
+    "13-harmonize_import"
   )
-  audit_root_dir <- file.path(root_dir, "data", "2-post_processing")
+  audit_root_dir <- file.path(root_dir, "data", "2-postpro")
 
   dir.create(cleaning_dir, recursive = TRUE)
   dir.create(harmonization_dir, recursive = TRUE)
   dir.create(file.path(audit_root_dir, "templates"), recursive = TRUE)
   dir.create(
-    file.path(audit_root_dir, "post_processing_diagnostics"),
+    file.path(audit_root_dir, "postpro_diagnostics"),
     recursive = TRUE
   )
 
@@ -48,7 +48,7 @@ testthat::test_that("preflight flags invalid file naming patterns", {
   config <- list(
     paths = list(
       data = list(
-        imports = list(
+        import = list(
           cleaning = cleaning_dir,
           harmonization = harmonization_dir
         ),
@@ -57,7 +57,7 @@ testthat::test_that("preflight flags invalid file naming patterns", {
     )
   )
 
-  result <- collect_post_processing_preflight(
+  result <- collect_postpro_preflight(
     config = config,
     dataset_columns = c("unit", "value", "product")
   )
@@ -76,20 +76,20 @@ testthat::test_that("preflight detects column convention mismatch", {
   root_dir <- tempfile("whep-preflight-")
   dir.create(root_dir, recursive = TRUE)
 
-  cleaning_dir <- file.path(root_dir, "data", "1-import", "11-clean_imports")
+  cleaning_dir <- file.path(root_dir, "data", "1-import", "11-clean_import")
   harmonization_dir <- file.path(
     root_dir,
     "data",
     "1-import",
-    "13-harmonize_imports"
+    "13-harmonize_import"
   )
-  audit_root_dir <- file.path(root_dir, "data", "2-post_processing")
+  audit_root_dir <- file.path(root_dir, "data", "2-postpro")
 
   dir.create(cleaning_dir, recursive = TRUE)
   dir.create(harmonization_dir, recursive = TRUE)
   dir.create(file.path(audit_root_dir, "templates"), recursive = TRUE)
   dir.create(
-    file.path(audit_root_dir, "post_processing_diagnostics"),
+    file.path(audit_root_dir, "postpro_diagnostics"),
     recursive = TRUE
   )
 
@@ -99,7 +99,7 @@ testthat::test_that("preflight detects column convention mismatch", {
   config <- list(
     paths = list(
       data = list(
-        imports = list(
+        import = list(
           cleaning = cleaning_dir,
           harmonization = harmonization_dir
         ),
@@ -108,7 +108,7 @@ testthat::test_that("preflight detects column convention mismatch", {
     )
   )
 
-  result <- collect_post_processing_preflight(
+  result <- collect_postpro_preflight(
     config = config,
     dataset_columns = c("unit", "value", "item")
   )
@@ -121,7 +121,7 @@ testthat::test_that("preflight detects column convention mismatch", {
   )))
 })
 
-testthat::test_that("assert_post_processing_preflight aborts with stage details", {
+testthat::test_that("assert_postpro_preflight aborts with stage details", {
   bad_result <- list(
     passed = FALSE,
     issues = c(
@@ -132,7 +132,7 @@ testthat::test_that("assert_post_processing_preflight aborts with stage details"
   )
 
   testthat::expect_error(
-    assert_post_processing_preflight(bad_result),
+    assert_postpro_preflight(bad_result),
     regexp = "Post-processing preflight checks failed"
   )
 })

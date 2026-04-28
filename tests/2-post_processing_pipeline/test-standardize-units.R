@@ -1,17 +1,17 @@
-# tests/2-post_processing_pipeline/test-standardize-units.R
-# unit tests for R/2-post_processing_pipeline/24-standardize_units.R
+# tests/2-postpro_pipeline/test-standardize-units.R
+# unit tests for R/2-postpro_pipeline/24-standardize_units.R
 
 source(here::here("tests", "test_helper.R"), echo = FALSE)
 source(
   here::here(
     "r",
-    "2-post_processing_pipeline",
-    "21-post_processing_utilities.R"
+    "2-postpro_pipeline",
+    "21-postpro_utilities.R"
   ),
   echo = FALSE
 )
 source(
-  here::here("r", "2-post_processing_pipeline", "24-standardize_units.R"),
+  here::here("r", "2-postpro_pipeline", "24-standardize_units.R"),
   echo = FALSE
 )
 
@@ -34,7 +34,7 @@ testthat::test_that("read_all_standardize_rule_files supports multi-sheet workbo
   config <- build_test_config()
 
   workbook_path <- file.path(
-    config$paths$data$imports$standardization,
+    config$paths$data$import$standardization,
     "standardize_rules.xlsx"
   )
 
@@ -73,7 +73,7 @@ testthat::test_that("read_all_standardize_rule_files reads all non-excluded matc
   config <- build_test_config()
 
   workbook_path <- file.path(
-    config$paths$data$imports$standardization,
+    config$paths$data$import$standardization,
     "standardize_rules_multi.xlsx"
   )
 
@@ -297,10 +297,15 @@ testthat::test_that("apply_standardize_rules converts values", {
     product_column = "product"
   )
 
-  testthat::expect_named(result, c("data", "matched_count", "unmatched_count"))
+  testthat::expect_named(
+    result,
+    c("data", "matched_count", "unmatched_count", "matched_rule_counts")
+  )
   testthat::expect_s3_class(result$data, "data.table")
   testthat::expect_identical(result$matched_count, 1L)
   testthat::expect_identical(result$unmatched_count, 1L)
+  testthat::expect_true(data.table::is.data.table(result$matched_rule_counts))
+  testthat::expect_identical(result$matched_rule_counts$affected_rows[[1]], 1L)
   testthat::expect_identical(result$data$unit[[1]], "g")
   testthat::expect_equal(result$data$value[[1]], 2000)
 })
@@ -369,6 +374,211 @@ testthat::test_that("apply_standardize_rules errors for non-numeric values", {
     ),
     "non-numeric"
   )
+})
+
+testthat::test_that("apply_standardize_rules uses 'all products' fallback for unmatched products", {
+  mapped_dt <- data.table::data.table(
+    product = c("Wheat", "Corn", "Rice"),
+    unit = c("kg", "kg", "kg"),
+    value = c("2", "3", "5")
+  )
+
+  prepared_rules_dt <- prepare_standardize_rules(data.table::data.table(
+    product_key = c("wheat", "all products"),
+    unit_source = c("kg", "kg"),
+    unit_target = c("g", "g"),
+    unit_multiplier = c(1000, 1000),
+    unit_offset = c(0, 0)
+  ))
+
+  result <- apply_standardize_rules(
+    mapped_dt = mapped_dt,
+    prepared_rules_dt = prepared_rules_dt,
+    unit_column = "unit",
+    value_column = "value",
+    product_column = "product"
+  )
+
+  testthat::expect_identical(result$matched_count, 3L)
+  testthat::expect_identical(result$unmatched_count, 0L)
+  testthat::expect_equal(result$data$value[[1]], 2000)
+  testthat::expect_equal(result$data$value[[2]], 3000)
+  testthat::expect_equal(result$data$value[[3]], 5000)
+})
+
+testthat::test_that("apply_standardize_rules attributes fallback matches to all-products rule keys", {
+  mapped_dt <- data.table::data.table(
+    product = c("Wheat", "Corn", "Rice"),
+    unit = c("kg", "kg", "kg"),
+    value = c("2", "3", "5")
+  )
+
+  prepared_rules_dt <- prepare_standardize_rules(data.table::data.table(
+    product_key = c("wheat", "all products"),
+    unit_source = c("kg", "kg"),
+    unit_target = c("g", "g"),
+    unit_multiplier = c(1000, 1000),
+    unit_offset = c(0, 0)
+  ))
+
+  result <- apply_standardize_rules(
+    mapped_dt = mapped_dt,
+    prepared_rules_dt = prepared_rules_dt,
+    unit_column = "unit",
+    value_column = "value",
+    product_column = "product"
+  )
+
+  keyed_counts <- result$matched_rule_counts[order(
+    rule_product_match_key,
+    applied_product_match_key
+  )]
+
+  testthat::expect_equal(nrow(keyed_counts), 3L)
+  testthat::expect_identical(
+    keyed_counts$rule_product_match_key,
+    c("all products", "all products", "wheat")
+  )
+  testthat::expect_identical(
+    keyed_counts$applied_product_match_key,
+    c("corn", "rice", "wheat")
+  )
+  testthat::expect_identical(keyed_counts$affected_rows, c(1L, 1L, 1L))
+})
+
+testthat::test_that("apply_standardize_rules prioritizes specific product rules over 'all products'", {
+  mapped_dt <- data.table::data.table(
+    product = c("egg", "milk", "wheat"),
+    unit = c("1000 egg", "hectoliter", "kg"),
+    value = c("2", "10", "5")
+  )
+
+  prepared_rules_dt <- prepare_standardize_rules(data.table::data.table(
+    product_key = c("egg", "all products", "all products"),
+    unit_source = c("1000 egg", "1000 egg", "kg"),
+    unit_target = c("tonne", "tonne", "g"),
+    unit_multiplier = c(0.0539, 0.001, 1000),
+    unit_offset = c(0, 0, 0)
+  ))
+
+  result <- apply_standardize_rules(
+    mapped_dt = mapped_dt,
+    prepared_rules_dt = prepared_rules_dt,
+    unit_column = "unit",
+    value_column = "value",
+    product_column = "product"
+  )
+
+  testthat::expect_identical(result$matched_count, 2L)
+  testthat::expect_equal(result$data$value[[1]], 2 * 0.0539)
+  testthat::expect_equal(result$data$unit[[1]], "tonne")
+  testthat::expect_equal(result$data$value[[3]], 5000)
+  testthat::expect_equal(result$data$unit[[3]], "g")
+})
+
+testthat::test_that("apply_standardize_rules 'all products' fallback with mixed specificity", {
+  mapped_dt <- data.table::data.table(
+    product = c("coconut", "egg", "rice", "wheat"),
+    unit = c("count", "1000 egg", "kg", "kg"),
+    value = c("1000", "100", "500", "2000")
+  )
+
+  prepared_rules_dt <- prepare_standardize_rules(data.table::data.table(
+    product_key = c("coconut", "egg", "all products", "all products"),
+    unit_source = c("count", "1000 egg", "kg", "tonne"),
+    unit_target = c("tonne", "tonne", "g", "kg"),
+    unit_multiplier = c(0.001, 0.0539, 1000, 1000),
+    unit_offset = c(0, 0, 0, 0)
+  ))
+
+  result <- apply_standardize_rules(
+    mapped_dt = mapped_dt,
+    prepared_rules_dt = prepared_rules_dt,
+    unit_column = "unit",
+    value_column = "value",
+    product_column = "product"
+  )
+
+  testthat::expect_identical(result$matched_count, 4L)
+  testthat::expect_equal(result$data$value[[1]], 1)
+  testthat::expect_equal(result$data$value[[2]], 100 * 0.0539)
+  testthat::expect_equal(result$data$value[[3]], 500000)
+  testthat::expect_equal(result$data$value[[4]], 2000000)
+})
+
+testthat::test_that("validate_conversion_rules allows chained rules when one is 'all products'", {
+  rules_dt <- data.table::data.table(
+    product_key = c("all products", "all products", "wheat"),
+    unit_source = c("kg", "g", "kg"),
+    unit_target = c("g", "mg", "g"),
+    unit_multiplier = c(1000, 1000, 1000),
+    unit_offset = c(0, 0, 0)
+  )
+
+  testthat::expect_invisible(validate_conversion_rules(rules_dt))
+})
+
+testthat::test_that("validate_conversion_rules detects chained specific-product rules excluding 'all products'", {
+  rules_dt <- data.table::data.table(
+    product_key = c("wheat", "wheat", "all products"),
+    unit_source = c("kg", "g", "kg"),
+    unit_target = c("g", "mg", "g"),
+    unit_multiplier = c(1000, 1000, 1000),
+    unit_offset = c(0, 0, 0)
+  )
+
+  testthat::expect_error(validate_conversion_rules(rules_dt), "chained")
+})
+
+
+# --- build_standardize_layer_audit ------------------------------------------
+
+testthat::test_that("build_standardize_layer_audit mirrors standardize workbook schema", {
+  layer_rules_dt <- prepare_standardize_rules(data.table::data.table(
+    product_key = c("wheat", "all products"),
+    unit_source = c("kg", "kg"),
+    unit_target = c("g", "g"),
+    unit_multiplier = c(1000, 1000),
+    unit_offset = c(0, 0),
+    source_rule_sheet = c("standardize_unit", "standardize_unit"),
+    source_rule_file = c(
+      "standardize_units_rules.xlsx",
+      "standardize_units_rules.xlsx"
+    )
+  ))
+
+  matched_rule_counts_dt <- data.table::data.table(
+    rule_product_match_key = c("wheat", "all products", "all products"),
+    applied_product_match_key = c("wheat", "corn", "rice"),
+    unit_source_key = c("kg", "kg", "kg"),
+    affected_rows = c(1L, 1L, 1L)
+  )
+
+  result <- build_standardize_layer_audit(
+    layer_rules_dt = layer_rules_dt,
+    matched_rule_counts_dt = matched_rule_counts_dt,
+    source_paths = "standardize_units_rules.xlsx"
+  )
+
+  expected_columns <- c(
+    "affected_rows",
+    "rule_file_identifier",
+    "product_key",
+    "unit_source",
+    "unit_target",
+    "unit_multiplier",
+    "unit_offset"
+  )
+
+  testthat::expect_identical(names(result), expected_columns)
+  testthat::expect_equal(nrow(result), 3L)
+  testthat::expect_setequal(result$product_key, c("wheat", "corn", "rice"))
+
+  all_products_rows <- result[product_key %in% c("corn", "rice")]
+  testthat::expect_equal(nrow(all_products_rows), 2L)
+  testthat::expect_true(all(all_products_rows$affected_rows == 1L))
+  testthat::expect_true(all(all_products_rows$unit_multiplier == 1000))
+  testthat::expect_true(all(all_products_rows$unit_offset == 0))
 })
 
 
@@ -579,7 +789,7 @@ testthat::test_that("attach_standardize_diagnostics includes aggregation fields"
 
   result <- attach_standardize_diagnostics(
     standardized_dt = dt,
-    cleaned_rows_count = 5L,
+    clean_rows_count = 5L,
     matched_count = 3L,
     unmatched_count = 2L,
     rules_count = 1L,
@@ -603,7 +813,7 @@ testthat::test_that("attach_standardize_diagnostics omits aggregation counts whe
 
   result <- attach_standardize_diagnostics(
     standardized_dt = dt,
-    cleaned_rows_count = 1L,
+    clean_rows_count = 1L,
     matched_count = 1L,
     unmatched_count = 0L,
     rules_count = 1L,

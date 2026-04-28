@@ -24,8 +24,8 @@ get_canonical_rule_columns <- function() {
 #' @description Returns deterministic stage order for post-processing execution.
 #' @return Character vector with values `clean` and `harmonize`.
 #' @examples
-#' get_post_processing_stage_names()
-get_post_processing_stage_names <- function() {
+#' get_postpro_stage_names()
+get_postpro_stage_names <- function() {
   return(c("clean", "harmonize"))
 }
 
@@ -37,11 +37,11 @@ get_post_processing_stage_names <- function() {
 #' @param stage_name Character scalar stage label.
 #' @return Character scalar validated stage name.
 #' @importFrom checkmate assert_string
-validate_post_processing_stage_name <- function(stage_name) {
+validate_postpro_stage_name <- function(stage_name) {
   checkmate::assert_string(stage_name, min.chars = 1)
   validated_stage_name <- match.arg(
     stage_name,
-    choices = get_post_processing_stage_names()
+    choices = get_postpro_stage_names()
   )
 
   return(validated_stage_name)
@@ -52,7 +52,7 @@ validate_post_processing_stage_name <- function(stage_name) {
 #' @param stage_name Character scalar stage label.
 #' @return Character scalar target value column name.
 get_stage_target_value_column <- function(stage_name) {
-  validate_post_processing_stage_name(stage_name)
+  validate_postpro_stage_name(stage_name)
 
   return("value_target")
 }
@@ -62,17 +62,18 @@ get_stage_target_value_column <- function(stage_name) {
 #' @param stage_name Character scalar stage label.
 #' @return Character scalar source value column name.
 get_stage_source_value_column <- function(stage_name) {
-  validate_post_processing_stage_name(stage_name)
+  validate_postpro_stage_name(stage_name)
 
   return("value_source")
 }
 
-#' @title Get post-processing audit paths
-#' @description Resolves deterministic audit root and subdirectory paths.
+#' @title Get post-processing output paths
+#' @description Resolves deterministic post-processing root and leaf directories.
 #' @param config Named configuration list.
-#' @return Named list with `audit_root_dir`, `diagnostics_dir`, and `templates_dir`.
+#' @return Named list with `audit_root_dir`, `audit_dir`, `diagnostics_dir`,
+#'   `templates_dir`, and `runtime_cache_dir`.
 #' @importFrom checkmate assert_list assert_string
-get_post_processing_audit_paths <- function(config) {
+get_postpro_output_paths <- function(config) {
   checkmate::assert_list(config, min.len = 1)
   checkmate::assert_string(
     config$paths$data$audit$audit_root_dir,
@@ -81,25 +82,34 @@ get_post_processing_audit_paths <- function(config) {
 
   audit_root_dir <- config$paths$data$audit$audit_root_dir
 
-  diagnostics_dir <- fs::path(audit_root_dir, "post_processing_diagnostics")
-
   return(list(
     audit_root_dir = audit_root_dir,
-    diagnostics_dir = diagnostics_dir,
-    templates_dir = fs::path(audit_root_dir, "templates")
+    audit_dir = config$paths$data$audit$audit_dir,
+    diagnostics_dir = config$paths$data$audit$diagnostics_dir,
+    templates_dir = config$paths$data$audit$templates_dir,
+    runtime_cache_dir = config$paths$data$audit$runtime_cache_dir
   ))
 }
 
-#' @title Initialize post-processing audit directory tree
-#' @description Creates deterministic audit subdirectories under `audit_root_dir`.
+#' @title Get post-processing audit paths
+#' @description Legacy alias for `get_postpro_output_paths()`.
+#' @param config Named configuration list.
+#' @return Named list with post-processing output directories.
+get_postpro_audit_paths <- function(config) {
+  return(get_postpro_output_paths(config))
+}
+
+#' @title Initialize post-processing output directory tree
+#' @description Creates deterministic output subdirectories under
+#' `audit_root_dir`.
 #' @param config Named configuration list.
 #' @return Named list of post-processing audit paths.
 #' @importFrom checkmate assert_list
 #'
-initialize_post_processing_audit_root <- function(config) {
+initialize_postpro_output_root <- function(config) {
   checkmate::assert_list(config, min.len = 1)
 
-  audit_paths <- get_post_processing_audit_paths(config)
+  audit_paths <- get_postpro_output_paths(config)
   ensure_directories_exist(
     unlist(audit_paths, use.names = FALSE),
     recurse = TRUE
@@ -108,11 +118,19 @@ initialize_post_processing_audit_root <- function(config) {
   return(audit_paths)
 }
 
+#' @title Initialize post-processing audit directory tree
+#' @description Legacy alias for `initialize_postpro_output_root()`.
+#' @param config Named configuration list.
+#' @return Named list of post-processing output paths.
+initialize_postpro_audit_root <- function(config) {
+  return(initialize_postpro_output_root(config))
+}
+
 #' @title Generate unified rule template workbook
 #' @description Writes a deterministic template workbook with unified rule
 #' columns and guidance under the audit template directory. Both `clean` and
 #' `harmonize` stages share the same column schema.
-#' @param audit_paths Named list from `get_post_processing_audit_paths()`.
+#' @param audit_paths Named list from `get_postpro_audit_paths()`.
 #' @param overwrite Logical scalar indicating whether existing template is replaced.
 #' @return Character scalar written template path.
 #' @importFrom checkmate assert_list assert_flag
@@ -141,7 +159,7 @@ write_stage_rule_template <- function(
 
   template_path <- fs::path(
     audit_paths$templates_dir,
-    "clean_harmonize_template.xlsx"
+    get_pipeline_constants()$postpro$clean_harmonize_template_file_name
   )
 
   writexl::write_xlsx(
@@ -161,11 +179,11 @@ write_stage_rule_template <- function(
 #' @param overwrite Logical scalar indicating whether existing templates are replaced.
 #' @return Named character vector with `clean_harmonize_template` path.
 #' @importFrom checkmate assert_list assert_flag
-generate_post_processing_rule_templates <- function(config, overwrite = TRUE) {
+generate_postpro_rule_templates <- function(config, overwrite = TRUE) {
   checkmate::assert_list(config, min.len = 1)
   checkmate::assert_flag(overwrite)
 
-  audit_paths <- initialize_post_processing_audit_root(config)
+  audit_paths <- initialize_postpro_output_root(config)
 
   template_path <- write_stage_rule_template(
     audit_paths = audit_paths,
@@ -187,7 +205,7 @@ generate_post_processing_rule_templates <- function(config, overwrite = TRUE) {
 #' @importFrom readr read_csv
 #' @importFrom readxl read_excel excel_sheets
 #' @examples
-#' \dontrun{read_rule_table("data/1-import/11-clean_imports/clean_rules.xlsx")}
+#' \dontrun{read_rule_table("data/1-import/11-clean_import/clean_rules.xlsx")}
 read_rule_table <- function(file_path) {
   checkmate::assert_string(file_path, min.chars = 1)
   checkmate::assert_file_exists(file_path)
@@ -215,19 +233,19 @@ read_rule_table <- function(file_path) {
         data.table::as.data.table()
 
       available_columns <- colnames(sheet_dt)
-      normalized_columns <- sub(stage_prefix_pattern, "", available_columns)
+      normalize_columns <- sub(stage_prefix_pattern, "", available_columns)
 
-      has_duplicated_normalized <- anyDuplicated(normalized_columns) > 0L
-      has_unexpected_columns <- any(!(normalized_columns %in% canonical_columns))
-      has_required_columns <- all(required_columns %in% normalized_columns)
+      has_duplicated_normalize <- anyDuplicated(normalize_columns) > 0L
+      has_unexpected_columns <- any(!(normalize_columns %in% canonical_columns))
+      has_required_columns <- all(required_columns %in% normalize_columns)
 
       is_matching_sheet <-
-        !has_duplicated_normalized &&
+        !has_duplicated_normalize &&
         !has_unexpected_columns &&
         has_required_columns
 
       if (is_matching_sheet) {
-        data.table::setnames(sheet_dt, available_columns, normalized_columns)
+        data.table::setnames(sheet_dt, available_columns, normalize_columns)
       }
 
       return(list(
@@ -247,7 +265,10 @@ read_rule_table <- function(file_path) {
     if (length(matching_sheet_indexes) == 0L) {
       cli::cli_abort(c(
         "No worksheets with matching rule columns found in {.file {file_path}}.",
-        "x" = paste0("Required columns: ", paste(required_columns, collapse = ", ")),
+        "x" = paste0(
+          "Required columns: ",
+          paste(required_columns, collapse = ", ")
+        ),
         "x" = paste0("Available sheets: ", paste(sheet_names, collapse = ", "))
       ))
     }
@@ -279,16 +300,16 @@ read_rule_table <- function(file_path) {
 #' @importFrom purrr map
 load_stage_rule_payloads <- function(config, stage_name) {
   checkmate::assert_list(config, min.len = 1)
-  validated_stage_name <- validate_post_processing_stage_name(stage_name)
+  validated_stage_name <- validate_postpro_stage_name(stage_name)
 
-  imports_dir <- switch(
+  import_dir <- switch(
     validated_stage_name,
-    clean = config$paths$data$imports$cleaning,
-    harmonize = config$paths$data$imports$harmonization
+    clean = config$paths$data$import$cleaning,
+    harmonize = config$paths$data$import$harmonization
   )
-  checkmate::assert_string(imports_dir, min.chars = 1)
+  checkmate::assert_string(import_dir, min.chars = 1)
 
-  ensure_directories_exist(imports_dir, recurse = TRUE)
+  ensure_directories_exist(import_dir, recurse = TRUE)
 
   stage_pattern <- switch(
     validated_stage_name,
@@ -297,7 +318,7 @@ load_stage_rule_payloads <- function(config, stage_name) {
   )
 
   available_files <- fs::dir_ls(
-    path = imports_dir,
+    path = import_dir,
     regexp = "\\.(xlsx|xls|csv)$",
     type = "file"
   )
@@ -310,6 +331,11 @@ load_stage_rule_payloads <- function(config, stage_name) {
   payloads <- purrr::map(ordered_files, function(file_path) {
     list(
       rule_file_id = fs::path_file(file_path),
+      rule_file_path = normalizePath(
+        file_path,
+        winslash = "/",
+        mustWork = FALSE
+      ),
       raw_rules = read_rule_table(file_path)
     )
   })
@@ -326,17 +352,17 @@ load_stage_rule_payloads <- function(config, stage_name) {
 resolve_stage_runtime_cache_settings <- function(config) {
   checkmate::assert_list(config, min.len = 1)
 
-  defaults <- get_pipeline_constants()$post_processing$runtime_cache
+  defaults <- get_pipeline_constants()$postpro$runtime_cache
   checkmate::assert_list(defaults, min.len = 1)
 
   configured_values <- defaults
-  configured_post_processing <- NULL
-  if (is.list(config$post_processing)) {
-    configured_post_processing <- config$post_processing$runtime_cache
+  configured_postpro <- NULL
+  if (is.list(config$postpro)) {
+    configured_postpro <- config$postpro$runtime_cache
   }
 
-  if (is.list(configured_post_processing)) {
-    configured_values <- utils::modifyList(defaults, configured_post_processing)
+  if (is.list(configured_postpro)) {
+    configured_values <- utils::modifyList(defaults, configured_postpro)
   }
 
   enabled <- isTRUE(configured_values$enabled)
@@ -361,19 +387,22 @@ resolve_stage_runtime_cache_settings <- function(config) {
 #' @param runtime_cache_settings Named runtime-cache settings.
 #' @return Character scalar cache file path.
 #' @importFrom checkmate assert_list assert_string
-build_stage_runtime_cache_file_path <- function(config, runtime_cache_settings) {
+build_stage_runtime_cache_file_path <- function(
+  config,
+  runtime_cache_settings
+) {
   checkmate::assert_list(config, min.len = 1)
   checkmate::assert_list(runtime_cache_settings, min.len = 1)
   checkmate::assert_string(
-    config$paths$data$audit$audit_root_dir,
+    config$paths$data$audit$runtime_cache_dir,
     min.chars = 1
   )
-  checkmate::assert_string(runtime_cache_settings$cache_file_name, min.chars = 1)
-
-  runtime_cache_dir <- fs::path(
-    config$paths$data$audit$audit_root_dir,
-    "runtime_cache"
+  checkmate::assert_string(
+    runtime_cache_settings$cache_file_name,
+    min.chars = 1
   )
+
+  runtime_cache_dir <- config$paths$data$audit$runtime_cache_dir
 
   ensure_directories_exist(runtime_cache_dir, recurse = TRUE)
 
@@ -418,7 +447,9 @@ read_stage_runtime_cache_entries <- function(
   checkmate::assert_string(cache_file_path, min.chars = 1)
   checkmate::assert_list(runtime_cache_settings, min.len = 1)
 
-  if (!isTRUE(runtime_cache_settings$enabled) || !file.exists(cache_file_path)) {
+  if (
+    !isTRUE(runtime_cache_settings$enabled) || !file.exists(cache_file_path)
+  ) {
     return(list())
   }
 
@@ -485,16 +516,16 @@ persist_stage_runtime_cache_entries <- function(
 #' @importFrom checkmate assert_list assert_string
 build_stage_payload_cache_key <- function(config, stage_name) {
   checkmate::assert_list(config, min.len = 1)
-  validated_stage_name <- validate_post_processing_stage_name(stage_name)
+  validated_stage_name <- validate_postpro_stage_name(stage_name)
 
-  imports_dir <- switch(
+  import_dir <- switch(
     validated_stage_name,
-    clean = config$paths$data$imports$cleaning,
-    harmonize = config$paths$data$imports$harmonization
+    clean = config$paths$data$import$cleaning,
+    harmonize = config$paths$data$import$harmonization
   )
-  checkmate::assert_string(imports_dir, min.chars = 1)
+  checkmate::assert_string(import_dir, min.chars = 1)
 
-  ensure_directories_exist(imports_dir, recurse = TRUE)
+  ensure_directories_exist(import_dir, recurse = TRUE)
 
   stage_pattern <- switch(
     validated_stage_name,
@@ -503,7 +534,7 @@ build_stage_payload_cache_key <- function(config, stage_name) {
   )
 
   available_files <- fs::dir_ls(
-    path = imports_dir,
+    path = import_dir,
     regexp = "\\.(xlsx|xls|csv)$",
     type = "file"
   )
@@ -639,7 +670,7 @@ prune_stage_payload_bundle_memory_cache <- function(max_entries) {
 #' @importFrom checkmate assert_list assert_string
 get_cached_stage_payload_bundle <- function(config, stage_name) {
   checkmate::assert_list(config, min.len = 1)
-  validated_stage_name <- validate_post_processing_stage_name(stage_name)
+  validated_stage_name <- validate_postpro_stage_name(stage_name)
 
   runtime_cache_settings <- resolve_stage_runtime_cache_settings(config)
   cache_key <- build_stage_payload_cache_key(
@@ -672,7 +703,9 @@ get_cached_stage_payload_bundle <- function(config, stage_name) {
     ))
   }
 
-  if (exists(cache_key, envir = .stage_payload_bundle_cache, inherits = FALSE)) {
+  if (
+    exists(cache_key, envir = .stage_payload_bundle_cache, inherits = FALSE)
+  ) {
     memory_bundle <- get(cache_key, envir = .stage_payload_bundle_cache)
 
     if (is.list(memory_bundle)) {

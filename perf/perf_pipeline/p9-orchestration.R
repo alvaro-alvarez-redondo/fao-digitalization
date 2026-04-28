@@ -11,7 +11,7 @@ options(
   whep.run_pipeline.auto = FALSE,
   whep.run_general_pipeline.auto = FALSE,
   whep.run_import_pipeline.auto = FALSE,
-  whep.run_post_processing_pipeline.auto = FALSE,
+  whep.run_postpro_pipeline.auto = FALSE,
   whep.run_export_pipeline.auto = FALSE,
   whep.checkpointing.enabled = FALSE
 )
@@ -81,7 +81,7 @@ options(
 .source_pipeline_script("1-import_pipeline/12-transform.R")
 .source_pipeline_script("1-import_pipeline/13-validate_log.R")
 .source_pipeline_script("1-import_pipeline/15-output.R")
-.source_pipeline_script("2-post_processing_pipeline/24-standardize_units.R")
+.source_pipeline_script("2-postpro_pipeline/24-standardize_units.R")
 .source_pipeline_script("3-export_pipeline/31-export_lists.R")
 
 # ── load perf sub-modules (p0 ... p8) ────────────────────────────────────────

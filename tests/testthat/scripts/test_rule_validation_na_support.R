@@ -1,5 +1,5 @@
 options(
-  whep.run_post_processing_pipeline.auto = FALSE
+  whep.run_postpro_pipeline.auto = FALSE
 )
 
 source(here::here("tests", "test_helper.R"), echo = FALSE)
@@ -11,16 +11,16 @@ source(
 source(
   here::here(
     "r",
-    "2-post_processing_pipeline",
-    "21-post_processing_utilities.R"
+    "2-postpro_pipeline",
+    "21-postpro_utilities.R"
   ),
   echo = FALSE
 )
 source(
   here::here(
     "r",
-    "2-post_processing_pipeline",
-    "23-post_processing_rule_engine.R"
+    "2-postpro_pipeline",
+    "23-postpro_rule_engine.R"
   ),
   echo = FALSE
 )

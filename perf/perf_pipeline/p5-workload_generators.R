@@ -10,7 +10,7 @@ NULL
 # each benchmark descriptor is a named list with:
 #   name        : unique identifier (used for reporting and plot file names)
 #   stage       : pipeline stage label (one of "0-general", "1-import",
-#                 "2-post_processing", "3-export")
+#                 "2-postpro", "3-export")
 #   description : one-line summary of what is measured
 #   fn_factory  : function(n) → function() that runs the target operation once
 #
@@ -92,7 +92,9 @@ NULL
       ((row_id + sheet_id - 1L) %% 6L) + 1L
     ),
     unit = ifelse(row_id %% 2L == 0L, "tonnes", "kg"),
-    continent = continents[((row_id + workbook_id - 1L) %% length(continents)) + 1L],
+    continent = continents[
+      ((row_id + workbook_id - 1L) %% length(continents)) + 1L
+    ],
     country = sprintf(
       "country_%02d",
       ((row_id + workbook_id + sheet_id - 1L) %% 25L) + 1L
@@ -253,10 +255,10 @@ NULL
   if (is.null(read_cfg$paths$data)) {
     read_cfg$paths$data <- list()
   }
-  if (is.null(read_cfg$paths$data$imports)) {
-    read_cfg$paths$data$imports <- list()
+  if (is.null(read_cfg$paths$data$import)) {
+    read_cfg$paths$data$import <- list()
   }
-  read_cfg$paths$data$imports$raw <- import_folder
+  read_cfg$paths$data$import$raw <- import_folder
 
   return(read_cfg)
 }
@@ -346,7 +348,10 @@ NULL
   )
   excel_discovery_repeats_per_iteration <- max(
     1L,
-    .resolve_integer_cfg(cfg$excel_discovery_repeats_per_iteration, fallback = 20L)
+    .resolve_integer_cfg(
+      cfg$excel_discovery_repeats_per_iteration,
+      fallback = 20L
+    )
   )
   excel_read_workbook_count <- max(
     1L,
@@ -358,7 +363,10 @@ NULL
   )
   excel_read_max_sheet_reads_per_iteration <- max(
     1L,
-    .resolve_integer_cfg(cfg$excel_read_max_sheet_reads_per_iteration, fallback = 1000L)
+    .resolve_integer_cfg(
+      cfg$excel_read_max_sheet_reads_per_iteration,
+      fallback = 1000L
+    )
   )
   excel_read_repeats_per_iteration <- max(
     1L,
@@ -534,7 +542,10 @@ NULL
         )
 
         selected_workbooks <- if (length(available_paths) > 0L) {
-          available_paths[seq_len(min(workbook_reads_target, length(available_paths)))]
+          available_paths[seq_len(min(
+            workbook_reads_target,
+            length(available_paths)
+          ))]
         } else {
           character(0)
         }
@@ -570,12 +581,19 @@ NULL
               sheet_names_by_file = workbook_sheet_map
             )
 
-            total_rows <- total_rows + sum(vapply(batch_result$read_data_list, function(dt_i) {
-              as.integer(nrow(dt_i))
-            }, integer(1)))
+            total_rows <- total_rows +
+              sum(vapply(
+                batch_result$read_data_list,
+                function(dt_i) {
+                  as.integer(nrow(dt_i))
+                },
+                integer(1)
+              ))
 
-            total_errors <- total_errors + as.integer(length(batch_result$errors))
-            total_workbook_reads <- total_workbook_reads + length(workbook_batch_paths)
+            total_errors <- total_errors +
+              as.integer(length(batch_result$errors))
+            total_workbook_reads <- total_workbook_reads +
+              length(workbook_batch_paths)
           }
 
           total_sheet_reads <- as.integer(
@@ -602,14 +620,17 @@ NULL
 #' @return A list of benchmark descriptors.
 #' @keywords internal
 #' @noRd
-.build_stage_2_post_processing_benchmarks <- function(cfg) {
+.build_stage_2_postpro_benchmarks <- function(cfg) {
   dup_frac <- cfg$dup_fraction
   na_frac <- cfg$na_fraction
 
   conversion_rules_raw <- data.table::data.table(
     product_key = rep(.ca_products, each = 3L),
     unit_source = rep(c("tonnes", "kg_ha", "ha"), times = length(.ca_products)),
-    unit_target = rep(c("kg", "kg_per_ha_std", "ha_std"), times = length(.ca_products)),
+    unit_target = rep(
+      c("kg", "kg_per_ha_std", "ha_std"),
+      times = length(.ca_products)
+    ),
     unit_multiplier = rep(c(1000, 1, 1), times = length(.ca_products)),
     unit_offset = 0
   )
@@ -617,7 +638,7 @@ NULL
   list(
     list(
       name = "apply_standardize_rules",
-      stage = "2-post_processing",
+      stage = "2-postpro",
       description = paste0(
         "apply prepared unit conversion rules to an n-row long table (",
         round(na_frac * 100L),
@@ -626,7 +647,11 @@ NULL
         "% duplicates)"
       ),
       fn_factory = function(n) {
-        dt_raw <- make_long_dt(n, na_fraction = na_frac, dup_fraction = dup_frac)
+        dt_raw <- make_long_dt(
+          n,
+          na_fraction = na_frac,
+          dup_fraction = dup_frac
+        )
         prepared_rules <- prepare_standardize_rules(conversion_rules_raw)
         function() {
           apply_standardize_rules(
@@ -642,7 +667,7 @@ NULL
 
     list(
       name = "extract_aggregated_rows",
-      stage = "2-post_processing",
+      stage = "2-postpro",
       description = paste0(
         "extract duplicate groups from n-row standardized table (",
         round(dup_frac * 100L),
@@ -657,7 +682,7 @@ NULL
 
     list(
       name = "aggregate_standardized_rows",
-      stage = "2-post_processing",
+      stage = "2-postpro",
       description = paste0(
         "group-sum n rows by all non-value columns (",
         round(dup_frac * 100L),
@@ -716,7 +741,7 @@ build_stage_benchmarks <- function(stage_id, cfg) {
     stage_id,
     "0-general" = .build_stage_0_general_benchmarks(cfg),
     "1-import" = .build_stage_1_import_benchmarks(cfg),
-    "2-post_processing" = .build_stage_2_post_processing_benchmarks(cfg),
+    "2-postpro" = .build_stage_2_postpro_benchmarks(cfg),
     "3-export" = .build_stage_3_export_benchmarks(cfg),
     stop(sprintf("unknown stage_id: '%s'", stage_id))
   )

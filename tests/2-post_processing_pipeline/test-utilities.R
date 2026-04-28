@@ -1,12 +1,12 @@
-# tests/2-post_processing_pipeline/test-utilities.R
-# unit tests for R/2-post_processing_pipeline/21-post_processing_utilities.R
+# tests/2-postpro_pipeline/test-utilities.R
+# unit tests for R/2-postpro_pipeline/21-postpro_utilities.R
 
 source(here::here("tests", "test_helper.R"), echo = FALSE)
 source(
   here::here(
     "r",
-    "2-post_processing_pipeline",
-    "21-post_processing_utilities.R"
+    "2-postpro_pipeline",
+    "21-postpro_utilities.R"
   ),
   echo = FALSE
 )
@@ -26,31 +26,31 @@ testthat::test_that("get_canonical_rule_columns returns correct columns", {
 })
 
 
-# --- get_post_processing_stage_names -----------------------------------------
+# --- get_postpro_stage_names -----------------------------------------
 
-testthat::test_that("get_post_processing_stage_names returns clean and harmonize", {
-  result <- get_post_processing_stage_names()
+testthat::test_that("get_postpro_stage_names returns clean and harmonize", {
+  result <- get_postpro_stage_names()
 
   testthat::expect_identical(result, c("clean", "harmonize"))
 })
 
 
-# --- validate_post_processing_stage_name -------------------------------------
+# --- validate_postpro_stage_name -------------------------------------
 
-testthat::test_that("validate_post_processing_stage_name accepts valid stages", {
+testthat::test_that("validate_postpro_stage_name accepts valid stages", {
   testthat::expect_identical(
-    validate_post_processing_stage_name("clean"),
+    validate_postpro_stage_name("clean"),
     "clean"
   )
   testthat::expect_identical(
-    validate_post_processing_stage_name("harmonize"),
+    validate_postpro_stage_name("harmonize"),
     "harmonize"
   )
 })
 
-testthat::test_that("validate_post_processing_stage_name rejects invalid stages", {
-  testthat::expect_error(validate_post_processing_stage_name("invalid"))
-  testthat::expect_error(validate_post_processing_stage_name(""))
+testthat::test_that("validate_postpro_stage_name rejects invalid stages", {
+  testthat::expect_error(validate_postpro_stage_name("invalid"))
+  testthat::expect_error(validate_postpro_stage_name(""))
 })
 
 
@@ -208,12 +208,12 @@ testthat::test_that("load_stage_rule_payloads discovers rule files for a stage",
   )
   readr::write_csv(
     rules,
-    file.path(config$paths$data$imports$cleaning, "clean_rules_test.csv")
+    file.path(config$paths$data$import$cleaning, "clean_rules_test.csv")
   )
 
   result <- load_stage_rule_payloads(config = config, stage_name = "clean")
   expected_rule_path <- normalizePath(
-    file.path(config$paths$data$imports$cleaning, "clean_rules_test.csv"),
+    file.path(config$paths$data$import$cleaning, "clean_rules_test.csv"),
     winslash = "/",
     mustWork = FALSE
   )
@@ -236,12 +236,12 @@ testthat::test_that("load_stage_rule_payloads returns empty list for empty direc
 })
 
 
-# --- generate_post_processing_rule_templates ---------------------------------
+# --- generate_postpro_rule_templates ---------------------------------
 
-testthat::test_that("generate_post_processing_rule_templates writes templates", {
+testthat::test_that("generate_postpro_rule_templates writes templates", {
   config <- build_test_config()
 
-  template_paths <- generate_post_processing_rule_templates(
+  template_paths <- generate_postpro_rule_templates(
     config = config,
     overwrite = TRUE
   )

@@ -16,6 +16,10 @@ testthat::test_that("get_pipeline_constants returns a named list with required k
   testthat::expect_true("na_match_key" %in% names(constants))
   testthat::expect_true("auto_run_options" %in% names(constants))
   testthat::expect_true("object_names" %in% names(constants))
+  testthat::expect_false(constants$postpro$runtime_cache$enabled)
+  testthat::expect_false(
+    constants$postpro$schema_validation_cache$enabled
+  )
 })
 
 testthat::test_that("get_pipeline_constants returns identical result on repeated calls", {
@@ -36,8 +40,8 @@ testthat::test_that("load_pipeline_config builds a valid config object", {
   testthat::expect_true("column_order" %in% names(config))
   testthat::expect_true("export_config" %in% names(config))
   testthat::expect_true("project_root" %in% names(config))
-  testthat::expect_true("post_processing" %in% names(config))
-  testthat::expect_true("multi_pass" %in% names(config$post_processing))
+  testthat::expect_true("postpro" %in% names(config))
+  testthat::expect_true("multi_pass" %in% names(config$postpro))
 })
 
 testthat::test_that("load_pipeline_config accepts custom dataset_name", {
@@ -53,7 +57,7 @@ testthat::test_that("load_pipeline_config accepts custom dataset_name", {
 # --- resolve_audit_root_dir --------------------------------------------------
 
 testthat::test_that("resolve_audit_root_dir returns NULL for missing paths", {
-  testthat::expect_null(resolve_audit_root_dir(list(exports = list())))
+  testthat::expect_null(resolve_audit_root_dir(list(export = list())))
   testthat::expect_null(resolve_audit_root_dir(list()))
 })
 
@@ -112,7 +116,7 @@ testthat::test_that("delete_directory_if_exists returns FALSE for non-existent d
 testthat::test_that("create_required_directories creates nested structures", {
   base_dir <- build_temp_dir("whep-required-dirs-")
   paths <- list(
-    exports = list(
+    export = list(
       lists = file.path(base_dir, "lists"),
       workbook = file.path(base_dir, "reports", "summary.xlsx")
     )
@@ -124,11 +128,11 @@ testthat::test_that("create_required_directories creates nested structures", {
   testthat::expect_true(dir.exists(file.path(base_dir, "reports")))
 })
 
-testthat::test_that("create_required_directories excludes audit root tree", {
+testthat::test_that("create_required_directories allows audit descendants", {
   base_dir <- build_temp_dir("whep-required-audit-")
   paths <- list(
     data = list(
-      imports = list(raw = file.path(base_dir, "imports", "raw")),
+      import = list(raw = file.path(base_dir, "import", "raw")),
       audit = list(
         audit_root_dir = file.path(base_dir, "audit"),
         audit_file_path = file.path(base_dir, "audit", "dataset", "audit.xlsx")
@@ -138,8 +142,9 @@ testthat::test_that("create_required_directories excludes audit root tree", {
 
   created <- create_required_directories(paths)
 
-  testthat::expect_true(dir.exists(file.path(base_dir, "imports", "raw")))
-  testthat::expect_false(dir.exists(file.path(base_dir, "audit")))
+  testthat::expect_true(dir.exists(file.path(base_dir, "import", "raw")))
+  testthat::expect_true(dir.exists(file.path(base_dir, "audit")))
+  testthat::expect_true(dir.exists(file.path(base_dir, "audit", "dataset")))
 })
 
 
