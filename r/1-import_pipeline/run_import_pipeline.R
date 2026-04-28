@@ -124,7 +124,7 @@ run_import_pipeline <- function(config) {
       any.missing = FALSE
     )
 
-    consolidated_data <- consolidated_result$data
+    consolidated_data <- sort_pipeline_stage_dt(consolidated_result$data)
 
     list(
       data = consolidated_data,

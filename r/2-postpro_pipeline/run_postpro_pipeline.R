@@ -134,6 +134,7 @@ run_postpro_pipeline_batch <- function(
       dataset_dt = raw_dt,
       config = config
     )
+    audited_raw_dt <- sort_pipeline_stage_dt(audited_raw_dt)
 
     progress(
       "Post-Processing Pipeline Progress: initializing audit directories"
@@ -162,12 +163,14 @@ run_postpro_pipeline_batch <- function(
       config = config,
       dataset_name = dataset_name
     )
+    clean_dt <- sort_pipeline_stage_dt(clean_dt)
 
     progress("Post-Processing Pipeline Progress: running standardize layer")
     normalize_dt <- run_units_standardization_stage(
       clean_dt = clean_dt,
       config = config
     )
+    normalize_dt <- sort_pipeline_stage_dt(normalize_dt)
 
     progress("Post-Processing Pipeline Progress: running harmonize layer")
     harmonize_dt <- run_harmonize_layer_batch(
@@ -175,6 +178,7 @@ run_postpro_pipeline_batch <- function(
       config = config,
       dataset_name = dataset_name
     )
+    harmonize_dt <- sort_pipeline_stage_dt(harmonize_dt)
 
     clean_audit <- attr(clean_dt, "layer_audit")
     standardize_audit <- attr(normalize_dt, "layer_audit")

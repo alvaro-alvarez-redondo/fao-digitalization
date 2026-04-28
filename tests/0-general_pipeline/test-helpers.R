@@ -285,6 +285,47 @@ testthat::test_that("ensure_data_table returns identity for data.table input", {
 })
 
 
+# --- sort_pipeline_stage_dt --------------------------------------------------
+
+testthat::test_that("sort_pipeline_stage_dt sorts by canonical stage columns", {
+  dt <- data.table::data.table(
+    hemisphere = c("north", "north", "south"),
+    continent = c("asia", "asia", "africa"),
+    country = c("japan", "china", "kenya"),
+    product = c("rice", "rice", "tea"),
+    variable = c("yield", "yield", "yield"),
+    unit = c("kg", "kg", "kg"),
+    year = c("2021", "2020", "2022"),
+    notes = c("b", "a", "a")
+  )
+
+  result <- sort_pipeline_stage_dt(dt)
+
+  testthat::expect_identical(result$country, c("kenya", "china", "japan"))
+  testthat::expect_identical(result$year, c("2022", "2020", "2021"))
+  testthat::expect_identical(result$notes, c("a", "a", "b"))
+})
+
+testthat::test_that("sort_pipeline_stage_dt ignores missing sort columns", {
+  dt <- data.table::data.table(
+    country = c("japan", "brazil", "canada"),
+    value = c("1", "2", "3")
+  )
+
+  result <- sort_pipeline_stage_dt(dt)
+
+  testthat::expect_identical(result$country, c("brazil", "canada", "japan"))
+  testthat::expect_identical(result$value, c("2", "3", "1"))
+})
+
+testthat::test_that("sort_pipeline_stage_dt returns unchanged rows when no sort columns exist", {
+  dt <- data.table::data.table(z = c(2, 1, 3))
+  result <- sort_pipeline_stage_dt(dt)
+
+  testthat::expect_identical(result$z, c(2, 1, 3))
+})
+
+
 # --- copy_as_data_table ------------------------------------------------------
 
 testthat::test_that("copy_as_data_table returns data.table from data.frame", {

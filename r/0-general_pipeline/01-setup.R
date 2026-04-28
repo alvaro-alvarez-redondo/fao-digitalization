@@ -58,6 +58,18 @@ get_pipeline_constants <- function() {
       unknown_document = "unknown_document",
       list_blank_label = "(blank)"
     ),
+    sorting = list(
+      stage_row_order = c(
+        "hemisphere",
+        "continent",
+        "country",
+        "product",
+        "variable",
+        "unit",
+        "year",
+        "notes"
+      )
+    ),
     script_names = list(
       general = c("00-dependencies.R", "01-setup.R", "02-helpers.R"),
       pipeline_stage_runners = c(
@@ -381,6 +393,7 @@ load_pipeline_config <- function(
       runtime_cache = get_pipeline_constants()$postpro$runtime_cache,
       schema_validation_cache = get_pipeline_constants()$postpro$schema_validation_cache
     ),
+    sorting = get_pipeline_constants()$sorting,
     defaults = list(notes_value = NA_character_),
     messages = list(show_missing_product_metadata_warning = FALSE)
   )
