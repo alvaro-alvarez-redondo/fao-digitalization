@@ -29,7 +29,7 @@ purrr::walk(
 #' reading sheets, transforming to wide and long outputs, validating each
 #' document group, and consolidating validated long tables with diagnostics.
 #' audit execution is handled in the export pipeline stage.
-#' @param config named list containing at least `paths$data$imports$raw` as a
+#' @param config named list containing at least `paths$data$import$raw` as a
 #' character scalar directory.
 #' @return named list with `data` as consolidated long `data.table`, `wide_raw`
 #' as transformed wide `data.table`, and `diagnostics` list with
@@ -41,15 +41,15 @@ purrr::walk(
 #' # run_import_pipeline(config)
 run_import_pipeline <- function(config) {
   checkmate::assert_list(config, any.missing = FALSE)
-  checkmate::assert_string(config$paths$data$imports$raw, min.chars = 1)
-  checkmate::assert_directory_exists(config$paths$data$imports$raw)
+  checkmate::assert_string(config$paths$data$import$raw, min.chars = 1)
+  checkmate::assert_directory_exists(config$paths$data$import$raw)
 
   cached_result <- load_pipeline_checkpoint("import_pipeline", config)
   if (!is.null(cached_result)) {
     return(cached_result)
   }
 
-  file_list_dt <- discover_files(config$paths$data$imports$raw)
+  file_list_dt <- discover_files(config$paths$data$import$raw)
 
   if (nrow(file_list_dt) == 0) {
     cli::cli_abort("no excel files were found. pipeline terminated")

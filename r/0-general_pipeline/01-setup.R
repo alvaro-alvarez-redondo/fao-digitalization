@@ -36,7 +36,7 @@ get_pipeline_constants <- function() {
       pipeline = "whep.run_pipeline.auto",
       general = "whep.run_general_pipeline.auto",
       import = "whep.run_import_pipeline.auto",
-      post_processing = "whep.run_post_processing_pipeline.auto",
+      postpro = "whep.run_postpro_pipeline.auto",
       export = "whep.run_export_pipeline.auto"
     ),
     toggle_options = list(
@@ -45,7 +45,8 @@ get_pipeline_constants <- function() {
     patterns = list(
       normalize_non_alnum = "[^a-z0-9]+",
       normalize_already_clean = "^([a-z0-9]+( [a-z0-9]+)*)?$",
-      year_column = "^\\d{4}(-\\d{4})?$"
+      year_column = "^\\d{4}(-\\d{4})?$",
+      yearbook_token_4digit = "^\\d{4}$"
     ),
     performance = list(
       normalize_unique_min_n = 256L,
@@ -54,23 +55,24 @@ get_pipeline_constants <- function() {
       import_workbook_batch_size = 32L
     ),
     defaults = list(
-      unknown_document = "unknown_document"
+      unknown_document = "unknown_document",
+      list_blank_label = "(blank)"
     ),
     script_names = list(
       general = c("00-dependencies.R", "01-setup.R", "02-helpers.R"),
       pipeline_stage_runners = c(
         "run_general_pipeline.R",
         "run_import_pipeline.R",
-        "run_post_processing_pipeline.R",
+        "run_postpro_pipeline.R",
         "run_export_pipeline.R"
       )
     ),
     object_names = list(
       raw = "whep_data_raw",
       wide_raw = "whep_data_wide_raw",
-      cleaned = "whep_data_cleaned",
-      normalized = "whep_data_normalized",
-      harmonized = "whep_data_harmonized",
+      clean = "whep_data_clean",
+      normalize = "whep_data_normalize",
+      harmonize = "whep_data_harmonize",
       export_paths = "export_paths",
       collected_reading_errors = "collected_reading_errors",
       collected_errors = "collected_errors",
@@ -80,7 +82,18 @@ get_pipeline_constants <- function() {
       assignment_helper = "assign_environment_values",
       assignment_helper_source = "scripts/0-general_pipeline/02-helpers.R"
     ),
-    post_processing = list(
+    postpro = list(
+      audit_dir_name = "audit",
+      diagnostics_dir_name = "diagnostics",
+      templates_dir_name = "templates",
+      runtime_cache_dir_name = "runtime_cache",
+      clean_harmonize_template_file_name = "clean_harmonize_template.xlsx",
+      standardize_units_template_file_name = "standardize_units_template.xlsx",
+      data_validation_audit_suffix = "_data_validation_audit.xlsx",
+      clean_audit_file_name = "clean_audit.xlsx",
+      harmonize_audit_file_name = "harmonize_audit.xlsx",
+      standardize_audit_file_name = "standardize_audit.xlsx",
+      last_rule_wins_overwrites_file_name = "postpro_last_rule_wins_overwrites.xlsx",
       standardization = list(
         excluded_sheet_names = c("master_unit")
       ),
@@ -116,12 +129,12 @@ get_pipeline_constants <- function() {
         supported_diagnostics_verbosity = c("compact", "verbose")
       ),
       runtime_cache = list(
-        enabled = TRUE,
+        enabled = FALSE,
         cache_file_name = "stage_payload_bundle_cache.rds",
         max_entries = 128L
       ),
       schema_validation_cache = list(
-        enabled = TRUE,
+        enabled = FALSE,
         max_entries = 1024L
       )
     )
@@ -140,7 +153,8 @@ get_pipeline_constants <- function() {
 #' workflow is reusable across multiple datasets.
 #' @param dataset_name character scalar dataset identifier used to build
 #' audit directories and audit workbook names with the
-#' `{dataset_name}_audit.xlsx` convention. when `null` or empty, the function
+#' `{dataset_name}_data_validation_audit.xlsx` convention. when `null` or empty,
+#' the function
 #' attempts to derive a name from `data` attributes in `...` and falls back to
 #' `whep_data_raw`.
 #' @param ... optional values. if a named argument `data` is provided and has a
@@ -149,8 +163,9 @@ get_pipeline_constants <- function() {
 #' `columns`, `column_required`, `column_id`, `column_order`, `export_config`,
 #' `defaults`, and `messages`. `export_config$styles$error_highlight` defines
 #' centralized workbook styling for invalid audit cells. `paths$data$audit` contains
-#' `audit_root_dir`,
-#' `audit_dir`, `audit_file_name`, and `audit_file_path` for easy direct access.
+#' `audit_root_dir`, `audit_dir`, `diagnostics_dir`,
+#' `templates_dir`, `runtime_cache_dir`, `audit_file_name`, and `audit_file_path`
+#' for easy direct access.
 #' @importFrom here here
 #' @importFrom fs dir_create path
 #' @importFrom checkmate assert_string assert_directory_exists
@@ -197,17 +212,17 @@ load_pipeline_config <- function(
 
   checkmate::assert_string(resolved_dataset_name, min.chars = 1)
 
-  normalized_dataset_name <- resolved_dataset_name |>
+  normalize_dataset_name <- resolved_dataset_name |>
     as.character() |>
     tolower() |>
     iconv(from = "", to = "ascii//translit")
 
-  normalized_dataset_name <- gsub("[^a-z0-9 ]", " ", normalized_dataset_name)
-  normalized_dataset_name <- gsub("\\s+", "_", trimws(normalized_dataset_name))
+  normalize_dataset_name <- gsub("[^a-z0-9 ]", " ", normalize_dataset_name)
+  normalize_dataset_name <- gsub("\\s+", "_", trimws(normalize_dataset_name))
 
-  if (is.na(normalized_dataset_name) || normalized_dataset_name == "") {
+  if (is.na(normalize_dataset_name) || normalize_dataset_name == "") {
     cli::cli_abort(
-      "{.arg dataset_name} must resolve to a non-empty normalized value"
+      "{.arg dataset_name} must resolve to a non-empty normalize value"
     )
   }
 
@@ -218,30 +233,51 @@ load_pipeline_config <- function(
     return(fs::path(project_root, ...))
   }
 
-  raw_imports_dir <- build_path("data", "1-import", "10-raw_imports")
-  audit_root_dir <- build_path("data", "2-post_processing")
-  audit_dir <- fs::path(audit_root_dir, "data_audit")
-  audit_file_name <- paste0(normalized_dataset_name, "_audit.xlsx")
+  raw_import_dir <- build_path("data", "1-import", "10-raw_import")
+  audit_root_dir <- build_path("data", "2-postpro")
+  audit_dir <- fs::path(
+    audit_root_dir,
+    get_pipeline_constants()$postpro$audit_dir_name
+  )
+  diagnostics_dir <- fs::path(
+    audit_root_dir,
+    get_pipeline_constants()$postpro$diagnostics_dir_name
+  )
+  templates_dir <- fs::path(
+    audit_root_dir,
+    get_pipeline_constants()$postpro$templates_dir_name
+  )
+  runtime_cache_dir <- fs::path(
+    audit_root_dir,
+    get_pipeline_constants()$postpro$runtime_cache_dir_name
+  )
+  audit_file_name <- paste0(
+    normalize_dataset_name,
+    get_pipeline_constants()$postpro$data_validation_audit_suffix
+  )
 
   paths <- list(
     data = list(
-      imports = list(
-        raw = raw_imports_dir,
-        cleaning = build_path("data", "1-import", "11-clean_imports"),
+      import = list(
+        raw = raw_import_dir,
+        cleaning = build_path("data", "1-import", "11-clean_import"),
         standardization = build_path(
           "data",
           "1-import",
-          "12-standardize_imports"
+          "12-standardize_import"
         ),
-        harmonization = build_path("data", "1-import", "13-harmonize_imports")
+        harmonization = build_path("data", "1-import", "13-harmonize_import")
       ),
-      exports = list(
+      export = list(
         lists = build_path("data", "3-export", "lists"),
         processed = build_path("data", "3-export", "processed_data")
       ),
       audit = list(
         audit_root_dir = audit_root_dir,
         audit_dir = audit_dir,
+        diagnostics_dir = diagnostics_dir,
+        templates_dir = templates_dir,
+        runtime_cache_dir = runtime_cache_dir,
         dataset_dir = audit_dir,
         audit_file_name = audit_file_name,
         audit_file_path = fs::path(audit_dir, audit_file_name)
@@ -311,7 +347,7 @@ load_pipeline_config <- function(
     list_suffix = "_unique.xlsx",
     lists_to_export = fixed_export_columns,
     lists_workbook_name = "whep_unique_lists_raw",
-    export_layers = c("harmonized"),
+    export_layers = c("harmonize"),
     styles = list(
       error_highlight = list(
         fgFill = "#FFB84D",
@@ -326,7 +362,7 @@ load_pipeline_config <- function(
 
   config <- list(
     project_root = project_root,
-    dataset_name = normalized_dataset_name,
+    dataset_name = normalize_dataset_name,
     paths = paths,
     files = files,
     columns = columns,
@@ -336,14 +372,14 @@ load_pipeline_config <- function(
     export_config = export_config,
     audit_columns = audit_columns,
     performance = get_pipeline_constants()$performance,
-    post_processing = list(
-      rule_match_normalization = get_pipeline_constants()$post_processing$rule_match_normalization,
-      rule_match_wildcard_token = get_pipeline_constants()$post_processing$rule_match_wildcard_token,
-      target_update_strategies = get_pipeline_constants()$post_processing$target_update_strategies,
-      target_update_fast_path = get_pipeline_constants()$post_processing$target_update_fast_path,
-      multi_pass = get_pipeline_constants()$post_processing$multi_pass,
-      runtime_cache = get_pipeline_constants()$post_processing$runtime_cache,
-      schema_validation_cache = get_pipeline_constants()$post_processing$schema_validation_cache
+    postpro = list(
+      rule_match_normalization = get_pipeline_constants()$postpro$rule_match_normalization,
+      rule_match_wildcard_token = get_pipeline_constants()$postpro$rule_match_wildcard_token,
+      target_update_strategies = get_pipeline_constants()$postpro$target_update_strategies,
+      target_update_fast_path = get_pipeline_constants()$postpro$target_update_fast_path,
+      multi_pass = get_pipeline_constants()$postpro$multi_pass,
+      runtime_cache = get_pipeline_constants()$postpro$runtime_cache,
+      schema_validation_cache = get_pipeline_constants()$postpro$schema_validation_cache
     ),
     defaults = list(notes_value = NA_character_),
     messages = list(show_missing_product_metadata_warning = FALSE)
@@ -399,13 +435,13 @@ ensure_directories_exist <- function(directories, recurse = TRUE) {
     return(invisible(character(0)))
   }
 
-  normalized_directories <- directories |>
+  normalize_directories <- directories |>
     unique() |>
     sort()
 
-  fs::dir_create(normalized_directories, recurse = recurse)
+  fs::dir_create(normalize_directories, recurse = recurse)
 
-  return(invisible(normalized_directories))
+  return(invisible(normalize_directories))
 }
 
 #' @title delete directory if it exists
@@ -497,17 +533,13 @@ create_required_directories <- function(paths) {
   audit_root_dir <- resolve_audit_root_dir(paths)
 
   if (is.character(audit_root_dir) && length(audit_root_dir) == 1) {
-    normalized_audit_root <- fs::path_norm(audit_root_dir)
+    normalize_audit_root <- fs::path_norm(audit_root_dir)
     all_directories <- all_directories[
       !vapply(
         all_directories,
         \(path_value) {
-          normalized_path <- fs::path_norm(path_value)
-          identical(normalized_path, normalized_audit_root) ||
-            startsWith(
-              normalized_path,
-              paste0(normalized_audit_root, .Platform$file.sep)
-            )
+          normalize_path <- fs::path_norm(path_value)
+          identical(normalize_path, normalize_audit_root)
         },
         logical(1)
       )

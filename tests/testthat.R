@@ -6,7 +6,7 @@ source(here::here("tests", "test_helper.R"), echo = FALSE)
 test_dirs <- c(
   here::here("tests", "0-general_pipeline"),
   here::here("tests", "1-import_pipeline"),
-  here::here("tests", "2-post_processing_pipeline"),
+  here::here("tests", "2-postpro_pipeline"),
   here::here("tests", "3-export_pipeline"),
   here::here("tests", "perf", "perf_pipeline")
 )

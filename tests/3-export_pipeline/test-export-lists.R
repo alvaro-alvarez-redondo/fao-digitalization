@@ -17,7 +17,7 @@ source(
 testthat::test_that("get_lists_sheet_order returns fixed order", {
   result <- get_lists_sheet_order()
 
-  testthat::expect_identical(result, c("raw", "clean", "harmonize"))
+  testthat::expect_identical(result, c("raw", "clean", "normalize", "harmonize"))
 })
 
 
@@ -26,19 +26,20 @@ testthat::test_that("get_lists_sheet_order returns fixed order", {
 testthat::test_that("build_layer_tables_by_sheet enforces fixed sheet keys", {
   layer_tables <- list(
     whep_data_raw = data.frame(country = c("a", "b")),
-    whep_data_harmonized = data.frame(country = c("a", "c"))
+    whep_data_harmonize = data.frame(country = c("a", "c"))
   )
 
   result <- build_layer_tables_by_sheet(layer_tables)
 
-  testthat::expect_identical(names(result), c("raw", "clean", "harmonize"))
+  testthat::expect_identical(names(result), c("raw", "clean", "normalize", "harmonize"))
   testthat::expect_true(nrow(result$clean) == 0)
+  testthat::expect_true(nrow(result$normalize) == 0)
 })
 
 testthat::test_that("build_layer_tables_by_sheet handles empty layer list", {
   result <- build_layer_tables_by_sheet(list())
 
-  testthat::expect_identical(names(result), c("raw", "clean", "harmonize"))
+  testthat::expect_identical(names(result), c("raw", "clean", "normalize", "harmonize"))
   testthat::expect_true(all(vapply(result, nrow, integer(1)) == 0L))
 })
 
@@ -49,6 +50,7 @@ testthat::test_that("collect_union_columns returns sorted unique union", {
   layer_by_sheet <- list(
     raw = data.table::data.table(country = c("a"), year = c("2020")),
     clean = data.table::data.table(country = c("a")),
+    normalize = data.table::data.table(country = c("a")),
     harmonize = data.table::data.table(country = c("a"), value = c("1"))
   )
 
@@ -61,6 +63,7 @@ testthat::test_that("collect_union_columns handles empty tables", {
   layer_by_sheet <- list(
     raw = data.table::data.table(),
     clean = data.table::data.table(),
+    normalize = data.table::data.table(),
     harmonize = data.table::data.table()
   )
 
@@ -72,10 +75,27 @@ testthat::test_that("collect_union_columns handles empty tables", {
 
 # --- build_column_unique_cache -----------------------------------------------
 
+testthat::test_that("compute_unique_column_values prepends (blank) when NA exists", {
+  input_dt <- data.table::data.table(country = c("a", NA_character_, "b", NA_character_))
+
+  result <- compute_unique_column_values(input_dt, "country")
+
+  testthat::expect_identical(result, c("(blank)", "a", "b"))
+})
+
+testthat::test_that("compute_unique_column_values keeps numeric sort with blank first", {
+  input_dt <- data.table::data.table(value = c(10, NA_real_, 2, 1, NA_real_))
+
+  result <- compute_unique_column_values(input_dt, "value")
+
+  testthat::expect_identical(result, c("(blank)", "1", "2", "10"))
+})
+
 testthat::test_that("build_column_unique_cache returns empty vectors for missing columns", {
   layer_by_sheet <- list(
     raw = data.table::data.table(country = c("a", "b")),
     clean = data.table::data.table(),
+    normalize = data.table::data.table(country = c("a", "b")),
     harmonize = data.table::data.table(country = c("a", "c"))
   )
 
@@ -147,40 +167,54 @@ testthat::test_that("are_list_tables_identical detects different values", {
 testthat::test_that("all-equal layers produce single combined sheet", {
   dt <- data.table::data.table(value = c("a", "b"))
 
-  result <- resolve_list_sheet_payloads(dt, dt, dt)
+  result <- resolve_list_sheet_payloads(dt, dt, dt, dt)
 
-  testthat::expect_identical(names(result), "raw_clean_harmonize")
+  testthat::expect_identical(names(result), "raw_clean_normalize_harmonize")
 })
 
-testthat::test_that("raw different, clean=harmonize produce raw + clean_harmonize", {
+testthat::test_that("raw different, clean=normalize=harmonize produce raw + clean_normalize_harmonize", {
   raw <- data.table::data.table(value = c("a"))
   clean <- data.table::data.table(value = c("b"))
+  normalize <- data.table::data.table(value = c("b"))
   harmonize <- data.table::data.table(value = c("b"))
 
-  result <- resolve_list_sheet_payloads(raw, clean, harmonize)
+  result <- resolve_list_sheet_payloads(raw, clean, normalize, harmonize)
 
-  testthat::expect_setequal(names(result), c("raw", "clean_harmonize"))
+  testthat::expect_setequal(names(result), c("raw", "clean_normalize_harmonize"))
 })
 
-testthat::test_that("all different produce raw + clean + harmonize", {
+testthat::test_that("normalize=harmonize and others different produce merged normalize_harmonize", {
   raw <- data.table::data.table(value = c("a"))
   clean <- data.table::data.table(value = c("b"))
+  normalize <- data.table::data.table(value = c("c"))
   harmonize <- data.table::data.table(value = c("c"))
 
-  result <- resolve_list_sheet_payloads(raw, clean, harmonize)
+  result <- resolve_list_sheet_payloads(raw, clean, normalize, harmonize)
 
-  testthat::expect_setequal(names(result), c("raw", "clean", "harmonize"))
+  testthat::expect_setequal(names(result), c("raw", "clean", "normalize_harmonize"))
+})
+
+testthat::test_that("all different produce raw + clean + normalize + harmonize", {
+  raw <- data.table::data.table(value = c("a"))
+  clean <- data.table::data.table(value = c("b"))
+  normalize <- data.table::data.table(value = c("c"))
+  harmonize <- data.table::data.table(value = c("d"))
+
+  result <- resolve_list_sheet_payloads(raw, clean, normalize, harmonize)
+
+  testthat::expect_setequal(names(result), c("raw", "clean", "normalize", "harmonize"))
 })
 
 
 # --- write_column_lists_workbook ---------------------------------------------
 
-testthat::test_that("write_column_lists_workbook writes all-equal as raw_clean_harmonize", {
+testthat::test_that("write_column_lists_workbook writes all-equal as raw_clean_normalize_harmonize", {
   config <- build_test_config()
 
   unique_cache <- list(
     raw = list(country = c("a", "b")),
     clean = list(country = c("a", "b")),
+    normalize = list(country = c("a", "b")),
     harmonize = list(country = c("a", "b"))
   )
 
@@ -192,15 +226,16 @@ testthat::test_that("write_column_lists_workbook writes all-equal as raw_clean_h
   )
 
   sheets <- readxl::excel_sheets(path)
-  testthat::expect_setequal(sheets, "raw_clean_harmonize")
+  testthat::expect_setequal(sheets, "raw_clean_normalize_harmonize")
 })
 
-testthat::test_that("write_column_lists_workbook writes raw + clean_harmonize", {
+testthat::test_that("write_column_lists_workbook writes raw + clean_normalize_harmonize", {
   config <- build_test_config()
 
   unique_cache <- list(
     raw = list(country = c("a", "b")),
     clean = list(country = c("c", "d")),
+    normalize = list(country = c("c", "d")),
     harmonize = list(country = c("c", "d"))
   )
 
@@ -212,15 +247,16 @@ testthat::test_that("write_column_lists_workbook writes raw + clean_harmonize", 
   )
 
   sheets <- readxl::excel_sheets(path)
-  testthat::expect_setequal(sheets, c("raw", "clean_harmonize"))
+  testthat::expect_setequal(sheets, c("raw", "clean_normalize_harmonize"))
 })
 
-testthat::test_that("write_column_lists_workbook writes all three sheets", {
+testthat::test_that("write_column_lists_workbook merges normalize_harmonize when those two match", {
   config <- build_test_config()
 
   unique_cache <- list(
     raw = list(country = c("a", "b")),
     clean = list(country = c("c", "d")),
+    normalize = list(country = c("e", "f")),
     harmonize = list(country = c("e", "f"))
   )
 
@@ -232,7 +268,28 @@ testthat::test_that("write_column_lists_workbook writes all three sheets", {
   )
 
   sheets <- readxl::excel_sheets(path)
-  testthat::expect_setequal(sheets, c("raw", "clean", "harmonize"))
+  testthat::expect_setequal(sheets, c("raw", "clean", "normalize_harmonize"))
+})
+
+testthat::test_that("write_column_lists_workbook writes raw + clean + normalize + harmonize", {
+  config <- build_test_config()
+
+  unique_cache <- list(
+    raw = list(country = c("a", "b")),
+    clean = list(country = c("c", "d")),
+    normalize = list(country = c("e", "f")),
+    harmonize = list(country = c("g", "h"))
+  )
+
+  path <- write_column_lists_workbook(
+    column_name = "country",
+    unique_cache = unique_cache,
+    config = config,
+    overwrite = TRUE
+  )
+
+  sheets <- readxl::excel_sheets(path)
+  testthat::expect_setequal(sheets, c("raw", "clean", "normalize", "harmonize"))
 })
 
 
@@ -248,13 +305,19 @@ testthat::test_that("export_lists honors configured lists_to_export columns", {
       value = c("1", "2"),
       year = c("2020", "2021")
     ),
-    demo_cleaned = data.table::data.table(
+    demo_clean = data.table::data.table(
       country = c("a", "b"),
       document = c("doc_a.xlsx", "doc_b.xlsx"),
       value = c("1", "2"),
       year = c("2020", "2021")
     ),
-    demo_harmonized = data.table::data.table(
+    demo_normalize = data.table::data.table(
+      country = c("a", "b"),
+      document = c("doc_a.xlsx", "doc_b.xlsx"),
+      value = c("1", "2"),
+      year = c("2020", "2021")
+    ),
+    demo_harmonize = data.table::data.table(
       country = c("a", "b"),
       document = c("doc_a.xlsx", "doc_b.xlsx"),
       value = c("1", "2"),
@@ -284,11 +347,15 @@ testthat::test_that("export_lists includes document only when explicitly configu
       country = c("a", "b"),
       document = c("doc_a.xlsx", "doc_b.xlsx")
     ),
-    demo_cleaned = data.table::data.table(
+    demo_clean = data.table::data.table(
       country = c("a", "b"),
       document = c("doc_a.xlsx", "doc_b.xlsx")
     ),
-    demo_harmonized = data.table::data.table(
+    demo_normalize = data.table::data.table(
+      country = c("a", "b"),
+      document = c("doc_a.xlsx", "doc_b.xlsx")
+    ),
+    demo_harmonize = data.table::data.table(
       country = c("a", "b"),
       document = c("doc_a.xlsx", "doc_b.xlsx")
     )

@@ -170,7 +170,7 @@ compute_non_empty_base_rows <- function(read_dt, base_cols) {
 #' @importFrom cli format_warning
 #' @examples
 #' config_example <- list(column_required = c("country", "year"))
-#' # read_excel_sheet("1-import/10-raw_imports/example.xlsx", "sheet1", config_example)
+#' # read_excel_sheet("1-import/10-raw_import/example.xlsx", "sheet1", config_example)
 read_excel_sheet <- function(file_path, sheet_name, config) {
   assert_or_abort(checkmate::check_string(file_path, min.chars = 1))
   assert_or_abort(checkmate::check_string(sheet_name, min.chars = 1))
@@ -252,7 +252,7 @@ read_excel_sheet <- function(file_path, sheet_name, config) {
 #' @importFrom cli format_warning
 #' @examples
 #' config_example <- list(column_required = c("country", "year"))
-#' # read_file_sheets("1-import/10-raw_imports/example.xlsx", config_example)
+#' # read_file_sheets("1-import/10-raw_import/example.xlsx", config_example)
 read_file_sheets <- function(file_path, config, sheet_names = NULL) {
   assert_or_abort(checkmate::check_string(file_path, min.chars = 1))
   assert_or_abort(checkmate::check_list(config, any.missing = FALSE))
@@ -355,7 +355,10 @@ resolve_import_workbook_batch_size <- function(config) {
   default_batch_size <- get_pipeline_constants()$performance$import_workbook_batch_size
   resolved_batch_size <- default_batch_size
 
-  if (is.list(config$performance) && !is.null(config$performance$import_workbook_batch_size)) {
+  if (
+    is.list(config$performance) &&
+      !is.null(config$performance$import_workbook_batch_size)
+  ) {
     resolved_batch_size <- config$performance$import_workbook_batch_size
   }
 
@@ -374,7 +377,11 @@ resolve_import_workbook_batch_size <- function(config) {
 #' character vectors of sheet names.
 #' @return named list with `read_data_list` and `errors`.
 #' @importFrom checkmate check_character check_list
-read_workbook_batch <- function(file_paths, config, sheet_names_by_file = NULL) {
+read_workbook_batch <- function(
+  file_paths,
+  config,
+  sheet_names_by_file = NULL
+) {
   assert_or_abort(checkmate::check_character(
     file_paths,
     any.missing = FALSE,
@@ -404,7 +411,9 @@ read_workbook_batch <- function(file_paths, config, sheet_names_by_file = NULL) 
   unique_results <- lapply(unique_file_paths, function(file_path) {
     mapped_sheet_names <- NULL
 
-    if (!is.null(sheet_names_by_file) && file_path %in% names(sheet_names_by_file)) {
+    if (
+      !is.null(sheet_names_by_file) && file_path %in% names(sheet_names_by_file)
+    ) {
       mapped_sheet_names <- sheet_names_by_file[[file_path]]
 
       if (!is.null(mapped_sheet_names)) {
@@ -416,11 +425,13 @@ read_workbook_batch <- function(file_paths, config, sheet_names_by_file = NULL) 
     }
 
     safe_read_result <- safe_execute_read(
-      operation = \() read_file_sheets(
-        file_path = file_path,
-        config = config,
-        sheet_names = mapped_sheet_names
-      ),
+      operation = \() {
+        read_file_sheets(
+          file_path = file_path,
+          config = config,
+          sheet_names = mapped_sheet_names
+        )
+      },
       context_message = "failed to read workbook in batch",
       file_path = file_path
     )
@@ -434,9 +445,12 @@ read_workbook_batch <- function(file_paths, config, sheet_names_by_file = NULL) 
     data.table::copy(unique_results[[file_path]]$data)
   })
 
-  errors <- unlist(lapply(file_paths, function(file_path) {
-    unique_results[[file_path]]$errors
-  }), use.names = FALSE)
+  errors <- unlist(
+    lapply(file_paths, function(file_path) {
+      unique_results[[file_path]]$errors
+    }),
+    use.names = FALSE
+  )
 
   return(list(read_data_list = read_data_list, errors = errors))
 }

@@ -43,7 +43,7 @@ load_harmonize_rule_payloads <- function(config) {
 #' @return Character vector with canonicalized values.
 canonicalize_semicolon_delimited_cells <- function(
   values,
-  delimiter = get_pipeline_constants()$post_processing$target_update_strategies$concatenate_delimiter
+  delimiter = get_pipeline_constants()$postpro$target_update_strategies$concatenate_delimiter
 ) {
   checkmate::assert_atomic(values, any.missing = TRUE)
   checkmate::assert_string(delimiter, min.chars = 1)
@@ -90,7 +90,7 @@ canonicalize_post_loop_annotation_columns <- function(dataset_dt) {
     return(invisible(FALSE))
   }
 
-  delimiter <- get_pipeline_constants()$post_processing$target_update_strategies$concatenate_delimiter
+  delimiter <- get_pipeline_constants()$postpro$target_update_strategies$concatenate_delimiter
 
   for (column_name in annotation_columns) {
     data.table::set(
@@ -117,9 +117,9 @@ canonicalize_post_loop_annotation_columns <- function(dataset_dt) {
 #'  assert_character
 resolve_stage_multi_pass_controls <- function(config, stage_name) {
   checkmate::assert_list(config, min.len = 1)
-  validated_stage_name <- validate_post_processing_stage_name(stage_name)
+  validated_stage_name <- validate_postpro_stage_name(stage_name)
 
-  defaults <- get_pipeline_constants()$post_processing$multi_pass
+  defaults <- get_pipeline_constants()$postpro$multi_pass
   checkmate::assert_list(defaults, min.len = 1)
 
   default_enabled_by_stage <- defaults$enabled_by_stage
@@ -155,8 +155,8 @@ resolve_stage_multi_pass_controls <- function(config, stage_name) {
 
   configured_values <- defaults
   configured_multi_pass <- NULL
-  if (is.list(config$post_processing)) {
-    configured_multi_pass <- config$post_processing$multi_pass
+  if (is.list(config$postpro)) {
+    configured_multi_pass <- config$postpro$multi_pass
   }
   if (is.list(configured_multi_pass)) {
     configured_values <- utils::modifyList(defaults, configured_multi_pass)
@@ -310,17 +310,17 @@ resolve_stage_multi_pass_controls <- function(config, stage_name) {
 resolve_schema_validation_cache_settings <- function(config) {
   checkmate::assert_list(config, min.len = 1)
 
-  defaults <- get_pipeline_constants()$post_processing$schema_validation_cache
+  defaults <- get_pipeline_constants()$postpro$schema_validation_cache
   checkmate::assert_list(defaults, min.len = 1)
 
   configured_values <- defaults
-  configured_post_processing <- NULL
-  if (is.list(config$post_processing)) {
-    configured_post_processing <- config$post_processing$schema_validation_cache
+  configured_postpro <- NULL
+  if (is.list(config$postpro)) {
+    configured_postpro <- config$postpro$schema_validation_cache
   }
 
-  if (is.list(configured_post_processing)) {
-    configured_values <- utils::modifyList(defaults, configured_post_processing)
+  if (is.list(configured_postpro)) {
+    configured_values <- utils::modifyList(defaults, configured_postpro)
   }
 
   enabled <- isTRUE(configured_values$enabled)
@@ -354,7 +354,7 @@ build_schema_validation_dependency_signature <- function(
 ) {
   checkmate::assert_data_table(dataset_dt)
   checkmate::assert_data_frame(canonical_rules, min.rows = 0)
-  validated_stage_name <- validate_post_processing_stage_name(stage_name)
+  validated_stage_name <- validate_postpro_stage_name(stage_name)
   checkmate::assert_string(rule_file_id, min.chars = 1)
   checkmate::assert_string(payload_cache_key, min.chars = 1)
 
@@ -447,7 +447,10 @@ memoize_schema_validation_signature <- function(
     envir = .schema_validation_signature_cache
   )
 
-  cache_names <- ls(envir = .schema_validation_signature_cache, all.names = TRUE)
+  cache_names <- ls(
+    envir = .schema_validation_signature_cache,
+    all.names = TRUE
+  )
   max_entries <- as.integer(cache_settings$max_entries)
 
   if (length(cache_names) > max_entries) {
@@ -538,7 +541,7 @@ run_rule_stage_layer_batch <- function(
   checkmate::assert_string(stage_name, min.chars = 1)
   checkmate::assert_string(dataset_name, min.chars = 1)
 
-  validated_stage_name <- validate_post_processing_stage_name(stage_name)
+  validated_stage_name <- validate_postpro_stage_name(stage_name)
 
   payload_bundle <- get_cached_stage_payload_bundle(
     config = config,
@@ -554,7 +557,10 @@ run_rule_stage_layer_batch <- function(
 
   payload_cache_key <- payload_bundle$cache_key
   if (is.null(payload_cache_key)) {
-    payload_cache_key <- paste0(validated_stage_name, "::<no_payload_cache_key>")
+    payload_cache_key <- paste0(
+      validated_stage_name,
+      "::<no_payload_cache_key>"
+    )
   }
 
   working_data <- data.table::copy(data.table::as.data.table(dataset_dt))
@@ -578,10 +584,12 @@ run_rule_stage_layer_batch <- function(
         payload_cache_key = payload_cache_key
       )
 
-      if (!is_schema_validation_signature_cached(
-        dependency_signature = dependency_signature,
-        cache_settings = schema_validation_cache_settings
-      )) {
+      if (
+        !is_schema_validation_signature_cached(
+          dependency_signature = dependency_signature,
+          cache_settings = schema_validation_cache_settings
+        )
+      ) {
         validate_canonical_rules(
           rules_dt = payload$canonical_rules,
           dataset_dt = working_data,
@@ -648,10 +656,8 @@ run_rule_stage_layer_batch <- function(
 
     apply_match_normalization_for_pass <-
       isTRUE(rule_match_normalization_settings$apply_each_pass) ||
-      (
-        isTRUE(rule_match_normalization_settings$apply_once_before_stage) &&
-          pass_index == 1L
-      )
+      (isTRUE(rule_match_normalization_settings$apply_once_before_stage) &&
+        pass_index == 1L)
 
     if (length(canonical_payloads) > 0L) {
       pass_state <- purrr::reduce(
@@ -920,12 +926,12 @@ run_rule_stage_layer_batch <- function(
 }
 
 #' @title Run cleaning layer batch
-#' @description Applies clean-stage conditional rules and returns cleaned data
+#' @description Applies clean-stage conditional rules and returns clean data
 #' with diagnostics and audit metadata.
 #' @param dataset_dt Input dataset as data.frame/data.table.
 #' @param config Named configuration list.
 #' @param dataset_name Character scalar dataset identifier.
-#' @return Cleaned `data.table` with attributes `layer_diagnostics` and
+#' @return clean `data.table` with attributes `layer_diagnostics` and
 #' `layer_audit`.
 #' @importFrom checkmate assert_data_frame assert_list assert_string
 run_cleaning_layer_batch <- function(
@@ -946,12 +952,12 @@ run_cleaning_layer_batch <- function(
 }
 
 #' @title Run harmonize layer batch
-#' @description Applies harmonize-stage conditional rules and returns harmonized
+#' @description Applies harmonize-stage conditional rules and returns harmonize
 #' data with diagnostics and audit metadata.
 #' @param dataset_dt Input dataset as data.frame/data.table.
 #' @param config Named configuration list.
 #' @param dataset_name Character scalar dataset identifier.
-#' @return Harmonized `data.table` with attributes `layer_diagnostics` and
+#' @return harmonize `data.table` with attributes `layer_diagnostics` and
 #' `layer_audit`.
 #' @importFrom checkmate assert_data_frame assert_list assert_string
 run_harmonize_layer_batch <- function(

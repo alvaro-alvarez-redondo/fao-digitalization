@@ -344,9 +344,13 @@ print_complexity_report <- function(complexity_dt) {
     )
   })
 
-  widths <- vapply(seq_len(ncol(dt)), function(i) {
-    max(nchar(c(header_values[[i]], cell_columns[[i]]), type = "width"))
-  }, integer(1))
+  widths <- vapply(
+    seq_len(ncol(dt)),
+    function(i) {
+      max(nchar(c(header_values[[i]], cell_columns[[i]]), type = "width"))
+    },
+    integer(1)
+  )
 
   format_row <- function(values) {
     padded <- mapply(
@@ -362,13 +366,20 @@ print_complexity_report <- function(complexity_dt) {
   header_line <- format_row(header_values)
   divider_line <- paste0(
     "| ",
-    paste(vapply(widths, function(w) strrep("-", w), character(1)), collapse = " | "),
+    paste(
+      vapply(widths, function(w) strrep("-", w), character(1)),
+      collapse = " | "
+    ),
     " |"
   )
-  row_lines <- vapply(seq_len(nrow(dt)), function(i) {
-    row_values <- vapply(cell_columns, function(col) col[[i]], character(1))
-    format_row(row_values)
-  }, character(1))
+  row_lines <- vapply(
+    seq_len(nrow(dt)),
+    function(i) {
+      row_values <- vapply(cell_columns, function(col) col[[i]], character(1))
+      format_row(row_values)
+    },
+    character(1)
+  )
 
   c("```text", header_line, divider_line, row_lines, "```")
 }
@@ -412,8 +423,11 @@ print_complexity_report <- function(complexity_dt) {
 #' @noRd
 .safe_ratio <- function(numerator, denominator) {
   out <- rep(NA_real_, length(numerator))
-  valid <- !is.na(numerator) & !is.na(denominator) &
-    is.finite(numerator) & is.finite(denominator) & denominator > 0
+  valid <- !is.na(numerator) &
+    !is.na(denominator) &
+    is.finite(numerator) &
+    is.finite(denominator) &
+    denominator > 0
   if (any(valid)) {
     out[valid] <- numerator[valid] / denominator[valid]
   }
@@ -537,10 +551,16 @@ print_complexity_report <- function(complexity_dt) {
     causes <- c(causes, "sorting/reordering work adds comparison overhead")
   }
   if (grepl("group|aggregate|duplicate", desc, perl = TRUE)) {
-    causes <- c(causes, "grouping across repeated keys increases hash/scan cost")
+    causes <- c(
+      causes,
+      "grouping across repeated keys increases hash/scan cost"
+    )
   }
   if (grepl("normalize|string|ascii|coerce", desc, perl = TRUE)) {
-    causes <- c(causes, "string normalization/coercion is CPU and allocation heavy")
+    causes <- c(
+      causes,
+      "string normalization/coercion is CPU and allocation heavy"
+    )
   }
   if (grepl("copy|deep-copy", desc, perl = TRUE)) {
     causes <- c(causes, "table copying adds avoidable memory-bandwidth load")
@@ -550,23 +570,44 @@ print_complexity_report <- function(complexity_dt) {
   }
 
   if (isTRUE(high_complexity)) {
-    causes <- c(causes, sprintf("super-linear class (%s) raises asymptotic risk", best_class))
+    causes <- c(
+      causes,
+      sprintf("super-linear class (%s) raises asymptotic risk", best_class)
+    )
   }
   if (isTRUE(high_impact)) {
     causes <- c(
       causes,
-      sprintf("runtime concentration is high (%.1f%% of stage runtime)", 100 * relative_impact)
+      sprintf(
+        "runtime concentration is high (%.1f%% of stage runtime)",
+        100 * relative_impact
+      )
     )
   }
-  if (!is.na(growth_multiplier_max) && is.finite(growth_multiplier_max) &&
-    growth_multiplier_max >= .reporting_high_growth_multiplier_threshold) {
-    causes <- c(causes, sprintf("runtime jumps sharply between sizes (max %.2fx)", growth_multiplier_max))
+  if (
+    !is.na(growth_multiplier_max) &&
+      is.finite(growth_multiplier_max) &&
+      growth_multiplier_max >= .reporting_high_growth_multiplier_threshold
+  ) {
+    causes <- c(
+      causes,
+      sprintf(
+        "runtime jumps sharply between sizes (max %.2fx)",
+        growth_multiplier_max
+      )
+    )
   }
   if (isTRUE(high_volatility)) {
-    causes <- c(causes, "high run-to-run spread suggests unstable execution path")
+    causes <- c(
+      causes,
+      "high run-to-run spread suggests unstable execution path"
+    )
   }
   if (isTRUE(low_confidence)) {
-    causes <- c(causes, "model fit confidence is low; scaling class is uncertain")
+    causes <- c(
+      causes,
+      "model fit confidence is low; scaling class is uncertain"
+    )
   }
 
   causes <- unique(causes)
@@ -600,8 +641,10 @@ print_complexity_report <- function(complexity_dt) {
     if (isTRUE(high_complexity)) "super-linear growth risk" else NULL,
     if (isTRUE(high_volatility)) "unstable repeated timings" else NULL,
     if (isTRUE(low_confidence)) "low model confidence" else NULL,
-    if (!is.na(growth_multiplier_max) &&
-      growth_multiplier_max >= .reporting_high_growth_multiplier_threshold) {
+    if (
+      !is.na(growth_multiplier_max) &&
+        growth_multiplier_max >= .reporting_high_growth_multiplier_threshold
+    ) {
       sprintf("sharp growth jump (max %.2fx)", growth_multiplier_max)
     } else {
       NULL
@@ -729,13 +772,18 @@ prepare_reporting_metrics <- function(results) {
   if (!"dominant_in_stage" %in% names(complexity_dt)) {
     stage_max <- complexity_dt[,
       .(stage_max_rank = {
-        valid <- complexity_rank[!is.na(complexity_rank) & is.finite(complexity_rank)]
+        valid <- complexity_rank[
+          !is.na(complexity_rank) & is.finite(complexity_rank)
+        ]
         if (length(valid) > 0L) max(valid) else .complexity_order[["unknown"]]
       }),
       by = stage
     ]
     complexity_dt <- stage_max[complexity_dt, on = "stage"]
-    complexity_dt[, dominant_in_stage := (!is.na(complexity_rank) & complexity_rank == stage_max_rank)]
+    complexity_dt[,
+      dominant_in_stage := (!is.na(complexity_rank) &
+        complexity_rank == stage_max_rank)
+    ]
     complexity_dt[, stage_max_rank := NULL]
   }
 
@@ -768,7 +816,11 @@ prepare_reporting_metrics <- function(results) {
           names = FALSE,
           na.rm = TRUE
         )),
-        cv_s = ifelse(mean(elapsed_s) > 0, stats::sd(elapsed_s) / mean(elapsed_s), NA_real_),
+        cv_s = ifelse(
+          mean(elapsed_s) > 0,
+          stats::sd(elapsed_s) / mean(elapsed_s),
+          NA_real_
+        ),
         n_reps = .N
       ),
       by = .(fn_name, stage, n)
@@ -803,60 +855,121 @@ prepare_reporting_metrics <- function(results) {
       cv_s = as.numeric(cv_s)
     )]
 
-    fn_runtime_dt <- summary_dt[order(n), {
-      ord <- order(n)
-      n_sorted <- as.integer(n[ord])
-      med_sorted <- as.numeric(median_s[ord])
-      sd_sorted <- as.numeric(sd_s[ord])
-      iqr_sorted <- as.numeric(iqr_s[ord])
-      p95_sorted <- as.numeric(p95_s[ord])
-      p99_sorted <- as.numeric(p99_s[ord])
-      cv_sorted <- as.numeric(cv_s[ord])
+    fn_runtime_dt <- summary_dt[
+      order(n),
+      {
+        ord <- order(n)
+        n_sorted <- as.integer(n[ord])
+        med_sorted <- as.numeric(median_s[ord])
+        sd_sorted <- as.numeric(sd_s[ord])
+        iqr_sorted <- as.numeric(iqr_s[ord])
+        p95_sorted <- as.numeric(p95_s[ord])
+        p99_sorted <- as.numeric(p99_s[ord])
+        cv_sorted <- as.numeric(cv_s[ord])
 
-      idx_min <- if (length(n_sorted) > 0L) which.min(n_sorted) else NA_integer_
-      idx_max <- if (length(n_sorted) > 0L) which.max(n_sorted) else NA_integer_
+        idx_min <- if (length(n_sorted) > 0L) {
+          which.min(n_sorted)
+        } else {
+          NA_integer_
+        }
+        idx_max <- if (length(n_sorted) > 0L) {
+          which.max(n_sorted)
+        } else {
+          NA_integer_
+        }
 
-      growth_vals <- numeric(0)
-      growth_labels <- character(0)
-      if (length(n_sorted) >= 2L) {
-        for (j in 2:length(n_sorted)) {
-          prev <- med_sorted[[j - 1L]]
-          curr <- med_sorted[[j]]
-          if (is.finite(prev) && prev > 0 && is.finite(curr) && curr >= 0) {
-            mult <- curr / prev
-            growth_vals <- c(growth_vals, mult)
-            growth_labels <- c(
-              growth_labels,
-              sprintf("%d->%d: %.2fx", n_sorted[[j - 1L]], n_sorted[[j]], mult)
-            )
+        growth_vals <- numeric(0)
+        growth_labels <- character(0)
+        if (length(n_sorted) >= 2L) {
+          for (j in 2:length(n_sorted)) {
+            prev <- med_sorted[[j - 1L]]
+            curr <- med_sorted[[j]]
+            if (is.finite(prev) && prev > 0 && is.finite(curr) && curr >= 0) {
+              mult <- curr / prev
+              growth_vals <- c(growth_vals, mult)
+              growth_labels <- c(
+                growth_labels,
+                sprintf(
+                  "%d->%d: %.2fx",
+                  n_sorted[[j - 1L]],
+                  n_sorted[[j]],
+                  mult
+                )
+              )
+            }
           }
         }
-      }
 
-      valid_growth <- growth_vals[is.finite(growth_vals) & growth_vals > 0]
-      valid_med <- med_sorted[is.finite(med_sorted)]
+        valid_growth <- growth_vals[is.finite(growth_vals) & growth_vals > 0]
+        valid_med <- med_sorted[is.finite(med_sorted)]
 
-      .(
-        observed_runtime_s = if (length(valid_med) > 0L) sum(valid_med) else 0,
-        runtime_at_min_n_s = if (!is.na(idx_min)) med_sorted[[idx_min]] else NA_real_,
-        runtime_at_max_n_s = if (!is.na(idx_max)) med_sorted[[idx_max]] else NA_real_,
-        n_min = if (!is.na(idx_min)) n_sorted[[idx_min]] else NA_integer_,
-        n_max = if (!is.na(idx_max)) n_sorted[[idx_max]] else NA_integer_,
-        volatility_sd_s = if (!is.na(idx_max)) sd_sorted[[idx_max]] else NA_real_,
-        volatility_iqr_s = if (!is.na(idx_max)) iqr_sorted[[idx_max]] else NA_real_,
-        volatility_p95_s = if (!is.na(idx_max)) p95_sorted[[idx_max]] else NA_real_,
-        volatility_p99_s = if (!is.na(idx_max)) p99_sorted[[idx_max]] else NA_real_,
-        volatility_cv = if (!is.na(idx_max)) cv_sorted[[idx_max]] else NA_real_,
-        growth_multiplier_max = if (length(valid_growth) > 0L) max(valid_growth) else NA_real_,
-        growth_multiplier_last = if (length(valid_growth) > 0L) valid_growth[[length(valid_growth)]] else NA_real_,
-        growth_multiplier_geom = if (length(valid_growth) > 0L) exp(mean(log(valid_growth))) else NA_real_,
-        growth_profile = if (length(growth_labels) > 0L) {
-          paste(growth_labels, collapse = "; ")
-        } else {
-          "N/A"
-        }
-      )
-    }, by = .(fn_name, stage)]
+        .(
+          observed_runtime_s = if (length(valid_med) > 0L) {
+            sum(valid_med)
+          } else {
+            0
+          },
+          runtime_at_min_n_s = if (!is.na(idx_min)) {
+            med_sorted[[idx_min]]
+          } else {
+            NA_real_
+          },
+          runtime_at_max_n_s = if (!is.na(idx_max)) {
+            med_sorted[[idx_max]]
+          } else {
+            NA_real_
+          },
+          n_min = if (!is.na(idx_min)) n_sorted[[idx_min]] else NA_integer_,
+          n_max = if (!is.na(idx_max)) n_sorted[[idx_max]] else NA_integer_,
+          volatility_sd_s = if (!is.na(idx_max)) {
+            sd_sorted[[idx_max]]
+          } else {
+            NA_real_
+          },
+          volatility_iqr_s = if (!is.na(idx_max)) {
+            iqr_sorted[[idx_max]]
+          } else {
+            NA_real_
+          },
+          volatility_p95_s = if (!is.na(idx_max)) {
+            p95_sorted[[idx_max]]
+          } else {
+            NA_real_
+          },
+          volatility_p99_s = if (!is.na(idx_max)) {
+            p99_sorted[[idx_max]]
+          } else {
+            NA_real_
+          },
+          volatility_cv = if (!is.na(idx_max)) {
+            cv_sorted[[idx_max]]
+          } else {
+            NA_real_
+          },
+          growth_multiplier_max = if (length(valid_growth) > 0L) {
+            max(valid_growth)
+          } else {
+            NA_real_
+          },
+          growth_multiplier_last = if (length(valid_growth) > 0L) {
+            valid_growth[[length(valid_growth)]]
+          } else {
+            NA_real_
+          },
+          growth_multiplier_geom = if (length(valid_growth) > 0L) {
+            exp(mean(log(valid_growth)))
+          } else {
+            NA_real_
+          },
+          growth_profile = if (length(growth_labels) > 0L) {
+            paste(growth_labels, collapse = "; ")
+          } else {
+            "N/A"
+          }
+        )
+      },
+      by = .(fn_name, stage)
+    ]
 
     n_candidates <- sort(unique(as.integer(summary_dt$n[
       is.finite(summary_dt$n) & summary_dt$n > 0
@@ -901,12 +1014,18 @@ prepare_reporting_metrics <- function(results) {
     sort = FALSE
   )
   fn_metrics[is.na(observed_runtime_s), observed_runtime_s := 0]
-  fn_metrics[is.na(runtime_at_min_n_s), runtime_at_min_n_s := observed_runtime_s]
+  fn_metrics[
+    is.na(runtime_at_min_n_s),
+    runtime_at_min_n_s := observed_runtime_s
+  ]
   fn_metrics[
     is.na(runtime_at_max_n_s),
     runtime_at_max_n_s := observed_runtime_s
   ]
-  fn_metrics[is.na(growth_profile) | !nzchar(growth_profile), growth_profile := "N/A"]
+  fn_metrics[
+    is.na(growth_profile) | !nzchar(growth_profile),
+    growth_profile := "N/A"
+  ]
 
   stage_runtime_dt <- fn_metrics[,
     .(
@@ -924,7 +1043,8 @@ prepare_reporting_metrics <- function(results) {
   ]
 
   fn_metrics[,
-    high_complexity_flag := complexity_rank >= .reporting_expensive_rank_threshold
+    high_complexity_flag := complexity_rank >=
+      .reporting_expensive_rank_threshold
   ]
   fn_metrics[is.na(high_complexity_flag), high_complexity_flag := FALSE]
   fn_metrics[,
@@ -950,16 +1070,13 @@ prepare_reporting_metrics <- function(results) {
     )
   ]
   fn_metrics[,
-    high_volatility_flag := (
-      !is.na(volatility_cv) &
-        is.finite(volatility_cv) &
-        volatility_cv >= .reporting_high_volatility_cv_threshold
-    ) |
-      (
-        !is.na(volatility_ratio_p99_to_p50) &
-          is.finite(volatility_ratio_p99_to_p50) &
-          volatility_ratio_p99_to_p50 >= .reporting_high_volatility_p99_ratio_threshold
-      )
+    high_volatility_flag := (!is.na(volatility_cv) &
+      is.finite(volatility_cv) &
+      volatility_cv >= .reporting_high_volatility_cv_threshold) |
+      (!is.na(volatility_ratio_p99_to_p50) &
+        is.finite(volatility_ratio_p99_to_p50) &
+        volatility_ratio_p99_to_p50 >=
+          .reporting_high_volatility_p99_ratio_threshold)
   ]
   fn_metrics[,
     high_growth_flag := !is.na(growth_multiplier_max) &
@@ -1023,7 +1140,8 @@ prepare_reporting_metrics <- function(results) {
   w <- .reporting_bottleneck_score_weights
   fn_metrics[,
     bottleneck_score := .clamp_num(
-      w[["complexity"]] * complexity_risk_component +
+      w[["complexity"]] *
+        complexity_risk_component +
         w[["impact"]] * impact_risk_component +
         w[["confidence"]] * confidence_risk_component +
         w[["volatility"]] * volatility_risk_component +
@@ -1031,8 +1149,7 @@ prepare_reporting_metrics <- function(results) {
     )
   ]
   fn_metrics[,
-    critical_bottleneck_flag :=
-      (high_complexity_flag & high_impact_flag) |
+    critical_bottleneck_flag := (high_complexity_flag & high_impact_flag) |
       bottleneck_score >= .reporting_critical_bottleneck_score_threshold
   ]
   fn_metrics[,
@@ -1175,17 +1292,33 @@ prepare_reporting_metrics <- function(results) {
     on = c("fn_name", "stage")
   ]
 
-  fn_metrics[order(stage, -bottleneck_score, -relative_impact, -complexity_rank, fn_name),
+  fn_metrics[
+    order(
+      stage,
+      -bottleneck_score,
+      -relative_impact,
+      -complexity_rank,
+      fn_name
+    ),
     bottleneck_rank_in_stage := seq_len(.N),
     by = stage
   ]
-  fn_metrics[order(-bottleneck_score, -relative_impact, -complexity_rank, stage, fn_name),
+  fn_metrics[
+    order(
+      -bottleneck_score,
+      -relative_impact,
+      -complexity_rank,
+      stage,
+      fn_name
+    ),
     global_bottleneck_rank := seq_len(.N)
   ]
 
   stage_summary_dt <- fn_metrics[,
     {
-      valid_rank <- complexity_rank[!is.na(complexity_rank) & is.finite(complexity_rank)]
+      valid_rank <- complexity_rank[
+        !is.na(complexity_rank) & is.finite(complexity_rank)
+      ]
       max_rank <- if (length(valid_rank) > 0L) {
         max(valid_rank)
       } else {
@@ -1205,24 +1338,60 @@ prepare_reporting_metrics <- function(results) {
       }
 
       valid_r2 <- r_squared[!is.na(r_squared) & is.finite(r_squared)]
-      valid_scores <- bottleneck_score[!is.na(bottleneck_score) & is.finite(bottleneck_score)]
-      valid_impacts <- relative_impact[!is.na(relative_impact) & is.finite(relative_impact)]
+      valid_scores <- bottleneck_score[
+        !is.na(bottleneck_score) & is.finite(bottleneck_score)
+      ]
+      valid_impacts <- relative_impact[
+        !is.na(relative_impact) & is.finite(relative_impact)
+      ]
 
       .(
         function_count = .N,
         max_complexity_rank = as.integer(max_rank),
         max_complexity = max_complexity,
-        expensive_function_count = as.integer(sum(high_complexity_flag, na.rm = TRUE)),
+        expensive_function_count = as.integer(sum(
+          high_complexity_flag,
+          na.rm = TRUE
+        )),
         stage_runtime_total_s = sum(observed_runtime_s, na.rm = TRUE),
-        mean_r_squared = if (length(valid_r2) > 0L) mean(valid_r2) else NA_real_,
-        median_r_squared = if (length(valid_r2) > 0L) stats::median(valid_r2) else NA_real_,
-        low_confidence_function_count = as.integer(sum(low_confidence_flag, na.rm = TRUE)),
-        high_volatility_function_count = as.integer(sum(high_volatility_flag, na.rm = TRUE)),
-        critical_bottleneck_count = as.integer(sum(critical_bottleneck_flag, na.rm = TRUE)),
-        stage_bottleneck_score_max = if (length(valid_scores) > 0L) max(valid_scores) else NA_real_,
-        stage_bottleneck_score_mean = if (length(valid_scores) > 0L) mean(valid_scores) else NA_real_,
+        mean_r_squared = if (length(valid_r2) > 0L) {
+          mean(valid_r2)
+        } else {
+          NA_real_
+        },
+        median_r_squared = if (length(valid_r2) > 0L) {
+          stats::median(valid_r2)
+        } else {
+          NA_real_
+        },
+        low_confidence_function_count = as.integer(sum(
+          low_confidence_flag,
+          na.rm = TRUE
+        )),
+        high_volatility_function_count = as.integer(sum(
+          high_volatility_flag,
+          na.rm = TRUE
+        )),
+        critical_bottleneck_count = as.integer(sum(
+          critical_bottleneck_flag,
+          na.rm = TRUE
+        )),
+        stage_bottleneck_score_max = if (length(valid_scores) > 0L) {
+          max(valid_scores)
+        } else {
+          NA_real_
+        },
+        stage_bottleneck_score_mean = if (length(valid_scores) > 0L) {
+          mean(valid_scores)
+        } else {
+          NA_real_
+        },
         runtime_concentration_hhi = sum(relative_impact^2, na.rm = TRUE),
-        top_function_impact = if (length(valid_impacts) > 0L) max(valid_impacts) else 0
+        top_function_impact = if (length(valid_impacts) > 0L) {
+          max(valid_impacts)
+        } else {
+          0
+        }
       )
     },
     by = stage
@@ -1280,7 +1449,8 @@ prepare_reporting_metrics <- function(results) {
   ]
   stage_summary_dt[,
     stage_risk_score := .clamp_num(
-      0.40 * stage_runtime_proportion +
+      0.40 *
+        stage_runtime_proportion +
         0.25 * stage_complexity_component +
         0.15 * confidence_low_share +
         0.10 * volatility_share +
@@ -1347,7 +1517,12 @@ prepare_reporting_metrics <- function(results) {
     stage_risk_score,
     confidence_low_share,
     volatility_share
-  )][order(-stage_runtime_proportion, -stage_risk_score, -max_complexity_rank, stage)]
+  )][order(
+    -stage_runtime_proportion,
+    -stage_risk_score,
+    -max_complexity_rank,
+    stage
+  )]
 
   chart_slope_dt <- fn_metrics[, .(
     stage,
@@ -1386,7 +1561,13 @@ prepare_reporting_metrics <- function(results) {
   )
 
   stage_top_score_dt <- fn_metrics[
-    order(stage, -bottleneck_score, -relative_impact, -complexity_rank, fn_name),
+    order(
+      stage,
+      -bottleneck_score,
+      -relative_impact,
+      -complexity_rank,
+      fn_name
+    ),
     .SD[1L],
     by = stage,
     .SDcols = c("fn_name", "bottleneck_score", "priority_tier")
@@ -1420,25 +1601,28 @@ prepare_reporting_metrics <- function(results) {
     top_runtime_share_label := sprintf("%.1f%%", 100 * top_runtime_share)
   ]
 
-  global_bottlenecks_dt <- fn_metrics[order(
-    -bottleneck_score,
-    -relative_impact,
-    -complexity_rank,
-    stage,
-    fn_name
-  ), .(
-    global_rank = global_bottleneck_rank,
-    stage,
-    fn_name,
-    best_class,
-    bottleneck_score,
-    relative_impact,
-    confidence_label,
-    volatility_cv,
-    priority_tier,
-    diagnostic_flags,
-    slowdown_drivers
-  )]
+  global_bottlenecks_dt <- fn_metrics[
+    order(
+      -bottleneck_score,
+      -relative_impact,
+      -complexity_rank,
+      stage,
+      fn_name
+    ),
+    .(
+      global_rank = global_bottleneck_rank,
+      stage,
+      fn_name,
+      best_class,
+      bottleneck_score,
+      relative_impact,
+      confidence_label,
+      volatility_cv,
+      priority_tier,
+      diagnostic_flags,
+      slowdown_drivers
+    )
+  ]
   global_bottlenecks_dt <- global_bottlenecks_dt[
     seq_len(min(nrow(global_bottlenecks_dt), 12L))
   ]
@@ -1810,7 +1994,7 @@ build_analysis_markdown <- function(results) {
 }
 
 #' @title Build ASCII bars
-#' @description Build deterministic ASCII bars from normalized proportions.
+#' @description Build deterministic ASCII bars from normalize proportions.
 #' @param x Numeric vector of values expected in [0, 1].
 #' @param width Integer scalar bar width.
 #' @return Character vector of fixed-width ASCII bars.
@@ -1928,22 +2112,37 @@ build_analysis_markdown <- function(results) {
       relative_impact_label := sprintf("%.1f%%", 100 * relative_impact)
     ]
     fn_metrics[,
-      observed_runtime_label := .format_metric_value(observed_runtime_s, digits = 5L)
+      observed_runtime_label := .format_metric_value(
+        observed_runtime_s,
+        digits = 5L
+      )
     ]
     fn_metrics[,
-      runtime_at_max_n_label := .format_metric_value(runtime_at_max_n_s, digits = 5L)
+      runtime_at_max_n_label := .format_metric_value(
+        runtime_at_max_n_s,
+        digits = 5L
+      )
     ]
     fn_metrics[,
-      bottleneck_score_label := .format_metric_value(bottleneck_score, digits = 4L)
+      bottleneck_score_label := .format_metric_value(
+        bottleneck_score,
+        digits = 4L
+      )
     ]
     fn_metrics[,
       volatility_cv_label := .format_metric_value(volatility_cv, digits = 5L)
     ]
     fn_metrics[,
-      p99_ratio_label := .format_metric_value(volatility_ratio_p99_to_p50, digits = 4L)
+      p99_ratio_label := .format_metric_value(
+        volatility_ratio_p99_to_p50,
+        digits = 4L
+      )
     ]
     fn_metrics[,
-      growth_max_label := .format_metric_value(growth_multiplier_max, digits = 4L)
+      growth_max_label := .format_metric_value(
+        growth_multiplier_max,
+        digits = 4L
+      )
     ]
     fn_metrics[,
       confidence_label_fmt := gsub("_", " ", confidence_label, fixed = TRUE)
@@ -2007,10 +2206,13 @@ build_analysis_markdown <- function(results) {
       fn_name
     )][1L]
 
-    complexity_dist <- fn_metrics[, .(
-      function_count = .N,
-      runtime_share = sum(relative_impact, na.rm = TRUE)
-    ), by = best_class]
+    complexity_dist <- fn_metrics[,
+      .(
+        function_count = .N,
+        runtime_share = sum(relative_impact, na.rm = TRUE)
+      ),
+      by = best_class
+    ]
     complexity_dist[,
       complexity_rank := match(
         best_class,
@@ -2038,10 +2240,17 @@ build_analysis_markdown <- function(results) {
     )]
 
     runtime_dist <- fn_metrics[, .(fn_name, relative_impact, bottleneck_score)]
-    data.table::setorder(runtime_dist, -relative_impact, -bottleneck_score, fn_name)
+    data.table::setorder(
+      runtime_dist,
+      -relative_impact,
+      -bottleneck_score,
+      fn_name
+    )
     runtime_dist[, impact_label := sprintf("%.1f%%", 100 * relative_impact)]
     runtime_dist[, impact_bar := .build_ascii_bar(relative_impact, width = 24L)]
-    runtime_dist[, score_label := .format_metric_value(bottleneck_score, digits = 4L)]
+    runtime_dist[,
+      score_label := .format_metric_value(bottleneck_score, digits = 4L)
+    ]
 
     runtime_dist_matrix_dt <- runtime_dist[, .(
       Function = fn_name,
@@ -2065,7 +2274,10 @@ build_analysis_markdown <- function(results) {
         "- %s: class %s, score %s, impact %s, flags %s.",
         .sanitize_plaintext_cell(bottleneck_candidates$fn_name),
         .sanitize_plaintext_cell(bottleneck_candidates$best_class),
-        .format_metric_value(bottleneck_candidates$bottleneck_score, digits = 4L),
+        .format_metric_value(
+          bottleneck_candidates$bottleneck_score,
+          digits = 4L
+        ),
         bottleneck_candidates$impact_label,
         .sanitize_plaintext_cell(bottleneck_candidates$diagnostic_flags)
       )
@@ -2133,7 +2345,10 @@ build_analysis_markdown <- function(results) {
         as.character(stage_summary$high_volatility_function_count[[1L]]),
         sprintf("%.1f%%", 100 * stage_summary$volatility_share[[1L]]),
         as.character(stage_summary$critical_bottleneck_count[[1L]]),
-        .format_metric_value(stage_summary$runtime_concentration_hhi[[1L]], digits = 5L)
+        .format_metric_value(
+          stage_summary$runtime_concentration_hhi[[1L]],
+          digits = 5L
+        )
       )
     )
 
@@ -2151,7 +2366,10 @@ build_analysis_markdown <- function(results) {
       Value = c(
         as.character(stage_summary$function_count[[1L]]),
         stage_summary$max_complexity[[1L]],
-        .format_metric_value(stage_summary$stage_runtime_total_s[[1L]], digits = 5L),
+        .format_metric_value(
+          stage_summary$stage_runtime_total_s[[1L]],
+          digits = 5L
+        ),
         sprintf("%.1f%%", 100 * stage_summary$stage_runtime_proportion[[1L]]),
         sprintf("%.1f%%", stage_summary$expensive_function_pct[[1L]]),
         .format_metric_value(stage_summary$stage_risk_score[[1L]], digits = 4L),
@@ -2163,7 +2381,10 @@ build_analysis_markdown <- function(results) {
         sprintf(
           "%s (score %s)",
           primary_bottleneck_row$fn_name[[1L]],
-          .format_metric_value(primary_bottleneck_row$bottleneck_score[[1L]], digits = 4L)
+          .format_metric_value(
+            primary_bottleneck_row$bottleneck_score[[1L]],
+            digits = 4L
+          )
         )
       )
     )
@@ -2182,8 +2403,12 @@ build_analysis_markdown <- function(results) {
       sprintf(
         "- Optimize first: %s because %s; expected impact %s.",
         .sanitize_plaintext_cell(primary_bottleneck_row$fn_name[[1L]]),
-        .sanitize_plaintext_cell(primary_bottleneck_row$optimization_reason[[1L]]),
-        .sanitize_plaintext_cell(primary_bottleneck_row$expected_impact_label[[1L]])
+        .sanitize_plaintext_cell(primary_bottleneck_row$optimization_reason[[
+          1L
+        ]]),
+        .sanitize_plaintext_cell(primary_bottleneck_row$expected_impact_label[[
+          1L
+        ]])
       )
     )
   } else {
@@ -2251,7 +2476,11 @@ build_analysis_markdown <- function(results) {
       Value = c("N/A", "N/A")
     )
     stage_kpi_matrix_dt <- data.table::data.table(
-      KPI = c("Total functions benchmarked", "Dominant complexity class", "Stage risk score"),
+      KPI = c(
+        "Total functions benchmarked",
+        "Dominant complexity class",
+        "Stage risk score"
+      ),
       Value = c("0", "unknown", "0")
     )
     stage_narrative_lines <- c(
@@ -2410,12 +2639,21 @@ build_analysis_markdown <- function(results) {
 
   summary_dt[is.na(function_count), function_count := 0L]
   summary_dt[is.na(max_complexity), max_complexity := "unknown"]
-  summary_dt[is.na(max_complexity_rank), max_complexity_rank := .complexity_order[["unknown"]]]
+  summary_dt[
+    is.na(max_complexity_rank),
+    max_complexity_rank := .complexity_order[["unknown"]]
+  ]
   summary_dt[is.na(stage_runtime_proportion), stage_runtime_proportion := 0]
   summary_dt[is.na(stage_runtime_total_s), stage_runtime_total_s := 0]
   summary_dt[is.na(stage_risk_score), stage_risk_score := 0]
-  summary_dt[is.na(low_confidence_function_count), low_confidence_function_count := 0L]
-  summary_dt[is.na(high_volatility_function_count), high_volatility_function_count := 0L]
+  summary_dt[
+    is.na(low_confidence_function_count),
+    low_confidence_function_count := 0L
+  ]
+  summary_dt[
+    is.na(high_volatility_function_count),
+    high_volatility_function_count := 0L
+  ]
   summary_dt[is.na(critical_bottleneck_count), critical_bottleneck_count := 0L]
   summary_dt[is.na(confidence_low_share), confidence_low_share := 0]
   summary_dt[is.na(volatility_share), volatility_share := 0]
@@ -2445,7 +2683,13 @@ build_analysis_markdown <- function(results) {
   )
 
   top_score_dt <- metrics$function_metrics[
-    order(stage, -bottleneck_score, -relative_impact, -complexity_rank, fn_name),
+    order(
+      stage,
+      -bottleneck_score,
+      -relative_impact,
+      -complexity_rank,
+      fn_name
+    ),
     .SD[1L],
     by = stage,
     .SDcols = c("fn_name", "best_class", "bottleneck_score", "priority_tier")
@@ -2461,7 +2705,10 @@ build_analysis_markdown <- function(results) {
   summary_dt <- top_score_dt[summary_dt, on = "stage"]
 
   summary_dt[is.na(highest_complexity_fn), highest_complexity_fn := "N/A"]
-  summary_dt[is.na(highest_complexity_class), highest_complexity_class := "unknown"]
+  summary_dt[
+    is.na(highest_complexity_class),
+    highest_complexity_class := "unknown"
+  ]
   summary_dt[is.na(top_runtime_fn), top_runtime_fn := "N/A"]
   summary_dt[is.na(top_runtime_share), top_runtime_share := 0]
   summary_dt[is.na(top_score_fn), top_score_fn := "N/A"]
@@ -2470,12 +2717,22 @@ build_analysis_markdown <- function(results) {
   summary_dt[is.na(top_priority), top_priority := "P2"]
 
   summary_dt[, pipeline := .resolve_stage_report_label(stage)]
-  summary_dt[, runtime_share_label := sprintf("%.1f%%", 100 * stage_runtime_proportion)]
-  summary_dt[, stage_risk_label := .format_metric_value(stage_risk_score, digits = 4L)]
-  summary_dt[, top_runtime_share_label := sprintf("%.1f%%", 100 * top_runtime_share)]
+  summary_dt[,
+    runtime_share_label := sprintf("%.1f%%", 100 * stage_runtime_proportion)
+  ]
+  summary_dt[,
+    stage_risk_label := .format_metric_value(stage_risk_score, digits = 4L)
+  ]
+  summary_dt[,
+    top_runtime_share_label := sprintf("%.1f%%", 100 * top_runtime_share)
+  ]
   summary_dt[, top_score_label := .format_metric_value(top_score, digits = 4L)]
-  summary_dt[, low_conf_share_label := sprintf("%.1f%%", 100 * confidence_low_share)]
-  summary_dt[, volatility_share_label := sprintf("%.1f%%", 100 * volatility_share)]
+  summary_dt[,
+    low_conf_share_label := sprintf("%.1f%%", 100 * confidence_low_share)
+  ]
+  summary_dt[,
+    volatility_share_label := sprintf("%.1f%%", 100 * volatility_share)
+  ]
 
   summary_matrix_dt <- summary_dt[, .(
     Pipeline = pipeline,
@@ -2495,24 +2752,37 @@ build_analysis_markdown <- function(results) {
     `Runtime share` = runtime_share_label
   )]
 
-  cross_stage_rank_dt <- summary_dt[order(
-    -stage_runtime_proportion,
-    -stage_risk_score,
-    -max_complexity_rank,
-    pipeline
-  ), .(
-    Pipeline = pipeline,
-    `Runtime share` = runtime_share_label,
-    `Stage risk score` = stage_risk_label,
-    `Dominant complexity` = max_complexity,
-    `Top runtime driver` = sprintf("%s (%s)", top_runtime_fn, top_runtime_share_label),
-    `Top composite bottleneck` = sprintf("%s (%s)", top_score_fn, top_score_label),
-    `Low-confidence share` = low_conf_share_label,
-    `High-volatility share` = volatility_share_label,
-    `Critical bottlenecks` = as.character(critical_bottleneck_count)
-  )]
+  cross_stage_rank_dt <- summary_dt[
+    order(
+      -stage_runtime_proportion,
+      -stage_risk_score,
+      -max_complexity_rank,
+      pipeline
+    ),
+    .(
+      Pipeline = pipeline,
+      `Runtime share` = runtime_share_label,
+      `Stage risk score` = stage_risk_label,
+      `Dominant complexity` = max_complexity,
+      `Top runtime driver` = sprintf(
+        "%s (%s)",
+        top_runtime_fn,
+        top_runtime_share_label
+      ),
+      `Top composite bottleneck` = sprintf(
+        "%s (%s)",
+        top_score_fn,
+        top_score_label
+      ),
+      `Low-confidence share` = low_conf_share_label,
+      `High-volatility share` = volatility_share_label,
+      `Critical bottlenecks` = as.character(critical_bottleneck_count)
+    )
+  ]
 
-  stage_bottleneck_matrix_dt <- if ("stage_bottleneck_matrix" %in% names(metrics)) {
+  stage_bottleneck_matrix_dt <- if (
+    "stage_bottleneck_matrix" %in% names(metrics)
+  ) {
     data.table::copy(metrics$stage_bottleneck_matrix)
   } else {
     data.table::data.table()
@@ -2528,9 +2798,21 @@ build_analysis_markdown <- function(results) {
     ]
     stage_bottleneck_matrix_render_dt <- stage_bottleneck_matrix_dt[, .(
       Pipeline = pipeline,
-      `Runtime driver` = sprintf("%s (%s)", top_runtime_fn, top_runtime_share_label),
-      `Asymptotic driver` = sprintf("%s (%s)", top_complexity_fn, top_complexity_class),
-      `Composite-score driver` = sprintf("%s (%s)", top_score_fn, top_score_label),
+      `Runtime driver` = sprintf(
+        "%s (%s)",
+        top_runtime_fn,
+        top_runtime_share_label
+      ),
+      `Asymptotic driver` = sprintf(
+        "%s (%s)",
+        top_complexity_fn,
+        top_complexity_class
+      ),
+      `Composite-score driver` = sprintf(
+        "%s (%s)",
+        top_score_fn,
+        top_score_label
+      ),
       Priority = top_priority_tier,
       `Stage risk score` = .format_metric_value(stage_risk_score, digits = 4L),
       `Low-confidence fns` = as.character(low_confidence_function_count),
@@ -2558,7 +2840,9 @@ build_analysis_markdown <- function(results) {
   if (nrow(global_top_dt) > 0L) {
     global_top_dt[, pipeline := .resolve_stage_report_label(stage)]
     global_top_dt[, impact_label := sprintf("%.1f%%", 100 * relative_impact)]
-    global_top_dt[, score_label := .format_metric_value(bottleneck_score, digits = 4L)]
+    global_top_dt[,
+      score_label := .format_metric_value(bottleneck_score, digits = 4L)
+    ]
     global_top_matrix_dt <- global_top_dt[, .(
       Rank = as.character(global_rank),
       Function = fn_name,
@@ -2700,14 +2984,23 @@ build_analysis_markdown <- function(results) {
     "N/A"
   }
 
-  runtime_stage_row <- summary_dt[order(-stage_runtime_proportion, -stage_risk_score)][1L]
-  asym_stage_row <- summary_dt[order(-max_complexity_rank, -stage_risk_score)][1L]
-  top_global_row <- if (nrow(global_top_dt) > 0L) global_top_dt[1L] else data.table::data.table(
-    fn_name = "N/A",
-    stage = "N/A",
-    score_label = "N/A",
-    impact_label = "0.0%"
-  )
+  runtime_stage_row <- summary_dt[order(
+    -stage_runtime_proportion,
+    -stage_risk_score
+  )][1L]
+  asym_stage_row <- summary_dt[order(-max_complexity_rank, -stage_risk_score)][
+    1L
+  ]
+  top_global_row <- if (nrow(global_top_dt) > 0L) {
+    global_top_dt[1L]
+  } else {
+    data.table::data.table(
+      fn_name = "N/A",
+      stage = "N/A",
+      score_label = "N/A",
+      impact_label = "0.0%"
+    )
+  }
 
   project_narrative_lines <- c(
     sprintf(

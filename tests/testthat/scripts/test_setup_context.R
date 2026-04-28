@@ -1,5 +1,5 @@
 options(
-  whep.run_post_processing_pipeline.auto = FALSE
+  whep.run_postpro_pipeline.auto = FALSE
 )
 
 source(
@@ -14,8 +14,8 @@ source(
 source(
   here::here(
     "r",
-    "2-post_processing_pipeline",
-    "25-post_processing_diagnostics.R"
+    "2-postpro_pipeline",
+    "25-postpro_diagnostics.R"
   ),
   echo = FALSE
 )

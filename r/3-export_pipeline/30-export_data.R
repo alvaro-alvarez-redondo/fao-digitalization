@@ -1,5 +1,5 @@
 # script: 30-export_data.r
-# description: detect post-processing layer tables and export the harmonized
+# description: detect post-processing layer tables and export the harmonize
 # layer as a deterministic processed-data workbook using a high-performance
 # C-based writer.
 
@@ -8,7 +8,7 @@
 #' an object-name-based workbook path. Callers must ensure the directory exists
 #' before writing (see `export_processed_data`).
 #' @param config Named configuration list with
-#' `paths$data$exports$processed`.
+#' `paths$data$export$processed`.
 #' @param object_name Character scalar object name.
 #' @return Character scalar path ending with `.xlsx`.
 #' @importFrom checkmate assert_list assert_string
@@ -19,8 +19,8 @@ build_processed_export_path <- function(config, object_name) {
 
   processed_dir <- get_config_string(
     config = config,
-    path = c("paths", "data", "exports", "processed"),
-    field_name = "config$paths$data$exports$processed"
+    path = c("paths", "data", "export", "processed"),
+    field_name = "config$paths$data$export$processed"
   )
 
   processed_dir <- here::here(processed_dir)
@@ -47,7 +47,7 @@ build_processed_export_path <- function(config, object_name) {
 collect_layer_tables_for_export <- function(
   data_objects = NULL,
   env = .GlobalEnv,
-  layer_suffixes = c("raw", "cleaned", "normalized", "harmonized")
+  layer_suffixes = c("raw", "clean", "normalize", "harmonize")
 ) {
   checkmate::assert_environment(env)
   checkmate::assert_character(
@@ -139,9 +139,9 @@ write_processed_table_fast <- function(data_dt, output_path, overwrite = TRUE) {
 }
 
 #' @title Export processed layer tables
-#' @description Detects all layer tables for traceability, then exports only the
+#' @description Detects all layer tables for traceability, then export only the
 #' layers listed in `config$export_config$export_layers` (default:
-#' `"harmonized"`) into `data/3-export/processed_data` using the
+#' `"harmonize"`) into `data/3-export/processed_data` using the
 #' high-performance writer. Callers must ensure the processed-data export
 #' directory exists before calling this function (see `run_export_pipeline`).
 #' @param config Named configuration list.
@@ -169,7 +169,7 @@ export_processed_data <- function(
 
   export_layers <- config$export_config$export_layers
   if (is.null(export_layers)) {
-    export_layers <- c("harmonized")
+    export_layers <- c("harmonize")
   }
   checkmate::assert_character(export_layers, min.len = 1, any.missing = FALSE)
 

@@ -51,7 +51,7 @@ options(
   whep.run_pipeline.auto = FALSE,
   whep.run_general_pipeline.auto = FALSE,
   whep.run_import_pipeline.auto = FALSE,
-  whep.run_post_processing_pipeline.auto = FALSE,
+  whep.run_postpro_pipeline.auto = FALSE,
   whep.run_export_pipeline.auto = FALSE
 )
 
@@ -71,13 +71,13 @@ Core stage entry points used by the orchestrator:
 
 - `run_general_pipeline(dataset_name = get_pipeline_constants()$dataset_default_name)`
 - `run_import_pipeline(config)`
-- `run_post_processing_pipeline_batch(raw_dt, config, dataset_name, unit_column, value_column, product_column)`
+- `run_postpro_pipeline_batch(raw_dt, config, dataset_name, unit_column, value_column, product_column)`
 - `run_export_pipeline(config, data_objects = NULL, overwrite = TRUE, env = .GlobalEnv)`
 
 Auto-run wrappers:
 
 - `run_import_pipeline_auto(auto_run, env = .GlobalEnv)`
-- `run_post_processing_pipeline_auto(auto_run, env = .GlobalEnv)`
+- `run_postpro_pipeline_auto(auto_run, env = .GlobalEnv)`
 - `run_export_pipeline_auto(auto_run, env = .GlobalEnv)`
 
 Contract helpers:
@@ -93,7 +93,7 @@ Contract helpers:
   - `02-helpers.R`: shared utility functions
   - `run_general_pipeline.R`: stage bootstrap
 - `R/1-import_pipeline/`: file IO, reading, transforms, validation, import runner
-- `R/2-post_processing_pipeline/`: audit, post-processing utilities, rule engine, clean, standardize units, harmonize, diagnostics, post-processing runner
+- `R/2-postpro_pipeline/`: audit, post-processing utilities, rule engine, clean, standardize units, harmonize, diagnostics, post-processing runner
 - `R/3-export_pipeline/`: processed-data and unique-list exporters, export runner
 - `R/run_pipeline.R`: global orchestrator
 - `tests/testthat/R/`: deterministic `testthat` suites

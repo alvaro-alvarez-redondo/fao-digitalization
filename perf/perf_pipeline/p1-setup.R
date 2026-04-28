@@ -35,13 +35,13 @@ get_analysis_config <- function() {
     na_fraction = 0.2,
     dup_fraction = 0.1,
     rng_seed = 42L,
-    stages = c("0-general", "1-import", "2-post_processing", "3-export"),
+    stages = c("0-general", "1-import", "2-postpro", "3-export"),
     top_n_bottlenecks = 3L,
     output_dir = NULL,
     qs_path = file.path(
       "data",
-      "2-post_processing",
-      "post_processing_diagnostics",
+      "2-postpro",
+      "postpro_diagnostics",
       "perf_complete.qs"
     ),
     produce_plots = FALSE,
@@ -55,7 +55,7 @@ get_analysis_config <- function() {
 perf_pipeline_report_file_map <- c(
   "0-general" = "perf_0-general_pipeline.md",
   "1-import" = "perf_1-import_pipeline.md",
-  "2-post_processing" = "perf_2-post_processing_pipeline.md",
+  "2-postpro" = "perf_2-postpro_pipeline.md",
   "3-export" = "perf_3-export_pipeline.md"
 )
 
@@ -103,7 +103,7 @@ apply_perf_preset_to_report_filename <- function(filename, preset_name) {
 
 #' @title Get pipeline report file map
 #' @description Return the canonical stage-to-markdown filename mapping used by
-#'   performance reporting exports.
+#'   performance reporting export.
 #' @param preset_name Optional preset label used to namespace markdown
 #'   filenames.
 #' @return A named character vector where names are stage IDs and values are
@@ -285,24 +285,43 @@ infer_perf_preset_name <- function(cfg, default = "custom") {
   presets <- get_perf_run_presets()
   preset_names <- names(presets)
 
-  matches <- vapply(preset_names, function(name) {
-    preset_cfg <- presets[[name]]
+  matches <- vapply(
+    preset_names,
+    function(name) {
+      preset_cfg <- presets[[name]]
 
-    checks <- c(
-      identical(as.integer(cfg$input_sizes), as.integer(preset_cfg$input_sizes)),
-      identical(as.integer(cfg$n_reps), as.integer(preset_cfg$n_reps)),
-      identical(as.integer(cfg$n_year_cols), as.integer(preset_cfg$n_year_cols)),
-      identical(as.integer(cfg$rng_seed), as.integer(preset_cfg$rng_seed)),
-      isTRUE(all.equal(as.numeric(cfg$na_fraction), as.numeric(preset_cfg$na_fraction))),
-      isTRUE(all.equal(as.numeric(cfg$dup_fraction), as.numeric(preset_cfg$dup_fraction)))
-    )
+      checks <- c(
+        identical(
+          as.integer(cfg$input_sizes),
+          as.integer(preset_cfg$input_sizes)
+        ),
+        identical(as.integer(cfg$n_reps), as.integer(preset_cfg$n_reps)),
+        identical(
+          as.integer(cfg$n_year_cols),
+          as.integer(preset_cfg$n_year_cols)
+        ),
+        identical(as.integer(cfg$rng_seed), as.integer(preset_cfg$rng_seed)),
+        isTRUE(all.equal(
+          as.numeric(cfg$na_fraction),
+          as.numeric(preset_cfg$na_fraction)
+        )),
+        isTRUE(all.equal(
+          as.numeric(cfg$dup_fraction),
+          as.numeric(preset_cfg$dup_fraction)
+        ))
+      )
 
-    if (!is.null(preset_cfg$stages)) {
-      checks <- c(checks, identical(as.character(cfg$stages), as.character(preset_cfg$stages)))
-    }
+      if (!is.null(preset_cfg$stages)) {
+        checks <- c(
+          checks,
+          identical(as.character(cfg$stages), as.character(preset_cfg$stages))
+        )
+      }
 
-    all(checks)
-  }, logical(1))
+      all(checks)
+    },
+    logical(1)
+  )
 
   matched <- preset_names[matches]
   if (length(matched) == 1L) {

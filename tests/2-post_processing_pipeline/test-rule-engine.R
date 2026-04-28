@@ -1,20 +1,20 @@
-# tests/2-post_processing_pipeline/test-rule-engine.R
-# unit tests for R/2-post_processing_pipeline/23-post_processing_rule_engine.R
+# tests/2-postpro_pipeline/test-rule-engine.R
+# unit tests for R/2-postpro_pipeline/23-postpro_rule_engine.R
 
 source(here::here("tests", "test_helper.R"), echo = FALSE)
 source(
   here::here(
     "r",
-    "2-post_processing_pipeline",
-    "21-post_processing_utilities.R"
+    "2-postpro_pipeline",
+    "21-postpro_utilities.R"
   ),
   echo = FALSE
 )
 source(
   here::here(
     "r",
-    "2-post_processing_pipeline",
-    "23-post_processing_rule_engine.R"
+    "2-postpro_pipeline",
+    "23-postpro_rule_engine.R"
   ),
   echo = FALSE
 )
@@ -631,7 +631,7 @@ testthat::test_that("apply_conditional_rule_group matches concatenated notes tar
   testthat::expect_equal(result$data$hemisphere[[1]], "north")
 })
 
-testthat::test_that("apply_conditional_rule_group does not audit normalized-equivalent no-op matches", {
+testthat::test_that("apply_conditional_rule_group does not audit normalize-equivalent no-op matches", {
   dataset_dt <- data.table::data.table(
     footnotes = "__australian mandate__"
   )
@@ -1294,7 +1294,7 @@ testthat::test_that("apply_footnote_rules works with harmonize stage", {
   footnote_rules <- data.table::data.table(
     column_source = "footnotes",
     value_source_raw = "harmonize me",
-    value_source = "harmonized",
+    value_source = "harmonize",
     column_target = "footnotes",
     value_target_raw = NA_character_,
     value_target = NA_character_
@@ -1309,11 +1309,11 @@ testthat::test_that("apply_footnote_rules works with harmonize stage", {
     execution_timestamp_utc = "2026-01-01T00:00:00Z"
   )
 
-  testthat::expect_equal(result$data$footnotes[[1]], "harmonized")
+  testthat::expect_equal(result$data$footnotes[[1]], "harmonize")
   testthat::expect_equal(result$audit$execution_stage[[1]], "harmonize")
 })
 
-testthat::test_that("apply_footnote_rules does not audit normalized-equivalent no-op matches", {
+testthat::test_that("apply_footnote_rules does not audit normalize-equivalent no-op matches", {
   dataset_dt <- data.table::data.table(
     product = "Wheat",
     footnotes = "__australian mandate__"
@@ -1539,7 +1539,10 @@ testthat::test_that("apply_footnote_rules matches concatenated notes target cond
     execution_timestamp_utc = "2026-01-01T00:00:00Z"
   )
 
-  testthat::expect_equal(result$data$notes[[1]], "borders: 1937; iia; matched-note")
+  testthat::expect_equal(
+    result$data$notes[[1]],
+    "borders: 1937; iia; matched-note"
+  )
   testthat::expect_true(is.na(result$data$footnotes[[1]]))
 })
 
@@ -1569,5 +1572,8 @@ testthat::test_that("__ANY__ target-condition skips append when note already exi
   )
 
   testthat::expect_equal(result$data$notes[[1]], "composition: unspec")
-  testthat::expect_equal(result$data$notes[[2]], "quality: high; composition: unspec")
+  testthat::expect_equal(
+    result$data$notes[[2]],
+    "quality: high; composition: unspec"
+  )
 })

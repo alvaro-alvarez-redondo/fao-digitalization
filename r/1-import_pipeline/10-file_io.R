@@ -33,8 +33,8 @@ build_empty_file_metadata <- function() {
 #' @importFrom stringi stri_enc_isascii
 #' @examples
 #' file_paths_example <- c(
-#'   "1-import/10-raw_imports/crops_2020_sample.xlsx",
-#'   "1-import/10-raw_imports/livestock_2021_sample.xlsx"
+#'   "1-import/10-raw_import/crops_2020_sample.xlsx",
+#'   "1-import/10-raw_import/livestock_2021_sample.xlsx"
 #' )
 #' extract_file_metadata(file_paths_example)
 extract_file_metadata <- function(file_paths) {
@@ -48,14 +48,16 @@ extract_file_metadata <- function(file_paths) {
   is_ascii <- stringi::stri_enc_isascii(file_name)
 
   name_parts <- strsplit(file_name, "_", fixed = TRUE)
+  year_pattern <- get_pipeline_constants()$patterns$yearbook_token_4digit
   # extract yearbook and product in a single pass over name_parts to avoid
 
   # iterating twice (mirrors extract_yearbook / extract_product logic inline)
   metadata_pairs <- vapply(
     name_parts,
     function(parts) {
-      yb <- if (length(parts) >= 4) {
-        paste(parts[2:4], collapse = "_")
+      year_token_idx <- which(grepl(year_pattern, parts))[1]
+      yb <- if (length(parts) >= 2 && !is.na(year_token_idx)) {
+        paste(parts[2], parts[year_token_idx], sep = "_")
       } else {
         NA_character_
       }
@@ -104,7 +106,7 @@ extract_file_metadata <- function(file_paths) {
 #' @importFrom fs dir_ls
 #' @importFrom cli cli_warn
 #' @examples
-#' temp_import_folder <- tempfile("imports_")
+#' temp_import_folder <- tempfile("import_")
 #' fs::dir_create(temp_import_folder)
 #' fs::file_create(file.path(temp_import_folder, "crops_2020_sample.xlsx"))
 #' discover_files(temp_import_folder)
@@ -137,23 +139,23 @@ discover_files <- function(import_folder) {
 #' @description retrieve the raw import folder from a pipeline configuration list,
 #' validate configuration structure and target path, and delegate file discovery to
 #' `discover_files`.
-#' @param config named list containing `paths$data$imports$raw` as a character
+#' @param config named list containing `paths$data$import$raw` as a character
 #' scalar path to an existing directory.
 #' @return a data.table with discovered file metadata from `discover_files`.
 #' @importFrom checkmate check_list check_string check_directory_exists
 #' @importFrom cli cli_abort
 #' @examples
-#' temp_import_folder <- tempfile("imports_")
+#' temp_import_folder <- tempfile("import_")
 #' fs::dir_create(temp_import_folder)
-#' config_example <- list(paths = list(data = list(imports = list(raw = temp_import_folder))))
+#' config_example <- list(paths = list(data = list(import = list(raw = temp_import_folder))))
 #' discover_pipeline_files(config_example)
 discover_pipeline_files <- function(config) {
   assert_or_abort(checkmate::check_list(config, any.missing = FALSE))
 
-  import_folder <- config[["paths"]][["data"]][["imports"]][["raw"]]
+  import_folder <- config[["paths"]][["data"]][["import"]][["raw"]]
 
   if (is.null(import_folder)) {
-    cli::cli_abort("`config$paths$data$imports$raw` must be defined.")
+    cli::cli_abort("`config$paths$data$import$raw` must be defined.")
   }
 
   assert_or_abort(checkmate::check_string(import_folder, min.chars = 1))

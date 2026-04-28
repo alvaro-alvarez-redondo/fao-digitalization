@@ -10,7 +10,7 @@ options(
   whep.run_pipeline.auto = FALSE,
   whep.run_general_pipeline.auto = FALSE,
   whep.run_import_pipeline.auto = FALSE,
-  whep.run_post_processing_pipeline.auto = FALSE,
+  whep.run_postpro_pipeline.auto = FALSE,
   whep.run_export_pipeline.auto = FALSE,
   whep.checkpointing.enabled = FALSE
 )
@@ -25,7 +25,7 @@ source(
 # --- shared fixture builders ------------------------------------------------
 
 #' Build a temporary test directory and return its path.
-#' The directory is created and will be cleaned up when the test finishes.
+#' The directory is created and will be clean up when the test finishes.
 build_temp_dir <- function(pattern = "whep-test-") {
   dir_path <- tempfile(pattern)
   dir.create(dir_path, recursive = TRUE)
@@ -38,23 +38,41 @@ build_test_config <- function(root_dir = NULL) {
     root_dir <- build_temp_dir("whep-config-")
   }
 
-  raw_dir <- file.path(root_dir, "data", "1-import", "10-raw_imports")
-  cleaning_dir <- file.path(root_dir, "data", "1-import", "11-clean_imports")
+  constants <- get_pipeline_constants()
+
+  raw_dir <- file.path(root_dir, "data", "1-import", "10-raw_import")
+  cleaning_dir <- file.path(root_dir, "data", "1-import", "11-clean_import")
   standardization_dir <- file.path(
     root_dir,
     "data",
     "1-import",
-    "12-standardize_imports"
+    "12-standardize_import"
   )
   harmonization_dir <- file.path(
     root_dir,
     "data",
     "1-import",
-    "13-harmonize_imports"
+    "13-harmonize_import"
   )
   processed_dir <- file.path(root_dir, "data", "3-export", "processed_data")
   lists_dir <- file.path(root_dir, "data", "3-export", "lists")
-  audit_root_dir <- file.path(root_dir, "data", "2-post_processing")
+  audit_root_dir <- file.path(root_dir, "data", "2-postpro")
+  audit_dir <- file.path(
+    audit_root_dir,
+    constants$postpro$audit_dir_name
+  )
+  diagnostics_dir <- file.path(
+    audit_root_dir,
+    constants$postpro$diagnostics_dir_name
+  )
+  templates_dir <- file.path(
+    audit_root_dir,
+    constants$postpro$templates_dir_name
+  )
+  runtime_cache_dir <- file.path(
+    audit_root_dir,
+    constants$postpro$runtime_cache_dir_name
+  )
 
   dirs <- c(
     raw_dir,
@@ -63,7 +81,11 @@ build_test_config <- function(root_dir = NULL) {
     harmonization_dir,
     processed_dir,
     lists_dir,
-    audit_root_dir
+    audit_root_dir,
+    audit_dir,
+    diagnostics_dir,
+    templates_dir,
+    runtime_cache_dir
   )
   for (d in dirs) {
     dir.create(d, recursive = TRUE, showWarnings = FALSE)
@@ -73,24 +95,32 @@ build_test_config <- function(root_dir = NULL) {
     project_root = root_dir,
     paths = list(
       data = list(
-        imports = list(
+        import = list(
           raw = raw_dir,
           cleaning = cleaning_dir,
           standardization = standardization_dir,
           harmonization = harmonization_dir
         ),
-        exports = list(
+        export = list(
           processed = processed_dir,
           lists = lists_dir
         ),
         audit = list(
           audit_root_dir = audit_root_dir,
-          audit_dir = file.path(audit_root_dir, "data_audit"),
-          audit_file_name = "whep_data_raw_audit.xlsx",
+          audit_dir = audit_dir,
+          diagnostics_dir = diagnostics_dir,
+          templates_dir = templates_dir,
+          runtime_cache_dir = runtime_cache_dir,
+          audit_file_name = paste0(
+            constants$dataset_default_name,
+            constants$postpro$data_validation_audit_suffix
+          ),
           audit_file_path = file.path(
-            audit_root_dir,
-            "data_audit",
-            "whep_data_raw_audit.xlsx"
+            audit_dir,
+            paste0(
+              constants$dataset_default_name,
+              constants$postpro$data_validation_audit_suffix
+            )
           )
         )
       )
@@ -135,8 +165,8 @@ build_test_config <- function(root_dir = NULL) {
         "notes",
         "footnotes"
       ),
-      layer_suffixes = c("_raw", "_cleaned", "_normalized", "_harmonized"),
-      export_layers = c("harmonized"),
+      layer_suffixes = c("_raw", "_clean", "_normalize", "_harmonize"),
+      export_layers = c("harmonize"),
       styles = list(
         error_highlight = list(fontColour = "#9C0006", bgFill = "#FFC7CE")
       )

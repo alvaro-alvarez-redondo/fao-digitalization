@@ -49,12 +49,12 @@ validate_rule_schema <- function(rule_dt, required_columns, rule_label) {
 #' `unit_offset`) while preserving
 #' backward compatibility for input files using legacy headers.
 #' @param conversion_dt conversion rules data.table/data.frame.
-#' @return data.table with normalized internal column names.
+#' @return data.table with normalize internal column names.
 #' @importFrom checkmate assert_data_frame
 normalize_conversion_rule_columns <- function(conversion_dt) {
   checkmate::assert_data_frame(conversion_dt, min.rows = 0)
 
-  normalized_conversion_dt <- data.table::copy(data.table::as.data.table(
+  normalize_conversion_dt <- data.table::copy(data.table::as.data.table(
     conversion_dt
   ))
 
@@ -72,29 +72,29 @@ normalize_conversion_rule_columns <- function(conversion_dt) {
 
   legacy_names <- names(rename_mapping)
   available_legacy <- legacy_names[
-    legacy_names %in% names(normalized_conversion_dt)
+    legacy_names %in% names(normalize_conversion_dt)
   ]
 
   if (length(available_legacy) > 0L) {
     target_names <- unname(rename_mapping[available_legacy])
-    rename_mask <- !target_names %in% names(normalized_conversion_dt)
+    rename_mask <- !target_names %in% names(normalize_conversion_dt)
 
     if (any(rename_mask)) {
       data.table::setnames(
-        normalized_conversion_dt,
+        normalize_conversion_dt,
         old = available_legacy[rename_mask],
         new = target_names[rename_mask]
       )
     }
   }
 
-  return(normalized_conversion_dt)
+  return(normalize_conversion_dt)
 }
 
 #' @title Ensure standardize-units template exists
-#' @description Creates `data/2-post_processing/templates` (via configured
-#' audit root) when missing and initializes `standardize_units_template.xlsx`
-#' with required columns when absent.
+#' @description Creates `data/2-postpro/templates` when
+#' missing and initializes `standardize_units_template.xlsx` with required
+#' columns when absent.
 #' @param config Named configuration list.
 #' @return Character scalar template file path.
 #' @importFrom checkmate assert_list assert_string assert_directory_exists
@@ -105,16 +105,19 @@ normalize_conversion_rule_columns <- function(conversion_dt) {
 ensure_standardize_template_exists <- function(config) {
   checkmate::assert_list(config, min.len = 1)
   checkmate::assert_string(
-    config$paths$data$audit$audit_root_dir,
+    config$paths$data$audit$templates_dir,
     min.chars = 1
   )
 
-  templates_dir <- fs::path(config$paths$data$audit$audit_root_dir, "templates")
+  templates_dir <- config$paths$data$audit$templates_dir
 
   ensure_directories_exist(templates_dir, recurse = TRUE)
   checkmate::assert_directory_exists(templates_dir)
 
-  template_path <- fs::path(templates_dir, "standardize_units_template.xlsx")
+  template_path <- fs::path(
+    templates_dir,
+    get_pipeline_constants()$postpro$standardize_units_template_file_name
+  )
 
   if (!file.exists(template_path)) {
     template_dt <- data.table::data.table(
@@ -161,18 +164,24 @@ read_standardize_rule_workbook <- function(
   )
 
   workbook_sheet_names <- readxl::excel_sheets(rule_path)
-  normalized_excluded <- normalize_string(excluded_sheet_names)
+  normalize_excluded <- normalize_string(excluded_sheet_names)
 
   selected_sheet_names <- workbook_sheet_names[
-    !(normalize_string(workbook_sheet_names) %in% normalized_excluded)
+    !(normalize_string(workbook_sheet_names) %in% normalize_excluded)
   ]
 
   if (length(selected_sheet_names) == 0L) {
     cli::cli_abort(c(
       "No worksheets available for standardization after exclusions.",
       "x" = "file: {.file {rule_path}}",
-      "x" = paste0("excluded sheets: ", paste(excluded_sheet_names, collapse = ", ")),
-      "x" = paste0("available sheets: ", paste(workbook_sheet_names, collapse = ", "))
+      "x" = paste0(
+        "excluded sheets: ",
+        paste(excluded_sheet_names, collapse = ", ")
+      ),
+      "x" = paste0(
+        "available sheets: ",
+        paste(workbook_sheet_names, collapse = ", ")
+      )
     ))
   }
 
@@ -201,8 +210,14 @@ read_standardize_rule_workbook <- function(
     cli::cli_abort(c(
       "No worksheets with matching standardization columns found.",
       "x" = "file: {.file {rule_path}}",
-      "x" = paste0("required columns: ", paste(required_columns, collapse = ", ")),
-      "x" = paste0("selected sheets: ", paste(selected_sheet_names, collapse = ", "))
+      "x" = paste0(
+        "required columns: ",
+        paste(required_columns, collapse = ", ")
+      ),
+      "x" = paste0(
+        "selected sheets: ",
+        paste(selected_sheet_names, collapse = ", ")
+      )
     ))
   }
 
@@ -220,7 +235,7 @@ read_standardize_rule_workbook <- function(
 
 #' @title Read all standardize rule Excel files
 #' @description Discovers all Excel files in
-#' `config$paths$data$imports$standardization` and reads each file
+#' `config$paths$data$import$standardization` and reads each file
 #' independently.
 #' @param config named configuration list.
 #' @return named list with `rules` and `source_paths`.
@@ -231,15 +246,15 @@ read_standardize_rule_workbook <- function(
 read_all_standardize_rule_files <- function(config) {
   checkmate::assert_list(config, min.len = 1)
   checkmate::assert_string(
-    config$paths$data$imports$standardization,
+    config$paths$data$import$standardization,
     min.chars = 1
   )
 
   excluded_sheet_names <-
-    get_pipeline_constants()$post_processing$standardization$excluded_sheet_names
+    get_pipeline_constants()$postpro$standardization$excluded_sheet_names
   checkmate::assert_character(excluded_sheet_names, any.missing = FALSE)
 
-  standardization_dir <- config$paths$data$imports$standardization
+  standardization_dir <- config$paths$data$import$standardization
   ensure_directories_exist(standardization_dir, recurse = TRUE)
   checkmate::assert_directory_exists(standardization_dir)
 
@@ -314,14 +329,18 @@ validate_conversion_rules <- function(conversion_dt) {
     "standardization conversion"
   )
 
-  duplicate_rows <- conversion_dt[, .N, by = .(product_key, unit_source)][N > 1L]
+  duplicate_rows <- conversion_dt[, .N, by = .(product_key, unit_source)][
+    N > 1L
+  ]
   if (nrow(duplicate_rows) > 0L) {
     cli::cli_abort(
       "conversion rules contain duplicate {.val (product_key, unit_source)} definitions"
     )
   }
 
-  unit_multiplier_num <- suppressWarnings(as.numeric(conversion_dt$unit_multiplier))
+  unit_multiplier_num <- suppressWarnings(as.numeric(
+    conversion_dt$unit_multiplier
+  ))
   unit_offset_num <- suppressWarnings(as.numeric(conversion_dt$unit_offset))
 
   if (any(!is.finite(unit_multiplier_num))) {
@@ -341,10 +360,14 @@ validate_conversion_rules <- function(conversion_dt) {
     unit_match_key = normalize_string(conversion_dt$unit_target)
   ))
 
-  data.table::setkey(source_pairs, product_match_key, unit_match_key)
-  data.table::setkey(target_pairs, product_match_key, unit_match_key)
+  # Exclude "all products" from chained rule detection since it serves as fallback
+  source_pairs_specific <- source_pairs[product_match_key != "all products"]
+  target_pairs_specific <- target_pairs[product_match_key != "all products"]
 
-  chained_rules <- source_pairs[target_pairs, nomatch = 0L]
+  data.table::setkey(source_pairs_specific, product_match_key, unit_match_key)
+  data.table::setkey(target_pairs_specific, product_match_key, unit_match_key)
+
+  chained_rules <- source_pairs_specific[target_pairs_specific, nomatch = 0L]
 
   if (nrow(chained_rules) > 0L) {
     cli::cli_abort(
@@ -384,13 +407,18 @@ prepare_standardize_rules <- function(raw_rules_dt) {
 
 #' @title Apply prepared standardization rules
 #' @description Applies prepared conversion rules to dataset values using keyed
-#' vectorized joins.
+#' vectorized joins with fallback to "all products" rules. Conversion lookup
+#' occurs in two stages: (1) match on specific (product, unit_source), and (2)
+#' if no match found, attempt match on ("all products", unit_source). This
+#' allows general conversions to apply to all products unless overridden by
+#' product-specific rules.
 #' @param mapped_dt data.table/data.frame to standardize.
 #' @param prepared_rules_dt Prepared rule table from `prepare_standardize_rules()`.
 #' @param unit_column character scalar unit column name.
 #' @param value_column character scalar numeric value column name.
 #' @param product_column character scalar product column name.
-#' @return named list with `data`, `matched_count`, and `unmatched_count`.
+#' @return named list with `data`, `matched_count`, `unmatched_count`, and
+#' `matched_rule_counts`.
 #' @importFrom checkmate assert_data_frame assert_string
 apply_standardize_rules <- function(
   mapped_dt,
@@ -406,24 +434,24 @@ apply_standardize_rules <- function(
   checkmate::assert_string(product_column, min.chars = 1)
 
   if (data.table::is.data.table(mapped_dt)) {
-    normalized_dt <- data.table::copy(mapped_dt)
+    normalize_dt <- data.table::copy(mapped_dt)
   } else {
-    normalized_dt <- data.table::as.data.table(mapped_dt)
+    normalize_dt <- data.table::as.data.table(mapped_dt)
   }
 
-  if (!unit_column %in% names(normalized_dt)) {
+  if (!unit_column %in% names(normalize_dt)) {
     cli::cli_abort("unit column {.val {unit_column}} is missing")
   }
-  if (!value_column %in% names(normalized_dt)) {
+  if (!value_column %in% names(normalize_dt)) {
     cli::cli_abort("value column {.val {value_column}} is missing")
   }
-  if (!product_column %in% names(normalized_dt)) {
+  if (!product_column %in% names(normalize_dt)) {
     cli::cli_abort("product column {.val {product_column}} is missing")
   }
 
-  numeric_values <- coerce_numeric_safe(normalized_dt[[value_column]])
+  numeric_values <- coerce_numeric_safe(normalize_dt[[value_column]])
 
-  raw_value_input <- normalized_dt[[value_column]]
+  raw_value_input <- normalize_dt[[value_column]]
   blank_string_mask <- rep(FALSE, length(raw_value_input))
 
   if (is.character(raw_value_input)) {
@@ -436,7 +464,7 @@ apply_standardize_rules <- function(
     is.na(numeric_values)
 
   if (any(invalid_mask)) {
-    invalid_values <- unique(as.character(normalized_dt[[value_column]][
+    invalid_values <- unique(as.character(normalize_dt[[value_column]][
       invalid_mask
     ]))
     cli::cli_abort(
@@ -444,30 +472,98 @@ apply_standardize_rules <- function(
     )
   }
 
-  unit_keys <- normalize_string(normalized_dt[[unit_column]])
+  unit_keys <- normalize_string(normalize_dt[[unit_column]])
 
   if (nrow(prepared_rules_dt) == 0L) {
-    normalized_dt[, (value_column) := numeric_values]
+    normalize_dt[, (value_column) := numeric_values]
+
+    empty_matched_rule_counts_dt <- data.table::data.table(
+      rule_product_match_key = character(),
+      applied_product_match_key = character(),
+      unit_source_key = character(),
+      affected_rows = integer()
+    )
 
     return(list(
-      data = normalized_dt,
+      data = normalize_dt,
       matched_count = 0L,
-      unmatched_count = as.integer(sum(!is.na(unit_keys) & nzchar(unit_keys)))
+      unmatched_count = as.integer(sum(!is.na(unit_keys) & nzchar(unit_keys))),
+      matched_rule_counts = empty_matched_rule_counts_dt
     ))
   }
 
-  product_keys <- normalize_string(normalized_dt[[product_column]])
+  product_keys <- normalize_string(normalize_dt[[product_column]])
 
+  # Stage 1: Try specific product matches
   join_input <- data.table::data.table(
     product_match_key = product_keys,
     unit_source_key = unit_keys
   )
   join_result <- prepared_rules_dt[
     join_input,
-    .(unit_target, unit_multiplier_num, unit_offset_num)
+    .(
+      product_match_key,
+      unit_source_key,
+      unit_target,
+      unit_multiplier_num,
+      unit_offset_num
+    )
   ]
 
   is_matched <- !is.na(join_result$unit_target)
+
+  # Stage 2: For unmatched rows with valid units, try "all products" fallback
+  unmatched_with_unit <- !is_matched & !is.na(unit_keys) & nzchar(unit_keys)
+  if (any(unmatched_with_unit)) {
+    unmatched_idx <- which(unmatched_with_unit)
+
+    fallback_join_input <- data.table::data.table(
+      product_match_key = "all products",
+      unit_source_key = unit_keys[unmatched_idx]
+    )
+
+    fallback_result <- prepared_rules_dt[
+      fallback_join_input,
+      .(
+        product_match_key,
+        unit_source_key,
+        unit_target,
+        unit_multiplier_num,
+        unit_offset_num
+      )
+    ]
+
+    matched_fallback <- !is.na(fallback_result$unit_target)
+
+    if (any(matched_fallback)) {
+      fallback_matched_idx <- unmatched_idx[matched_fallback]
+
+      join_result[
+        fallback_matched_idx,
+        product_match_key := fallback_result$product_match_key[matched_fallback]
+      ]
+      join_result[
+        fallback_matched_idx,
+        unit_source_key := fallback_result$unit_source_key[matched_fallback]
+      ]
+      join_result[
+        fallback_matched_idx,
+        unit_target := fallback_result$unit_target[matched_fallback]
+      ]
+      join_result[
+        fallback_matched_idx,
+        unit_multiplier_num := fallback_result$unit_multiplier_num[
+          matched_fallback
+        ]
+      ]
+      join_result[
+        fallback_matched_idx,
+        unit_offset_num := fallback_result$unit_offset_num[matched_fallback]
+      ]
+
+      is_matched[fallback_matched_idx] <- TRUE
+    }
+  }
 
   if (any(is_matched)) {
     matched_index <- which(is_matched)
@@ -478,21 +574,44 @@ apply_standardize_rules <- function(
       join_result$unit_offset_num[matched_index]
 
     data.table::set(
-      normalized_dt,
+      normalize_dt,
       i = matched_index,
       j = unit_column,
       value = join_result$unit_target[matched_index]
     )
   }
 
-  normalized_dt[, (value_column) := numeric_values]
+  normalize_dt[, (value_column) := numeric_values]
 
   unmatched_count <- sum(!is_matched & !is.na(unit_keys) & nzchar(unit_keys))
 
+  matched_rule_counts_dt <- if (any(is_matched)) {
+    data.table::data.table(
+      rule_product_match_key = join_result$product_match_key[is_matched],
+      applied_product_match_key = product_keys[is_matched],
+      unit_source_key = join_result$unit_source_key[is_matched]
+    )[,
+      .(affected_rows = .N),
+      by = .(
+        rule_product_match_key,
+        applied_product_match_key,
+        unit_source_key
+      )
+    ]
+  } else {
+    data.table::data.table(
+      rule_product_match_key = character(),
+      applied_product_match_key = character(),
+      unit_source_key = character(),
+      affected_rows = integer()
+    )
+  }
+
   return(list(
-    data = normalized_dt,
+    data = normalize_dt,
     matched_count = as.integer(sum(is_matched)),
-    unmatched_count = as.integer(unmatched_count)
+    unmatched_count = as.integer(unmatched_count),
+    matched_rule_counts = matched_rule_counts_dt
   ))
 }
 
@@ -546,26 +665,35 @@ aggregate_duplicate_groups <- function(dt, group_cols, value_column) {
       return(dt[, .(value = sum(value)), by = group_cols])
     }
 
-    aggregated_dt <- dt[, .(agg_value_tmp_ = sum(get(value_column))), by = group_cols]
+    aggregated_dt <- dt[,
+      .(agg_value_tmp_ = sum(get(value_column))),
+      by = group_cols
+    ]
     data.table::setnames(aggregated_dt, "agg_value_tmp_", value_column)
 
     return(aggregated_dt)
   }
 
   if (identical(value_column, "value")) {
-    aggregated_dt <- dt[, .(
-      agg_value_tmp_ = sum(value, na.rm = TRUE),
-      non_na_count_tmp_ = sum(!is.na(value))
-    ), by = group_cols]
-  } else {
-    aggregated_dt <- dt[, {
-      values <- get(value_column)
-
+    aggregated_dt <- dt[,
       .(
-        agg_value_tmp_ = sum(values, na.rm = TRUE),
-        non_na_count_tmp_ = sum(!is.na(values))
-      )
-    }, by = group_cols]
+        agg_value_tmp_ = sum(value, na.rm = TRUE),
+        non_na_count_tmp_ = sum(!is.na(value))
+      ),
+      by = group_cols
+    ]
+  } else {
+    aggregated_dt <- dt[,
+      {
+        values <- get(value_column)
+
+        .(
+          agg_value_tmp_ = sum(values, na.rm = TRUE),
+          non_na_count_tmp_ = sum(!is.na(values))
+        )
+      },
+      by = group_cols
+    ]
   }
 
   aggregated_dt[non_na_count_tmp_ == 0L, agg_value_tmp_ := NA_real_]
@@ -696,7 +824,7 @@ extract_aggregated_rows <- function(dt, value_column = "value") {
 #' @description Creates and attaches standardized diagnostics payload to the
 #' standardized dataset.
 #' @param standardized_dt standardized data.table.
-#' @param cleaned_rows_count Integer number of input rows.
+#' @param clean_rows_count Integer number of input rows.
 #' @param matched_count Integer matched row count.
 #' @param unmatched_count Integer unmatched row count.
 #' @param rules_count Integer number of loaded rules.
@@ -709,7 +837,7 @@ extract_aggregated_rows <- function(dt, value_column = "value") {
 #'  assert_flag
 attach_standardize_diagnostics <- function(
   standardized_dt,
-  cleaned_rows_count,
+  clean_rows_count,
   matched_count,
   unmatched_count,
   rules_count,
@@ -719,7 +847,7 @@ attach_standardize_diagnostics <- function(
   rows_after_aggregation = NULL
 ) {
   checkmate::assert_data_frame(standardized_dt, min.rows = 0)
-  checkmate::assert_int(cleaned_rows_count, lower = 0)
+  checkmate::assert_int(clean_rows_count, lower = 0)
   checkmate::assert_int(matched_count, lower = 0)
   checkmate::assert_int(unmatched_count, lower = 0)
   checkmate::assert_int(rules_count, lower = 0)
@@ -734,7 +862,7 @@ attach_standardize_diagnostics <- function(
 
   diagnostics <- build_layer_diagnostics(
     layer_name = "standardize_units",
-    rows_in = cleaned_rows_count,
+    rows_in = clean_rows_count,
     rows_out = nrow(standardized_dt),
     audit_dt = diagnostics_audit_dt
   )
@@ -767,6 +895,131 @@ attach_standardize_diagnostics <- function(
   return(standardized_dt)
 }
 
+#' @title Build standardize layer audit table
+#' @description Creates a deterministic audit table aligned with the
+#' standardization workbook rule schema.
+#' @param layer_rules_dt Prepared standardization rule table.
+#' @param matched_rule_counts_dt Rule-level matched row counts keyed by
+#' `rule_product_match_key`, `applied_product_match_key`, and `unit_source_key`.
+#' @param source_paths Character vector of source rule file paths.
+#' @return `data.table` with standardize audit columns.
+#' @importFrom checkmate assert_data_frame assert_character
+build_standardize_layer_audit <- function(
+  layer_rules_dt,
+  matched_rule_counts_dt,
+  source_paths
+) {
+  checkmate::assert_data_frame(layer_rules_dt, min.rows = 0)
+  checkmate::assert_data_frame(matched_rule_counts_dt, min.rows = 0)
+  checkmate::assert_character(source_paths, any.missing = FALSE)
+
+  audit_columns <- c(
+    "affected_rows",
+    "rule_file_identifier",
+    "product_key",
+    "unit_source",
+    "unit_target",
+    "unit_multiplier",
+    "unit_offset"
+  )
+
+  if (nrow(layer_rules_dt) == 0L) {
+    empty_audit_dt <- data.table::data.table(
+      affected_rows = integer(),
+      rule_file_identifier = character(),
+      product_key = character(),
+      unit_source = character(),
+      unit_target = character(),
+      unit_multiplier = numeric(),
+      unit_offset = numeric()
+    )
+
+    return(empty_audit_dt[, ..audit_columns])
+  }
+
+  rules_dt <- data.table::as.data.table(data.table::copy(layer_rules_dt))
+  matched_counts_dt <- data.table::as.data.table(data.table::copy(
+    matched_rule_counts_dt
+  ))
+
+  if (!"source_rule_file" %in% names(rules_dt)) {
+    if (length(source_paths) > 0L) {
+      rules_dt[, source_rule_file := fs::path_file(source_paths[[1]])]
+    } else {
+      rules_dt[, source_rule_file := NA_character_]
+    }
+  }
+
+  if (!"source_rule_sheet" %in% names(rules_dt)) {
+    rules_dt[, source_rule_sheet := NA_character_]
+  }
+
+  if (!"product_match_key" %in% names(rules_dt)) {
+    rules_dt[, product_match_key := normalize_string(product_key)]
+  }
+
+  if (!"unit_source_key" %in% names(rules_dt)) {
+    rules_dt[, unit_source_key := normalize_string(unit_source)]
+  }
+
+  if (
+    !all(
+      c(
+        "rule_product_match_key",
+        "applied_product_match_key",
+        "unit_source_key"
+      ) %in%
+        names(matched_counts_dt)
+    )
+  ) {
+    matched_counts_dt <- data.table::data.table(
+      rule_product_match_key = character(),
+      applied_product_match_key = character(),
+      unit_source_key = character(),
+      affected_rows = integer()
+    )
+  }
+
+  if (!"affected_rows" %in% names(matched_counts_dt)) {
+    matched_counts_dt[, affected_rows := integer(.N)]
+  }
+
+  audit_matched_dt <- merge(
+    rules_dt,
+    matched_counts_dt,
+    by.x = c("product_match_key", "unit_source_key"),
+    by.y = c("rule_product_match_key", "unit_source_key"),
+    all.x = FALSE,
+    all.y = FALSE
+  )
+
+  if (nrow(audit_matched_dt) == 0L) {
+    empty_audit_dt <- data.table::data.table(
+      affected_rows = integer(),
+      rule_file_identifier = character(),
+      product_key = character(),
+      unit_source = character(),
+      unit_target = character(),
+      unit_multiplier = numeric(),
+      unit_offset = numeric()
+    )
+
+    return(empty_audit_dt[, ..audit_columns])
+  }
+
+  audit_dt <- audit_matched_dt[, .(
+    affected_rows = as.integer(affected_rows),
+    rule_file_identifier = as.character(source_rule_file),
+    product_key = as.character(applied_product_match_key),
+    unit_source = as.character(unit_source),
+    unit_target = as.character(unit_target),
+    unit_multiplier = as.numeric(unit_multiplier),
+    unit_offset = as.numeric(unit_offset)
+  )]
+
+  return(audit_dt[, ..audit_columns])
+}
+
 #' @title load units standardization rules
 #' @description Ensures template availability and loads prepared conversion rules
 #' from standardization import files.
@@ -778,7 +1031,7 @@ attach_standardize_diagnostics <- function(
 load_units_standardization_rules <- function(config) {
   checkmate::assert_list(config, min.len = 1)
   checkmate::assert_string(
-    config$paths$data$imports$standardization,
+    config$paths$data$import$standardization,
     min.chars = 1
   )
 
@@ -802,7 +1055,7 @@ load_units_standardization_rules <- function(config) {
 #' @title run units standardization layer batch
 #' @description Orchestrates standardization rule loading, conversion execution,
 #' optional post-standardization row aggregation, and diagnostics attachment.
-#' @param cleaned_dt cleaned data.table/data.frame.
+#' @param clean_dt clean data.table/data.frame.
 #' @param config named configuration list.
 #' @param unit_column character scalar unit column name.
 #' @param value_column character scalar numeric value column name.
@@ -815,16 +1068,16 @@ load_units_standardization_rules <- function(config) {
 #' @importFrom checkmate assert_data_frame assert_list assert_string
 #'  assert_flag
 #' @examples
-#' \dontrun{run_units_standardization_layer_batch(cleaned_dt, config)}
+#' \dontrun{run_units_standardization_layer_batch(clean_dt, config)}
 run_standardize_units_layer_batch <- function(
-  cleaned_dt,
+  clean_dt,
   config,
   unit_column = "unit",
   value_column = "value",
   product_column = "product",
   aggregate_after_standardize = TRUE
 ) {
-  checkmate::assert_data_frame(cleaned_dt, min.rows = 0)
+  checkmate::assert_data_frame(clean_dt, min.rows = 0)
   checkmate::assert_list(config, min.len = 1)
   checkmate::assert_string(unit_column, min.chars = 1)
   checkmate::assert_string(value_column, min.chars = 1)
@@ -834,7 +1087,7 @@ run_standardize_units_layer_batch <- function(
   layer_payload <- load_units_standardization_rules(config)
 
   apply_result <- apply_standardize_rules(
-    mapped_dt = cleaned_dt,
+    mapped_dt = clean_dt,
     prepared_rules_dt = layer_payload$layer_rules,
     unit_column = unit_column,
     value_column = value_column,
@@ -842,7 +1095,9 @@ run_standardize_units_layer_batch <- function(
   )
 
   rows_before_aggregation <- nrow(apply_result$data)
-  aggregated_source_rows_dt <- data.table::as.data.table(apply_result$data)[0L, ]
+  aggregated_source_rows_dt <- data.table::as.data.table(apply_result$data)[
+    0L,
+  ]
   if (aggregate_after_standardize && rows_before_aggregation > 0L) {
     pre_agg_dt <- data.table::as.data.table(apply_result$data)
     aggregated_source_rows_dt <- extract_aggregated_rows(
@@ -856,9 +1111,9 @@ run_standardize_units_layer_batch <- function(
   }
   rows_after_aggregation <- nrow(apply_result$data)
 
-  normalized_dt <- attach_standardize_diagnostics(
+  normalize_dt <- attach_standardize_diagnostics(
     standardized_dt = apply_result$data,
-    cleaned_rows_count = nrow(cleaned_dt),
+    clean_rows_count = nrow(clean_dt),
     matched_count = as.integer(apply_result$matched_count),
     unmatched_count = as.integer(apply_result$unmatched_count),
     rules_count = as.integer(nrow(layer_payload$layer_rules)),
@@ -868,7 +1123,17 @@ run_standardize_units_layer_batch <- function(
     rows_after_aggregation = as.integer(rows_after_aggregation)
   )
 
-  attr(normalized_dt, "aggregated_source_rows") <- aggregated_source_rows_dt
+  attr(normalize_dt, "layer_audit") <- build_standardize_layer_audit(
+    layer_rules_dt = layer_payload$layer_rules,
+    matched_rule_counts_dt = apply_result$matched_rule_counts,
+    source_paths = as.character(layer_payload$source_path)
+  )
 
-  return(normalized_dt)
+  attr(normalize_dt, "layer_rules") <- layer_payload$layer_rules
+  attr(normalize_dt, "layer_matched_rule_counts") <-
+    apply_result$matched_rule_counts
+
+  attr(normalize_dt, "aggregated_source_rows") <- aggregated_source_rows_dt
+
+  return(normalize_dt)
 }

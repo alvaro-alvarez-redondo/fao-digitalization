@@ -1,61 +1,58 @@
-# tests/2-post_processing_pipeline/test-diagnostics.R
-# unit tests for R/2-post_processing_pipeline/25-post_processing_diagnostics.R
+# tests/2-postpro_pipeline/test-diagnostics.R
+# unit tests for R/2-postpro_pipeline/25-postpro_diagnostics.R
 
 source(here::here("tests", "test_helper.R"), echo = FALSE)
 source(
   here::here(
     "r",
-    "2-post_processing_pipeline",
-    "21-post_processing_utilities.R"
+    "2-postpro_pipeline",
+    "21-postpro_utilities.R"
   ),
   echo = FALSE
 )
 source(
   here::here(
     "r",
-    "2-post_processing_pipeline",
-    "23-post_processing_rule_engine.R"
+    "2-postpro_pipeline",
+    "23-postpro_rule_engine.R"
   ),
   echo = FALSE
 )
 source(
   here::here(
     "r",
-    "2-post_processing_pipeline",
-    "25-post_processing_diagnostics.R"
+    "2-postpro_pipeline",
+    "25-postpro_diagnostics.R"
   ),
   echo = FALSE
 )
 
 
-# --- collect_post_processing_preflight ---------------------------------------
+# --- collect_postpro_preflight ---------------------------------------
 
 testthat::test_that("preflight flags invalid file naming patterns", {
   config <- build_test_config()
   dir.create(
-    file.path(config$paths$data$audit$audit_root_dir, "templates"),
+    config$paths$data$audit$templates_dir,
     recursive = TRUE,
     showWarnings = FALSE
   )
   dir.create(
-    file.path(
-      config$paths$data$audit$audit_root_dir,
-      "post_processing_diagnostics"
-    ),
+    config$paths$data$audit$diagnostics_dir,
     recursive = TRUE,
     showWarnings = FALSE
   )
 
   file.create(file.path(
-    config$paths$data$imports$cleaning,
+    config$paths$data$import$cleaning,
     "bad_clean_name.xlsx"
   ))
   file.create(file.path(
-    config$paths$data$imports$harmonization,
+    config$paths$data$import$harmonization,
     "bad_harmonize_name.xlsx"
   ))
 
-  result <- collect_post_processing_preflight(
+  result <- collect_postpro_preflight(
     config = config,
     dataset_columns = c("unit", "value", "product")
   )
@@ -73,26 +70,23 @@ testthat::test_that("preflight flags invalid file naming patterns", {
 testthat::test_that("preflight detects column convention mismatch", {
   config <- build_test_config()
   dir.create(
-    file.path(config$paths$data$audit$audit_root_dir, "templates"),
+    config$paths$data$audit$templates_dir,
     recursive = TRUE,
     showWarnings = FALSE
   )
   dir.create(
-    file.path(
-      config$paths$data$audit$audit_root_dir,
-      "post_processing_diagnostics"
-    ),
+    config$paths$data$audit$diagnostics_dir,
     recursive = TRUE,
     showWarnings = FALSE
   )
 
-  file.create(file.path(config$paths$data$imports$cleaning, "clean_rules.xlsx"))
+  file.create(file.path(config$paths$data$import$cleaning, "clean_rules.xlsx"))
   file.create(file.path(
-    config$paths$data$imports$harmonization,
+    config$paths$data$import$harmonization,
     "harmonize_rules.xlsx"
   ))
 
-  result <- collect_post_processing_preflight(
+  result <- collect_postpro_preflight(
     config = config,
     dataset_columns = c("unit", "value", "item")
   )
@@ -105,7 +99,7 @@ testthat::test_that("preflight detects column convention mismatch", {
   )))
 })
 
-testthat::test_that("assert_post_processing_preflight aborts with stage details", {
+testthat::test_that("assert_postpro_preflight aborts with stage details", {
   bad_result <- list(
     passed = FALSE,
     issues = c(
@@ -116,7 +110,7 @@ testthat::test_that("assert_post_processing_preflight aborts with stage details"
   )
 
   testthat::expect_error(
-    assert_post_processing_preflight(bad_result),
+    assert_postpro_preflight(bad_result),
     regexp = "Post-processing preflight checks failed"
   )
 })
@@ -155,9 +149,9 @@ testthat::test_that("summarize_stage_rules aggregates audit records", {
 })
 
 
-# --- build_post_processing_diagnostics ---------------------------------------
+# --- build_postpro_diagnostics ---------------------------------------
 
-testthat::test_that("build_post_processing_diagnostics creates stage summaries", {
+testthat::test_that("build_postpro_diagnostics creates stage summaries", {
   clean_audit_dt <- data.table::data.table(
     loop = 1L,
     rule_file_identifier = "clean_rules.csv",
@@ -182,26 +176,77 @@ testthat::test_that("build_post_processing_diagnostics creates stage summaries",
     affected_rows = 2L
   )
 
-  result <- build_post_processing_diagnostics(
+  standardize_audit_dt <- data.table::data.table(
+    rule_file_identifier = "standardize_units_rules.xlsx",
+    product_key = "all products",
+    unit_source = "kg",
+    unit_target = "t",
+    unit_multiplier = 0.001,
+    unit_offset = 0,
+    affected_rows = 3L
+  )
+
+  result <- build_postpro_diagnostics(
     clean_audit_dt = clean_audit_dt,
-    harmonize_audit_dt = harmonize_audit_dt
+    harmonize_audit_dt = harmonize_audit_dt,
+    standardize_audit_dt = standardize_audit_dt
   )
 
   testthat::expect_true(is.list(result))
   testthat::expect_true("clean_rule_summary" %in% names(result))
   testthat::expect_true("harmonize_rule_summary" %in% names(result))
+  testthat::expect_true("standardize_rule_summary" %in% names(result))
+})
+
+testthat::test_that("build_unmatched_standardize_rule_summary treats all-products as matched when rule key matched", {
+  rule_catalog_dt <- data.table::data.table(
+    rule_file_identifier = c(
+      "standardize_units_rules.xlsx",
+      "standardize_units_rules.xlsx"
+    ),
+    product_key = c("all products", "wheat"),
+    unit_source = c("kg", "tonne"),
+    unit_target = c("g", "kg"),
+    unit_multiplier = c(1000, 1000),
+    unit_offset = c(0, 0)
+  )
+
+  matched_rule_summary_dt <- data.table::data.table(
+    affected_rows = 2L,
+    rule_file_identifier = "standardize_units_rules.xlsx",
+    product_key = "corn",
+    unit_source = "kg",
+    unit_target = "g",
+    unit_multiplier = 1000,
+    unit_offset = 0
+  )
+
+  matched_rule_counts_dt <- data.table::data.table(
+    rule_product_match_key = "all products",
+    applied_product_match_key = "corn",
+    unit_source_key = "kg",
+    affected_rows = 2L
+  )
+
+  unmatched_dt <- build_unmatched_standardize_rule_summary(
+    rule_catalog_dt = rule_catalog_dt,
+    matched_rule_summary_dt = matched_rule_summary_dt,
+    matched_rule_counts_dt = matched_rule_counts_dt
+  )
+
+  testthat::expect_equal(nrow(unmatched_dt), 1L)
+  testthat::expect_identical(unmatched_dt$product_key[[1]], "wheat")
+  testthat::expect_identical(unmatched_dt$unit_source[[1]], "tonne")
+  testthat::expect_identical(unmatched_dt$affected_rows[[1]], 0L)
 })
 
 
-# --- persist_post_processing_audit -------------------------------------------
+# --- persist_postpro_audit -------------------------------------------
 
-testthat::test_that("persist_post_processing_audit writes overwrite subset diagnostics excel", {
+testthat::test_that("persist_postpro_audit writes overwrite subset diagnostics excel", {
   config <- build_test_config()
   dir.create(
-    file.path(
-      config$paths$data$audit$audit_root_dir,
-      "post_processing_diagnostics"
-    ),
+    config$paths$data$audit$diagnostics_dir,
     recursive = TRUE,
     showWarnings = FALSE
   )
@@ -228,11 +273,14 @@ testthat::test_that("persist_post_processing_audit writes overwrite subset diagn
     value_target = character(0),
     affected_rows = integer(0)
   )
-  standardize_rows <- data.table::data.table(
-    area = c("CountryA", "CountryB"),
-    product = c("wheat", "rice"),
-    unit = c("t", "t"),
-    value = c(100, 200)
+  standardize_audit <- data.table::data.table(
+    rule_file_identifier = "standardize_units_rules.xlsx",
+    product_key = "wheat",
+    unit_source = "kg",
+    unit_target = "t",
+    unit_multiplier = 0.001,
+    unit_offset = 0,
+    affected_rows = 2L
   )
 
   final_stage_dt <- data.table::data.table(
@@ -254,32 +302,42 @@ testthat::test_that("persist_post_processing_audit writes overwrite subset diagn
     candidate_values = "note a; note b"
   )
 
-  output_paths <- persist_post_processing_audit(
+  output_paths <- persist_postpro_audit(
     clean_audit_dt = clean_audit,
     harmonize_audit_dt = harmonize_audit,
-    standardize_rows_dt = standardize_rows,
+    standardize_audit_dt = standardize_audit,
+    standardize_rules_dt = data.table::data.table(
+      product_key = "wheat",
+      unit_source = "kg",
+      unit_target = "t",
+      source_rule_file = "standardize_units_rules.xlsx"
+    ),
     final_stage_dt = final_stage_dt,
     last_rule_wins_overwrites_dt = overwrite_events_dt,
     config = config
   )
 
-  testthat::expect_true("clean_harmonize_audit" %in% names(output_paths))
-  testthat::expect_true(file.exists(output_paths[["clean_harmonize_audit"]]))
-  testthat::expect_true("aggregate_standardized_rows" %in% names(output_paths))
-  testthat::expect_true(file.exists(output_paths[[
-    "aggregate_standardized_rows"
-  ]]))
+  testthat::expect_true("clean_audit" %in% names(output_paths))
+  testthat::expect_true(file.exists(output_paths[["clean_audit"]]))
+  testthat::expect_true("harmonize_audit" %in% names(output_paths))
+  testthat::expect_true(file.exists(output_paths[["harmonize_audit"]]))
+  testthat::expect_true("standardize_audit" %in% names(output_paths))
+  testthat::expect_true(file.exists(output_paths[["standardize_audit"]]))
   testthat::expect_true("last_rule_wins_overwrites" %in% names(output_paths))
   testthat::expect_true(file.exists(output_paths[[
     "last_rule_wins_overwrites"
   ]]))
   testthat::expect_identical(
-    readxl::excel_sheets(output_paths[["clean_harmonize_audit"]]),
-    c("clean", "harmonize")
+    readxl::excel_sheets(output_paths[["clean_audit"]]),
+    c("matched_rules", "unmatched_rules")
   )
   testthat::expect_identical(
-    readxl::excel_sheets(output_paths[["aggregate_standardized_rows"]]),
-    "aggregate_standardized_rows"
+    readxl::excel_sheets(output_paths[["harmonize_audit"]]),
+    c("matched_rules", "unmatched_rules")
+  )
+  testthat::expect_identical(
+    readxl::excel_sheets(output_paths[["standardize_audit"]]),
+    c("matched_rules", "unmatched_rules")
   )
   testthat::expect_identical(
     readxl::excel_sheets(output_paths[["last_rule_wins_overwrites"]]),
@@ -287,18 +345,29 @@ testthat::test_that("persist_post_processing_audit writes overwrite subset diagn
   )
 
   clean_summary <- readxl::read_excel(
-    output_paths[["clean_harmonize_audit"]],
-    sheet = "clean"
+    output_paths[["clean_audit"]],
+    sheet = "matched_rules"
   )
   harmonize_summary <- readxl::read_excel(
-    output_paths[["clean_harmonize_audit"]],
-    sheet = "harmonize"
+    output_paths[["harmonize_audit"]],
+    sheet = "matched_rules"
+  )
+  standardize_summary <- readxl::read_excel(
+    output_paths[["standardize_audit"]],
+    sheet = "matched_rules"
+  )
+
+  standardize_unmatched <- readxl::read_excel(
+    output_paths[["standardize_audit"]],
+    sheet = "unmatched_rules"
   )
 
   testthat::expect_true("loop" %in% colnames(clean_summary))
   testthat::expect_true("loop" %in% colnames(harmonize_summary))
+  testthat::expect_false("loop" %in% colnames(standardize_summary))
   testthat::expect_false("execution_stage" %in% colnames(clean_summary))
   testthat::expect_false("execution_stage" %in% colnames(harmonize_summary))
+  testthat::expect_false("execution_stage" %in% colnames(standardize_summary))
   testthat::expect_identical(
     colnames(clean_summary)[1:2],
     c("loop", "affected_rows")
@@ -306,6 +375,10 @@ testthat::test_that("persist_post_processing_audit writes overwrite subset diagn
   testthat::expect_identical(
     colnames(harmonize_summary)[1:2],
     c("loop", "affected_rows")
+  )
+  testthat::expect_identical(
+    colnames(standardize_summary)[1:2],
+    c("affected_rows", "rule_file_identifier")
   )
   required_summary_columns <- c(
     "column_source",
@@ -320,5 +393,21 @@ testthat::test_that("persist_post_processing_audit writes overwrite subset diagn
   ))
   testthat::expect_true(all(
     required_summary_columns %in% colnames(harmonize_summary)
+  ))
+
+  standardize_required_columns <- c(
+    "product_key",
+    "unit_source",
+    "unit_target",
+    "unit_multiplier",
+    "unit_offset"
+  )
+  testthat::expect_true(all(
+    standardize_required_columns %in% colnames(standardize_summary)
+  ))
+  testthat::expect_false("loop" %in% colnames(standardize_unmatched))
+  testthat::expect_true("affected_rows" %in% colnames(standardize_unmatched))
+  testthat::expect_true(all(
+    standardize_required_columns %in% colnames(standardize_unmatched)
   ))
 })

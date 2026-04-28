@@ -57,13 +57,13 @@ assert_or_abort <- function(check_result) {
 #' skips input validation for performance in hot paths. callers must ensure
 #' the input is a valid atomic vector.
 #' @param x atomic vector to normalize. coerced to character internally.
-#' @return character vector with normalized lowercase ascii text.
+#' @return character vector with normalize lowercase ascii text.
 #' @importFrom stringi stri_trans_general stri_replace_all_regex stri_trim_both
 #' @importFrom data.table uniqueN
 normalize_string_impl <- function(x) {
   constants <- get_pipeline_constants()
   non_alnum_pattern <- constants$patterns$normalize_non_alnum
-  normalized_pattern <- constants$patterns$normalize_already_clean
+  normalize_pattern <- constants$patterns$normalize_already_clean
 
   values_chr <- as.character(x)
   non_na_idx <- !is.na(values_chr)
@@ -86,7 +86,7 @@ normalize_string_impl <- function(x) {
 
   if (isTRUE(use_unique_path)) {
     unique_values <- unique(values_non_na)
-    if (all(stringi::stri_detect_regex(unique_values, normalized_pattern))) {
+    if (all(stringi::stri_detect_regex(unique_values, normalize_pattern))) {
       values_chr[non_na_idx] <- unique_values[match(
         values_non_na,
         unique_values
@@ -94,33 +94,33 @@ normalize_string_impl <- function(x) {
       return(values_chr)
     }
 
-    normalized_unique <- stringi::stri_trans_general(
+    normalize_unique <- stringi::stri_trans_general(
       unique_values,
       "Latin-ASCII; Lower"
     )
-    normalized_unique <- stringi::stri_replace_all_regex(
-      normalized_unique,
+    normalize_unique <- stringi::stri_replace_all_regex(
+      normalize_unique,
       non_alnum_pattern,
       " "
     )
-    normalized_unique <- stringi::stri_trim_both(normalized_unique)
-    values_chr[non_na_idx] <- normalized_unique[match(
+    normalize_unique <- stringi::stri_trim_both(normalize_unique)
+    values_chr[non_na_idx] <- normalize_unique[match(
       values_non_na,
       unique_values
     )]
     return(values_chr)
   }
 
-  normalized_values <- stringi::stri_trans_general(
+  normalize_values <- stringi::stri_trans_general(
     values_non_na,
     "Latin-ASCII; Lower"
   )
-  normalized_values <- stringi::stri_replace_all_regex(
-    normalized_values,
+  normalize_values <- stringi::stri_replace_all_regex(
+    normalize_values,
     non_alnum_pattern,
     " "
   )
-  values_chr[non_na_idx] <- stringi::stri_trim_both(normalized_values)
+  values_chr[non_na_idx] <- stringi::stri_trim_both(normalize_values)
 
   return(values_chr)
 }
@@ -130,7 +130,7 @@ normalize_string_impl <- function(x) {
 #' characters except spaces, and squishes repeated spaces to one separator.
 #' @param string atomic vector with length greater than or equal to one.
 #' validated with `checkmate::check_atomic(min.len = 1, any.missing = true)`.
-#' @return character vector with normalized lowercase ascii text.
+#' @return character vector with normalize lowercase ascii text.
 #' @importFrom checkmate check_atomic
 #' @examples
 #' normalize_string("forest! data 2024")
@@ -151,7 +151,7 @@ normalize_string <- function(string) {
 #' commonly found in footnotes (reference markers, separators, parenthetical
 #' labels). skips input validation for performance in hot paths.
 #' @param x atomic vector to normalize. coerced to character internally.
-#' @return character vector with normalized lowercase ascii footnote text.
+#' @return character vector with normalize lowercase ascii footnote text.
 #' @importFrom stringi stri_trans_general stri_replace_all_regex stri_trim_both
 clean_footnote_impl <- function(x) {
   out <- stringi::stri_trans_general(x, "Latin-ASCII; Lower")
@@ -167,7 +167,7 @@ clean_footnote_impl <- function(x) {
 #' avoid stripping meaningful symbols.
 #' @param x atomic vector with length greater than or equal to one. validated
 #' with `checkmate::assert_atomic_vector(min.len = 1, any.missing = TRUE)`.
-#' @return character vector with normalized lowercase ascii footnote text.
+#' @return character vector with normalize lowercase ascii footnote text.
 #' @importFrom checkmate assert_atomic_vector
 #' @examples
 #' clean_footnote("Note 1/ Official data (revised); 50% estimate")
@@ -194,15 +194,15 @@ normalize_filename <- function(filename) {
     any.missing = TRUE
   ))
 
-  normalized_filename <- filename |>
+  normalize_filename <- filename |>
     normalize_string() |>
     stringr::str_replace_all(" ", "_")
 
-  normalized_filename[
-    is.na(normalized_filename) | normalized_filename == ""
+  normalize_filename[
+    is.na(normalize_filename) | normalize_filename == ""
   ] <- "unknown"
 
-  return(normalized_filename)
+  return(normalize_filename)
 }
 
 #' @title coerce vector values to numeric safely
@@ -237,13 +237,13 @@ coerce_numeric_safe <- function(x) {
 }
 
 #' @title extract yearbook token from parsed name parts
-#' @description extracts tokens in positions two through four from a parsed
-#' filename token vector and joins them with underscores.
+#' @description extracts token 2 and the first token matching a 4-digit year
+#' from a parsed filename token vector, and joins them with an underscore.
 #' @param parts character vector with no missing values and length greater than
 #' or equal to one. validated with
 #' `checkmate::check_character(min.len = 1, any.missing = false)`.
 #' @return character scalar with combined yearbook tokens, or `NA_character_`
-#' when the input has fewer than four elements.
+#' when token 2 is missing or no 4-digit year token is present.
 #' @importFrom checkmate check_character
 #' @examples
 #' extract_yearbook(c("whep", "yb", "2020", "2021", "file.xlsx"))
@@ -254,11 +254,18 @@ extract_yearbook <- function(parts) {
     any.missing = FALSE
   ))
 
-  if (length(parts) >= 4) {
-    return(paste(parts[2:4], collapse = "_"))
+  if (length(parts) < 2) {
+    return(NA_character_)
   }
 
-  return(NA_character_)
+  year_pattern <- get_pipeline_constants()$patterns$yearbook_token_4digit
+  year_token_idx <- which(grepl(year_pattern, parts))[1]
+
+  if (is.na(year_token_idx)) {
+    return(NA_character_)
+  }
+
+  return(paste(parts[2], parts[year_token_idx], sep = "_"))
 }
 
 #' @title extract product token suffix from parsed name parts
@@ -360,8 +367,8 @@ validate_export_import <- function(df, base_name) {
 #' @importFrom checkmate check_list check_character check_string
 #' @importFrom cli cli_abort
 #' @examples
-#' config <- list(paths = list(data = list(exports = list(processed = "tmp"))))
-#' get_config_string(config, c("paths", "data", "exports", "processed"), "field")
+#' config <- list(paths = list(data = list(export = list(processed = "tmp"))))
+#' get_config_string(config, c("paths", "data", "export", "processed"), "field")
 get_config_string <- function(config, path, field_name) {
   assert_or_abort(checkmate::check_list(config, min.len = 1))
   assert_or_abort(checkmate::check_character(
@@ -382,13 +389,13 @@ get_config_string <- function(config, path, field_name) {
   return(field_value)
 }
 
-#' @title build normalized export path from pipeline config
-#' @description constructs an output path for `processed` or `lists` exports
+#' @title build normalize export path from pipeline config
+#' @description constructs an output path for `processed` or `lists` export
 #' using folder and suffix metadata from the pipeline config. callers must
 #' ensure the output directory exists before writing (see `run_export_pipeline`).
 #' @param config named list with non-empty structure. validated with
 #' `checkmate::check_list(min.len = 1)`. must contain
-#' `paths$data$exports$processed`, `paths$data$exports$lists`,
+#' `paths$data$export$processed`, `paths$data$export$lists`,
 #' `export_config$data_suffix`, and `export_config$list_suffix` as non-empty
 #' character scalars.
 #' @param base_name non-empty character scalar used as output basename before
@@ -403,7 +410,7 @@ get_config_string <- function(config, path, field_name) {
 #' @importFrom here here
 #' @examples
 #' config <- list(
-#'   paths = list(data = list(exports = list(processed = "tmp", lists = "tmp"))),
+#'   paths = list(data = list(export = list(processed = "tmp", lists = "tmp"))),
 #'   export_config = list(data_suffix = "_data.xlsx", list_suffix = "_list.xlsx")
 #' )
 #' generate_export_path(config, "food balance", "processed")
@@ -423,13 +430,13 @@ generate_export_path <- function(
     type,
     processed = get_config_string(
       config = config,
-      path = c("paths", "data", "exports", "processed"),
-      field_name = "config$paths$data$exports$processed"
+      path = c("paths", "data", "export", "processed"),
+      field_name = "config$paths$data$export$processed"
     ),
     lists = get_config_string(
       config = config,
-      path = c("paths", "data", "exports", "lists"),
-      field_name = "config$paths$data$exports$lists"
+      path = c("paths", "data", "export", "lists"),
+      field_name = "config$paths$data$export$lists"
     )
   )
 

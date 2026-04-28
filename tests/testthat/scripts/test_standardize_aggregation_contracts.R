@@ -1,5 +1,5 @@
 options(
-  whep.run_post_processing_pipeline.auto = FALSE,
+  whep.run_postpro_pipeline.auto = FALSE,
   whep.run_pipeline.auto = FALSE
 )
 
@@ -8,7 +8,7 @@ source(
   echo = FALSE
 )
 source(
-  here::here("r", "2-post_processing_pipeline", "24-standardize_units.R"),
+  here::here("r", "2-postpro_pipeline", "24-standardize_units.R"),
   echo = FALSE
 )
 

@@ -17,7 +17,7 @@ source(
 testthat::test_that("collect_layer_tables_for_export auto-detects strict layers", {
   env <- new.env(parent = emptyenv())
   env$demo_raw <- data.frame(a = 1:2)
-  env$demo_cleaned <- data.frame(a = 1:2)
+  env$demo_clean <- data.frame(a = 1:2)
   env$demo_other <- data.frame(a = 1:2)
   env$demo_wide_raw <- data.frame(a = 1:2)
 
@@ -26,13 +26,13 @@ testthat::test_that("collect_layer_tables_for_export auto-detects strict layers"
     env = env
   )
 
-  testthat::expect_setequal(names(layer_tables), c("demo_cleaned", "demo_raw"))
+  testthat::expect_setequal(names(layer_tables), c("demo_clean", "demo_raw"))
   testthat::expect_false("demo_wide_raw" %in% names(layer_tables))
 })
 
 testthat::test_that("collect_layer_tables_for_export rejects legacy suffixes", {
   env <- new.env(parent = emptyenv())
-  env$whep_data_harmonized <- data.frame(a = 1:2)
+  env$whep_data_harmonize <- data.frame(a = 1:2)
   env$whep_data_clean <- data.frame(a = 1:2)
   env$whep_data_harmonize <- data.frame(a = 1:2)
   env$whep_data_standardize <- data.frame(a = 1:2)
@@ -42,7 +42,7 @@ testthat::test_that("collect_layer_tables_for_export rejects legacy suffixes", {
     env = env
   )
 
-  testthat::expect_setequal(names(layer_tables), c("whep_data_harmonized"))
+  testthat::expect_setequal(names(layer_tables), c("whep_data_harmonize"))
   testthat::expect_false("whep_data_clean" %in% names(layer_tables))
   testthat::expect_false("whep_data_harmonize" %in% names(layer_tables))
   testthat::expect_false("whep_data_standardize" %in% names(layer_tables))
@@ -51,7 +51,7 @@ testthat::test_that("collect_layer_tables_for_export rejects legacy suffixes", {
 testthat::test_that("collect_layer_tables_for_export accepts explicit data_objects", {
   data_objects <- list(
     test_raw = data.frame(a = 1:2),
-    test_cleaned = data.frame(a = 1:2)
+    test_clean = data.frame(a = 1:2)
   )
 
   layer_tables <- collect_layer_tables_for_export(
@@ -60,7 +60,7 @@ testthat::test_that("collect_layer_tables_for_export accepts explicit data_objec
   )
 
   testthat::expect_true("test_raw" %in% names(layer_tables))
-  testthat::expect_true("test_cleaned" %in% names(layer_tables))
+  testthat::expect_true("test_clean" %in% names(layer_tables))
 })
 
 
@@ -69,9 +69,9 @@ testthat::test_that("collect_layer_tables_for_export accepts explicit data_objec
 testthat::test_that("build_processed_export_path generates correct naming", {
   config <- build_test_config()
 
-  path <- build_processed_export_path(config, "dataset_harmonized")
+  path <- build_processed_export_path(config, "dataset_harmonize")
 
-  testthat::expect_match(basename(path), "^dataset_harmonized\\.xlsx$")
+  testthat::expect_match(basename(path), "^dataset_harmonize\\.xlsx$")
 })
 
 
@@ -117,7 +117,7 @@ testthat::test_that("write_processed_table_fast respects overwrite flag", {
 
 # --- export_processed_data --------------------------------------------------
 
-testthat::test_that("export_processed_data writes workbooks only for harmonized layer by default", {
+testthat::test_that("export_processed_data writes workbooks only for harmonize layer by default", {
   config <- build_test_config()
 
   data_objects <- list(
@@ -125,11 +125,11 @@ testthat::test_that("export_processed_data writes workbooks only for harmonized 
       country = c("a", "b"),
       value = c("1", "2")
     ),
-    test_cleaned = data.table::data.table(
+    test_clean = data.table::data.table(
       country = c("a", "b"),
       value = c("1", "2")
     ),
-    test_harmonized = data.table::data.table(
+    test_harmonize = data.table::data.table(
       country = c("a", "b"),
       value = c("1", "2")
     )
@@ -145,23 +145,23 @@ testthat::test_that("export_processed_data writes workbooks only for harmonized 
   testthat::expect_true(is.character(paths))
   testthat::expect_equal(length(paths), 1L)
   testthat::expect_true(all(file.exists(paths)))
-  testthat::expect_true("test_harmonized" %in% names(paths))
+  testthat::expect_true("test_harmonize" %in% names(paths))
 })
 
-testthat::test_that("export_processed_data exports all layers when config overrides export_layers", {
+testthat::test_that("export_processed_data export all layers when config overrides export_layers", {
   config <- build_test_config()
-  config$export_config$export_layers <- c("raw", "cleaned", "harmonized")
+  config$export_config$export_layers <- c("raw", "clean", "harmonize")
 
   data_objects <- list(
     test_raw = data.table::data.table(
       country = c("a", "b"),
       value = c("1", "2")
     ),
-    test_cleaned = data.table::data.table(
+    test_clean = data.table::data.table(
       country = c("a", "b"),
       value = c("1", "2")
     ),
-    test_harmonized = data.table::data.table(
+    test_harmonize = data.table::data.table(
       country = c("a", "b"),
       value = c("1", "2")
     )
@@ -178,8 +178,8 @@ testthat::test_that("export_processed_data exports all layers when config overri
   testthat::expect_equal(length(paths), 3L)
   testthat::expect_true(all(file.exists(paths)))
   testthat::expect_true(any(grepl("raw", names(paths))))
-  testthat::expect_true(any(grepl("cleaned", names(paths))))
-  testthat::expect_true(any(grepl("harmonized", names(paths))))
+  testthat::expect_true(any(grepl("clean", names(paths))))
+  testthat::expect_true(any(grepl("harmonize", names(paths))))
 })
 
 testthat::test_that("export_processed_data errors when no matching layers for export_layers", {
@@ -190,7 +190,7 @@ testthat::test_that("export_processed_data errors when no matching layers for ex
       country = c("a", "b"),
       value = c("1", "2")
     ),
-    test_cleaned = data.table::data.table(
+    test_clean = data.table::data.table(
       country = c("a", "b"),
       value = c("1", "2")
     )
@@ -203,6 +203,6 @@ testthat::test_that("export_processed_data errors when no matching layers for ex
       overwrite = TRUE,
       env = new.env(parent = emptyenv())
     ),
-    "harmonized"
+    "harmonize"
   )
 })

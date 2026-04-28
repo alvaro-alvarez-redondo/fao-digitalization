@@ -1,5 +1,5 @@
 options(
-  whep.run_post_processing_pipeline.auto = FALSE,
+  whep.run_postpro_pipeline.auto = FALSE,
   whep.run_pipeline.auto = FALSE
 )
 
@@ -8,7 +8,7 @@ source(
   echo = FALSE
 )
 source(
-  here::here("r", "2-post_processing_pipeline", "24-standardize_units.R"),
+  here::here("r", "2-postpro_pipeline", "24-standardize_units.R"),
   echo = FALSE
 )
 source(here::here("r", "run_pipeline.R"), echo = FALSE)
@@ -50,7 +50,7 @@ testthat::test_that("assign_environment_values errors on unnamed values", {
   )
 })
 
-testthat::test_that("validate_conversion_rules accepts normalized legacy schema", {
+testthat::test_that("validate_conversion_rules accepts normalize legacy schema", {
   legacy_rules <- data.table::data.table(
     product = c("wheat", "rice"),
     from_unit = c("kg", "kg"),
@@ -59,9 +59,9 @@ testthat::test_that("validate_conversion_rules accepts normalized legacy schema"
     offset = c("0", "0")
   )
 
-  normalized_rules <- normalize_conversion_rule_columns(legacy_rules)
+  normalize_rules <- normalize_conversion_rule_columns(legacy_rules)
 
-  testthat::expect_invisible(validate_conversion_rules(normalized_rules))
+  testthat::expect_invisible(validate_conversion_rules(normalize_rules))
 })
 
 testthat::test_that("validate_conversion_rules errors on duplicated product_key/unit_source", {

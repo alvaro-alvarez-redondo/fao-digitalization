@@ -1,9 +1,9 @@
-# tests/2-post_processing_pipeline/test-data-audit.R
-# unit tests for R/2-post_processing_pipeline/20-data_audit.R
+# tests/2-postpro_pipeline/test-data-audit.R
+# unit tests for R/2-postpro_pipeline/20-data_audit.R
 
 source(here::here("tests", "test_helper.R"), echo = FALSE)
 source(
-  here::here("r", "2-post_processing_pipeline", "20-data_audit.R"),
+  here::here("r", "2-postpro_pipeline", "20-data_audit.R"),
   echo = FALSE
 )
 
@@ -111,7 +111,7 @@ testthat::test_that("audit_data_output creates Excel when findings exist", {
   )
 
   audit_file_path <- config$paths$data$audit$audit_file_path
-  mirror_dir_path <- file.path(dirname(audit_file_path), "raw_imports_mirror")
+  mirror_dir_path <- file.path(dirname(audit_file_path), "raw_import_mirror")
 
   result <- audit_data_output(dataset_dt, config)
 

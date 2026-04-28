@@ -2,12 +2,12 @@
 # description: export column-centric lists workbooks with one file per column
 # and one sheet per layer.
 
-#' @title Get fixed layer sheet order for lists exports
+#' @title Get fixed layer sheet order for lists export
 #' @description Returns deterministic sheet order for column-centric list
-#' exports.
-#' @return Character vector: `raw`, `clean`, `harmonize`.
+#' export.
+#' @return Character vector: `raw`, `clean`, `normalize`, `harmonize`.
 get_lists_sheet_order <- function() {
-  return(c("raw", "clean", "harmonize"))
+  return(c("raw", "clean", "normalize", "harmonize"))
 }
 
 #' @title Map object name to layer sheet label
@@ -23,15 +23,15 @@ infer_layer_sheet_name <- function(object_name) {
     return("raw")
   }
 
-  if (grepl("_cleaned$", object_name)) {
+  if (grepl("_clean$", object_name)) {
     return("clean")
   }
 
-  if (grepl("_normalized$", object_name)) {
-    return("standardize")
+  if (grepl("_normalize$", object_name)) {
+    return("normalize")
   }
 
-  if (grepl("_harmonized$", object_name)) {
+  if (grepl("_harmonize$", object_name)) {
     return("harmonize")
   }
 
@@ -55,8 +55,8 @@ build_column_lists_export_path <- function(config, column_name) {
 
   lists_dir <- get_config_string(
     config = config,
-    path = c("paths", "data", "exports", "lists"),
-    field_name = "config$paths$data$exports$lists"
+    path = c("paths", "data", "export", "lists"),
+    field_name = "config$paths$data$export$lists"
   )
 
   lists_dir <- here::here(lists_dir)
@@ -69,15 +69,22 @@ build_column_lists_export_path <- function(config, column_name) {
 
 #' @title Compute sorted unique values for one column
 #' @description Returns sorted unique values when column exists; returns empty
-#' character vector when the column is absent.
+#' character vector when the column is absent. When missing values are present,
+#' the output prepends a display placeholder label.
 #' @param data_dt Data table for one layer.
 #' @param column_name Character scalar column name.
+#' @param blank_label Character scalar display label for missing values.
 #' @return Atomic vector of unique values.
 #' @importFrom checkmate assert_data_table assert_string
 #' @importFrom cli cli_abort
-compute_unique_column_values <- function(data_dt, column_name) {
+compute_unique_column_values <- function(
+  data_dt,
+  column_name,
+  blank_label = get_pipeline_constants()$defaults$list_blank_label
+) {
   checkmate::assert_data_table(data_dt)
   checkmate::assert_string(column_name, min.chars = 1)
+  checkmate::assert_string(blank_label, min.chars = 1)
 
   if (!column_name %in% names(data_dt)) {
     return(character(0))
@@ -87,19 +94,24 @@ compute_unique_column_values <- function(data_dt, column_name) {
 
   if (is.list(column_values)) {
     cli::cli_abort(
-      "column {.val {column_name}} has unsupported list type for list exports"
+      "column {.val {column_name}} has unsupported list type for list export"
     )
   }
 
   unique_values <- unique(column_values)
-  unique_values <- sort(unique_values, na.last = TRUE)
+  has_missing_values <- anyNA(unique_values)
+  unique_values <- sort(unique_values[!is.na(unique_values)], na.last = TRUE)
+
+  if (has_missing_values) {
+    unique_values <- c(blank_label, unique_values)
+  }
 
   return(unique_values)
 }
 
 #' @title Build layer tables keyed by sheet names
 #' @description Creates deterministic layer table map keyed by
-#' `raw/clean/harmonize`, filling missing layers with empty tables.
+#' `raw/clean/normalize/harmonize`, filling missing layers with empty tables.
 #' @param layer_tables Named list of detected layer data tables.
 #' @return Named list of data.tables keyed by sheet name.
 #' @importFrom checkmate assert_list
@@ -165,7 +177,7 @@ collect_union_columns <- function(layer_by_sheet) {
   return(union_columns)
 }
 
-#' @title Resolve configured columns for list exports
+#' @title Resolve configured columns for list export
 #' @description Returns deterministic list-export columns by honoring
 #' `config$export_config$lists_to_export` and retaining only columns present
 #' across detected layers.
@@ -188,7 +200,7 @@ resolve_lists_export_columns <- function(config, union_columns) {
 
   if (is.null(configured_columns)) {
     cli::cli_abort(
-      "`config$export_config$lists_to_export` must be defined for list exports"
+      "`config$export_config$lists_to_export` must be defined for list export"
     )
   }
 
@@ -216,27 +228,27 @@ resolve_lists_export_columns <- function(config, union_columns) {
 #' @description Drops `year` column when present, aligns column names and
 #' order, and sorts rows so strict `identical()` can be applied deterministically.
 #' @param data_dt Data table for normalization.
-#' @return Normalized data.table.
+#' @return normalize data.table.
 #' @importFrom checkmate assert_data_table
 normalize_for_comparison <- function(data_dt) {
   checkmate::assert_data_table(data_dt)
 
-  normalized_dt <- data.table::copy(data_dt)
+  normalize_dt <- data.table::copy(data_dt)
 
-  if ("year" %in% names(normalized_dt)) {
-    normalized_dt[, year := NULL]
+  if ("year" %in% names(normalize_dt)) {
+    normalize_dt[, year := NULL]
   }
 
-  normalized_columns <- sort(names(normalized_dt))
+  normalize_columns <- sort(names(normalize_dt))
 
-  if (length(normalized_columns) == 0L) {
-    return(normalized_dt)
+  if (length(normalize_columns) == 0L) {
+    return(normalize_dt)
   }
 
-  data.table::setcolorder(normalized_dt, normalized_columns)
-  data.table::setorderv(normalized_dt, normalized_columns, na.last = TRUE)
+  data.table::setcolorder(normalize_dt, normalize_columns)
+  data.table::setorderv(normalize_dt, normalize_columns, na.last = TRUE)
 
-  return(normalized_dt)
+  return(normalize_dt)
 }
 
 #' @title Compare two list tables deterministically
@@ -253,55 +265,75 @@ are_list_tables_identical <- function(
   checkmate::assert_data_table(left_dt)
   checkmate::assert_data_table(right_dt)
 
-  normalized_left <- normalize_for_comparison(left_dt)
-  normalized_right <- normalize_for_comparison(right_dt)
+  normalize_left <- normalize_for_comparison(left_dt)
+  normalize_right <- normalize_for_comparison(right_dt)
 
-  return(identical(normalized_left, normalized_right))
+  return(identical(normalize_left, normalize_right))
 }
 
 #' @title Resolve deterministic sheet payloads for one column
-#' @description Applies hierarchical equality logic across raw, clean, and
-#' harmonize unique-value tables and returns the sheets that must be written.
+#' @description Applies deterministic equality grouping across raw, clean,
+#' normalize, and harmonize unique-value tables and returns the sheets that
+#' must be written.
 #' @param raw_values_dt Data table of raw values.
 #' @param clean_values_dt Data table of clean values.
+#' @param normalize_values_dt Data table of normalize values.
 #' @param harmonize_values_dt Data table of harmonize values.
 #' @return Named list of sheet payload data.tables.
 #' @importFrom checkmate assert_data_table
 resolve_list_sheet_payloads <- function(
   raw_values_dt,
   clean_values_dt,
+  normalize_values_dt,
   harmonize_values_dt
 ) {
   checkmate::assert_data_table(raw_values_dt)
   checkmate::assert_data_table(clean_values_dt)
+  checkmate::assert_data_table(normalize_values_dt)
   checkmate::assert_data_table(harmonize_values_dt)
 
-  raw_equals_clean <- are_list_tables_identical(raw_values_dt, clean_values_dt)
-  raw_equals_harmonize <- are_list_tables_identical(
-    raw_values_dt,
-    harmonize_values_dt
-  )
-  clean_equals_harmonize <- are_list_tables_identical(
-    clean_values_dt,
-    harmonize_values_dt
-  )
-
-  if (raw_equals_clean && raw_equals_harmonize) {
-    return(list(raw_clean_harmonize = raw_values_dt))
-  }
-
-  if (clean_equals_harmonize && !raw_equals_clean) {
-    return(list(
-      raw = raw_values_dt,
-      clean_harmonize = clean_values_dt
-    ))
-  }
-
-  return(list(
+  layer_values <- list(
     raw = raw_values_dt,
     clean = clean_values_dt,
+    normalize = normalize_values_dt,
     harmonize = harmonize_values_dt
-  ))
+  )
+
+  grouped_layers <- list()
+
+  for (layer_name in get_lists_sheet_order()) {
+    current_dt <- layer_values[[layer_name]]
+    matched_group_index <- NA_integer_
+
+    if (length(grouped_layers) > 0L) {
+      for (group_index in seq_along(grouped_layers)) {
+        representative_dt <- layer_values[[grouped_layers[[group_index]][[1]]]]
+
+        if (are_list_tables_identical(current_dt, representative_dt)) {
+          matched_group_index <- group_index
+          break
+        }
+      }
+    }
+
+    if (is.na(matched_group_index)) {
+      grouped_layers[[length(grouped_layers) + 1L]] <- layer_name
+    } else {
+      grouped_layers[[matched_group_index]] <- c(
+        grouped_layers[[matched_group_index]],
+        layer_name
+      )
+    }
+  }
+
+  sheet_payloads <- list()
+
+  for (group_layers in grouped_layers) {
+    sheet_name <- paste(group_layers, collapse = "_")
+    sheet_payloads[[sheet_name]] <- layer_values[[group_layers[[1]]]]
+  }
+
+  return(sheet_payloads)
 }
 
 #' @title Build unique-values cache by layer and column
@@ -329,9 +361,9 @@ build_column_unique_cache <- function(layer_by_sheet, union_columns) {
 
 #' @title Write one column-centric lists workbook
 #' @description Writes one workbook per column with deterministic sheet logic:
-#' all-equal lists produce `raw_clean_harmonize`; clean/harmonize equality with
-#' raw difference produces `raw` + `clean_harmonize`; otherwise `raw`, `clean`,
-#' and `harmonize` are written.
+#' all-equal lists produce a single merged sheet (for example
+#' `raw_clean_normalize_harmonize`), while partially equal layers are merged
+#' using concatenated names (for example `clean_normalize_harmonize`).
 #' @param column_name Character scalar column name.
 #' @param unique_cache Named cache from `build_column_unique_cache()`.
 #' @param config Named configuration list.
@@ -358,6 +390,7 @@ write_column_lists_workbook <- function(
 
   raw_values <- unique_cache$raw[[column_name]]
   clean_values <- unique_cache$clean[[column_name]]
+  normalize_values <- unique_cache$normalize[[column_name]]
   harmonize_values <- unique_cache$harmonize[[column_name]]
 
   if (is.null(raw_values)) {
@@ -366,17 +399,22 @@ write_column_lists_workbook <- function(
   if (is.null(clean_values)) {
     clean_values <- character(0)
   }
+  if (is.null(normalize_values)) {
+    normalize_values <- character(0)
+  }
   if (is.null(harmonize_values)) {
     harmonize_values <- character(0)
   }
 
   raw_values_dt <- data.table::data.table(value = raw_values)
   clean_values_dt <- data.table::data.table(value = clean_values)
+  normalize_values_dt <- data.table::data.table(value = normalize_values)
   harmonize_values_dt <- data.table::data.table(value = harmonize_values)
 
   sheet_payloads <- resolve_list_sheet_payloads(
     raw_values_dt = raw_values_dt,
     clean_values_dt = clean_values_dt,
+    normalize_values_dt = normalize_values_dt,
     harmonize_values_dt = harmonize_values_dt
   )
 
@@ -386,9 +424,9 @@ write_column_lists_workbook <- function(
 }
 
 #' @title Export column-centric lists workbooks
-#' @description Exports one workbook per column. Each workbook contains fixed
-#' deterministic layer sheet outputs: always `raw`, plus either a merged
-#' `clean_harmonize` sheet or separate `clean` and `harmonize` sheets.
+#' @description export one workbook per column. Each workbook contains fixed
+#' deterministic layer sheet outputs from `raw`, `clean`, `normalize`, and
+#' `harmonize`, with identical layers merged into combined sheet names.
 #' Exported columns are controlled by
 #' `config$export_config$lists_to_export`; columns not listed there are not
 #' exported. When a `future` parallel backend is configured, workbooks are

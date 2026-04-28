@@ -214,7 +214,7 @@ testthat::test_that("extract_yearbook returns combined tokens", {
   parts <- c("whep", "yb", "2020", "2021", "file.xlsx")
   result <- extract_yearbook(parts)
 
-  testthat::expect_identical(result, "yb_2020_2021")
+  testthat::expect_identical(result, "yb_2020")
 })
 
 testthat::test_that("extract_yearbook returns NA for short input", {
@@ -222,6 +222,13 @@ testthat::test_that("extract_yearbook returns NA for short input", {
   result <- extract_yearbook(parts)
 
   testthat::expect_true(is.na(result))
+})
+
+testthat::test_that("extract_yearbook uses first 4-digit token", {
+  parts <- c("r", "iia", "crops", "trade", "1909", "134", "file.xlsx")
+  result <- extract_yearbook(parts)
+
+  testthat::expect_identical(result, "iia_1909")
 })
 
 
@@ -329,10 +336,10 @@ testthat::test_that("validate_export_import errors on empty data", {
 # --- get_config_string -------------------------------------------------------
 
 testthat::test_that("get_config_string retrieves nested config value", {
-  config <- list(paths = list(data = list(exports = list(processed = "/tmp"))))
+  config <- list(paths = list(data = list(export = list(processed = "/tmp"))))
   result <- get_config_string(
     config,
-    c("paths", "data", "exports", "processed"),
+    c("paths", "data", "export", "processed"),
     "field"
   )
 
