@@ -16,39 +16,6 @@ if (!exists("get_pipeline_constants", mode = "function", inherits = TRUE)) {
   )
 }
 
-
-## Build ordered list of import-stage scripts and source them
-import_stage_dirs <- c(
-  "10-file_io",
-  "11-reading",
-  "12-transform",
-  "13-output"
-)
-
-# collect R scripts from each stage directory in alphabetical order
-import_scripts <- unlist(
-  lapply(import_stage_dirs, function(d) {
-    stage_path <- here::here("r", "1-import_pipeline", d)
-    files <- list.files(stage_path, pattern = "\\.R$", full.names = FALSE)
-    if (length(files) == 0) return(character(0))
-    files <- sort(files)
-    file.path(d, files)
-  }),
-  use.names = FALSE
-)
-
-# fail early if any expected script is missing (helps surface refactor gaps)
-missing_scripts <- import_scripts[!file.exists(here::here("r", "1-import_pipeline", import_scripts))]
-if (length(missing_scripts) > 0) {
-  cli::cli_abort(c("Missing import pipeline scripts:", paste0("- ", missing_scripts)))
-}
-
-# Always source the current implementations to pick up refactors and avoid
-# stale function checks; source in-stage order to respect dependencies.
-for (script_name in import_scripts) {
-  source(here::here("r", "1-import_pipeline", script_name), echo = FALSE)
-}
-
 #' @title run import pipeline
 #' @description run the complete import pipeline by discovering source files,
 #' reading sheets, transforming to wide and long outputs, validating each
@@ -72,6 +39,36 @@ run_import_pipeline <- function(config) {
   cached_result <- load_pipeline_checkpoint("import_pipeline", config)
   if (!is.null(cached_result)) {
     return(cached_result)
+  }
+
+  # dynamically collect and source import-stage scripts in-order (same
+  # workflow as run_general_pipeline)
+  import_stage_dirs <- c(
+    "10-file_io",
+    "11-reading",
+    "12-transform",
+    "13-output"
+  )
+
+  import_scripts <- unlist(
+    lapply(import_stage_dirs, function(d) {
+      stage_path <- here::here("r", "1-import_pipeline", d)
+      files <- list.files(stage_path, pattern = "\\.R$", full.names = FALSE)
+      if (length(files) == 0) return(character(0))
+      files <- sort(files)
+      file.path(d, files)
+    }),
+    use.names = FALSE
+  )
+
+  missing_scripts <- import_scripts[!file.exists(here::here("r", "1-import_pipeline", import_scripts))]
+  if (length(missing_scripts) > 0) {
+    cli::cli_abort(c("Missing import pipeline scripts:", paste0("- ", missing_scripts)))
+  }
+
+  # source stage scripts in-order
+  for (script_name in import_scripts) {
+    source(here::here("r", "1-import_pipeline", script_name), echo = FALSE)
   }
 
   file_list_dt <- discover_files(config$paths$data$import$raw)
