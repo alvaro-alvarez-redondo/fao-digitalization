@@ -4,26 +4,22 @@
 
 if (!exists("get_pipeline_constants", mode = "function", inherits = TRUE)) {
   source(
-    here::here("r", "0-general_pipeline", "01-setup.R"),
+    here::here("r", "0-general_pipeline", "01-setup", "01-constants.R"),
+    echo = FALSE
+  )
+  source(
+    here::here("r", "0-general_pipeline", "01-setup", "01-config.R"),
+    echo = FALSE
+  )
+  source(
+    here::here("r", "0-general_pipeline", "01-setup", "01-directories.R"),
     echo = FALSE
   )
 }
 
 
-export_scripts <- c(
-  "30-export_data.R",
-  "31-export_lists.R"
-)
 
-purrr::walk(
-  export_scripts,
-  \(script_name) {
-    source(
-      here::here("r", "3-export_pipeline", script_name),
-      echo = FALSE
-    )
-  }
-)
+
 
 #' @title Run export pipeline
 #' @description Detects available layer data tables and export per-layer
@@ -46,6 +42,32 @@ run_export_pipeline <- function(
   checkmate::assert_list(config, names = "named")
   checkmate::assert_flag(overwrite)
   checkmate::assert_environment(env)
+
+  # dynamically collect and source export-stage scripts in-order (keep explicit workflow)
+  export_stage_dirs <- c(
+    "30-processed_data",
+    "31-lists"
+  )
+
+  export_scripts <- unlist(
+    lapply(export_stage_dirs, function(d) {
+      stage_path <- here::here("r", "3-export_pipeline", d)
+      files <- list.files(stage_path, pattern = "\\.R$", full.names = FALSE)
+      if (length(files) == 0) return(character(0))
+      files <- sort(files)
+      file.path(d, files)
+    }),
+    use.names = FALSE
+  )
+
+  missing_scripts <- export_scripts[!file.exists(here::here("r", "3-export_pipeline", export_scripts))]
+  if (length(missing_scripts) > 0) {
+    cli::cli_abort(c("Missing export pipeline scripts:", paste0("- ", missing_scripts)))
+  }
+
+  for (script_name in export_scripts) {
+    source(here::here("r", "3-export_pipeline", script_name), echo = FALSE)
+  }
 
   layer_tables <- collect_layer_tables_for_export(
     data_objects = data_objects,
