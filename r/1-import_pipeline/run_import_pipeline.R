@@ -3,26 +3,18 @@
 
 if (!exists("get_pipeline_constants", mode = "function", inherits = TRUE)) {
   source(
-    here::here("r", "0-general_pipeline", "01-setup.R"),
+    here::here("r", "0-general_pipeline", "01-setup", "01-constants.R"),
+    echo = FALSE
+  )
+  source(
+    here::here("r", "0-general_pipeline", "01-setup", "01-config.R"),
+    echo = FALSE
+  )
+  source(
+    here::here("r", "0-general_pipeline", "01-setup", "01-directories.R"),
     echo = FALSE
   )
 }
-
-
-import_scripts <- c(
-  "10-file_io.R",
-  "11-reading.R",
-  "12-transform.R",
-  "13-validate_log.R",
-  "15-output.R"
-)
-
-purrr::walk(
-  import_scripts,
-  \(script_name) {
-    source(here::here("r", "1-import_pipeline", script_name), echo = FALSE)
-  }
-)
 
 #' @title run import pipeline
 #' @description run the complete import pipeline by discovering source files,
@@ -47,6 +39,36 @@ run_import_pipeline <- function(config) {
   cached_result <- load_pipeline_checkpoint("import_pipeline", config)
   if (!is.null(cached_result)) {
     return(cached_result)
+  }
+
+  # dynamically collect and source import-stage scripts in-order (same
+  # workflow as run_general_pipeline)
+  import_stage_dirs <- c(
+    "10-file_io",
+    "11-reading",
+    "12-transform",
+    "13-output"
+  )
+
+  import_scripts <- unlist(
+    lapply(import_stage_dirs, function(d) {
+      stage_path <- here::here("r", "1-import_pipeline", d)
+      files <- list.files(stage_path, pattern = "\\.R$", full.names = FALSE)
+      if (length(files) == 0) return(character(0))
+      files <- sort(files)
+      file.path(d, files)
+    }),
+    use.names = FALSE
+  )
+
+  missing_scripts <- import_scripts[!file.exists(here::here("r", "1-import_pipeline", import_scripts))]
+  if (length(missing_scripts) > 0) {
+    cli::cli_abort(c("Missing import pipeline scripts:", paste0("- ", missing_scripts)))
+  }
+
+  # source stage scripts in-order
+  for (script_name in import_scripts) {
+    source(here::here("r", "1-import_pipeline", script_name), echo = FALSE)
   }
 
   file_list_dt <- discover_files(config$paths$data$import$raw)
@@ -124,7 +146,7 @@ run_import_pipeline <- function(config) {
       any.missing = FALSE
     )
 
-    consolidated_data <- consolidated_result$data
+    consolidated_data <- sort_pipeline_stage_dt(consolidated_result$data)
 
     list(
       data = consolidated_data,

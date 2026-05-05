@@ -4,7 +4,15 @@
 
 if (!exists("get_pipeline_constants", mode = "function", inherits = TRUE)) {
   source(
-    here::here("r", "0-general_pipeline", "01-setup.R"),
+    here::here("r", "0-general_pipeline", "01-setup", "01-constants.R"),
+    echo = FALSE
+  )
+  source(
+    here::here("r", "0-general_pipeline", "01-setup", "01-config.R"),
+    echo = FALSE
+  )
+  source(
+    here::here("r", "0-general_pipeline", "01-setup", "01-directories.R"),
     echo = FALSE
   )
 }
@@ -40,7 +48,7 @@ source_postpro_script <- function(script_path) {
 }
 
 #' @title Source post-processing scripts in deterministic order
-#' @description Sources required scripts for clean and harmonize workflow.
+#' @description Sources post-processing scripts discovered by stage directories.
 #' @param pipeline_root Character scalar path to post-processing script folder.
 #' @return Invisibly returns `TRUE`.
 #' @importFrom checkmate assert_string
@@ -49,23 +57,37 @@ source_postpro_scripts <- function(
 ) {
   checkmate::assert_string(pipeline_root, min.chars = 1)
 
-  script_names <- c(
-    "20-data_audit.R",
-    "21-postpro_utilities.R",
-    "23-postpro_rule_engine.R",
-    "22-clean_harmonize_data.R",
-    "24-standardize_units.R",
-    "25-postpro_diagnostics.R"
+  # Keep explicit stage order deterministic while discovering scripts
+  stage_dirs <- c(
+    "20-data_audit",
+    "21-postpro_utilities",
+    "23-postpro_rule_engine",
+    "22-clean_harmonize_data",
+    "24-standardize_units",
+    "25-postpro_diagnostics"
   )
 
-  purrr::walk(script_names, function(script_name) {
-    source_postpro_script(fs::path(pipeline_root, script_name))
-  })
+  # build full script paths using here::here for consistency
+  script_paths <- unlist(
+    lapply(stage_dirs, function(stage_dir) {
+      stage_path <- here::here("r", "2-postpro_pipeline", stage_dir)
+      files <- list.files(stage_path, pattern = "\\.R$", full.names = FALSE)
+      if (length(files) == 0L) return(character(0))
+      files <- sort(files)
+      vapply(files, function(f) here::here("r", "2-postpro_pipeline", stage_dir, f), character(1))
+    }),
+    use.names = FALSE
+  )
+
+  missing_scripts <- script_paths[!file.exists(script_paths)]
+  if (length(missing_scripts) > 0L) {
+    cli::cli_abort(c("Missing post-processing scripts:", paste0("- ", missing_scripts)))
+  }
+
+  purrr::walk(script_paths, function(p) source_postpro_script(p))
 
   return(invisible(TRUE))
 }
-
-source_postpro_scripts()
 
 #' @title Run units standardization stage
 #' @description Executes units standardization using the clean dataset and
@@ -124,6 +146,8 @@ run_postpro_pipeline_batch <- function(
   checkmate::assert_list(config, min.len = 1)
   checkmate::assert_string(dataset_name, min.chars = 1)
 
+  source_postpro_scripts()
+
   total_steps <- 9
 
   return(progressr::with_progress({
@@ -162,12 +186,14 @@ run_postpro_pipeline_batch <- function(
       config = config,
       dataset_name = dataset_name
     )
+    clean_dt <- sort_pipeline_stage_dt(clean_dt)
 
     progress("Post-Processing Pipeline Progress: running standardize layer")
     normalize_dt <- run_units_standardization_stage(
       clean_dt = clean_dt,
       config = config
     )
+    normalize_dt <- sort_pipeline_stage_dt(normalize_dt)
 
     progress("Post-Processing Pipeline Progress: running harmonize layer")
     harmonize_dt <- run_harmonize_layer_batch(
@@ -175,6 +201,7 @@ run_postpro_pipeline_batch <- function(
       config = config,
       dataset_name = dataset_name
     )
+    harmonize_dt <- sort_pipeline_stage_dt(harmonize_dt)
 
     clean_audit <- attr(clean_dt, "layer_audit")
     standardize_audit <- attr(normalize_dt, "layer_audit")
