@@ -94,7 +94,7 @@ transform_file_dt <- function(df, file_name, yearbook, commodity_name, config) {
 }
 
 #' Resolve commodity name from file metadata
-#' Extracts and trims the commodity from `file_row`, falling back to `"unknown"`
+#' Extracts and trims the commodity from `file_row`, falling back to the centralized commodity default
 #' when missing or empty.
 #' @param file_row One-row `data.frame` with a `commodity` column.
 #' @param config Named configuration list.
@@ -112,12 +112,12 @@ resolve_commodity_name <- function(file_row, config) {
   if (is.na(commodity_name) || commodity_name == "") {
     if (show_missing_commodity_metadata_warning) {
       cli::cli_warn(c(
-        "missing commodity metadata detected; using fallback value 'unknown'",
+        "missing commodity metadata detected; using fallback value '{config$defaults$unknown_commodity}'",
         "i" = "file: {file_row[['file_name']][[1]]}"
       ))
     }
 
-    return("unknown")
+    return(config$defaults$unknown_commodity)
   }
 
   return(commodity_name)
