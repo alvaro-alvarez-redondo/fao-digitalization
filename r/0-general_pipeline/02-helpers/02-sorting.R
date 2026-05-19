@@ -4,7 +4,7 @@
 #' @title Sort pipeline stage data deterministically
 #' @description Applies deterministic row sorting for pipeline stage outputs
 #' using the canonical business key order:
-#' `hemisphere`, `continent`, `country`, `commodity`, `variable`, `unit`,
+#' `hemisphere`, `continent`, `polity`, `commodity`, `variable`, `unit`,
 #' `year`, `value`, `notes`, `footnotes`, `yearbook`, and `document`.
 #' Missing sort columns are ignored, and sorting is skipped when none are
 #' present.
@@ -13,7 +13,7 @@
 #' @return `data.table` sorted in place when possible.
 #' @importFrom checkmate check_character
 #' @examples
-#' sort_pipeline_stage_dt(data.table::data.table(country = "x", year = "2020"))
+#' sort_pipeline_stage_dt(data.table::data.table(polity = "x", year = "2020"))
 sort_pipeline_stage_dt <- function(
   dt,
   sort_columns = get_pipeline_constants()$sorting$stage_row_order

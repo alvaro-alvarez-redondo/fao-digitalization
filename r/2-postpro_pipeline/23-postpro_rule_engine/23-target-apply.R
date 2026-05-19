@@ -1,3 +1,26 @@
+#' Apply target column updates with strategy dispatch
+#' Applies conditional and unconditional target updates for one target column
+#' using the configured strategy (`last_rule_wins` or `concatenate`).
+#' @param dataset_dt `data.table` mutated by reference.
+#' @param target_updates `data.frame`/`data.table` containing row and value
+#'   updates.
+#' @param target_column Character scalar target column to update.
+#' @param row_id_column Character scalar row-id column in `target_updates`.
+#' @param value_column Character scalar update value column in `target_updates`.
+#' @param condition_column Character scalar optional target condition column.
+#' @param order_columns Character vector columns used to deterministically order
+#'   updates before strategy reduction.
+#' @param apply_condition_match Logical scalar enabling condition matching.
+#' @param dataset_name Character scalar dataset identifier.
+#' @param execution_stage Character scalar execution stage label.
+#' @param rule_file_identifier Character scalar rule file identifier.
+#' @param source_column Character scalar source column name.
+#' @return Named list with `applied` (logical), `overwrite_events`
+#'   (`data.table`), and `changed_value_count` (integer).
+#' @examples
+#' \dontrun{
+#' apply_target_updates_with_strategy(dataset_dt, updates, "unit", dataset_name = "whep", execution_stage = "clean", rule_file_identifier = "rules.xlsx", source_column = "commodity")
+#' }
 apply_target_updates_with_strategy <- function(
   dataset_dt,
   target_updates,

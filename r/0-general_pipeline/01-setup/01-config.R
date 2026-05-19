@@ -89,6 +89,13 @@ load_pipeline_config <- function(
   project_root <- here::here()
   checkmate::assert_string(project_root, min.chars = 1)
 
+  #' Build Absolute Path from Project Root
+  #'
+  #' Constructs an absolute path by joining the resolved project root with the
+  #' provided path components.
+  #'
+  #' @param ... Path components passed to `fs::path()`.
+  #' @return An absolute `fs_path` string.
   build_path <- function(...) {
     return(fs::path(project_root, ...))
   }

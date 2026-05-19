@@ -1,4 +1,16 @@
 # transform utility functions
+
+#' Identify year columns in a data table
+#' Detects columns whose names match the year-column regex pattern, excluding
+#' known non-year columns from the pipeline column order.
+#' @param df `data.frame`/`data.table` to inspect.
+#' @param config Named configuration list with `column_order`.
+#' @return Character vector of year column names.
+#' @examples
+#' identify_year_columns(
+#'   data.table::data.table(`2020` = 1, continent = "EU"),
+#'   list(column_order = c("continent", "year", "value"))
+#' )
 identify_year_columns <- function(df, config) {
   all_cols <- names(df)
   if (length(all_cols) == 0L) {
@@ -18,6 +30,17 @@ identify_year_columns <- function(df, config) {
   return(year_columns)
 }
 
+#' Normalize key identifier fields
+#' Ensures required base columns exist, normalizes commodity and textual
+#' identifiers, and cleans footnotes.
+#' @param df `data.frame`/`data.table` to normalize.
+#' @param commodity_name Character scalar commodity name.
+#' @param config Named configuration list with `column_required`.
+#' @return Modified `data.table` with normalized key fields.
+#' @examples
+#' \dontrun{
+#' normalize_key_fields(wide_dt, "wheat", config)
+#' }
 normalize_key_fields <- function(df, commodity_name, config) {
   data_dt <- ensure_data_table(df)
   data_dt_names <- names(data_dt)
@@ -36,7 +59,7 @@ normalize_key_fields <- function(df, commodity_name, config) {
   )
 
   norm_cols <- intersect(
-    c("variable", "hemisphere", "continent", "country"),
+    c("variable", "hemisphere", "continent", "polity"),
     data_dt_names
   )
   if (length(norm_cols) > 0L) {
@@ -57,6 +80,16 @@ normalize_key_fields <- function(df, commodity_name, config) {
   return(data_dt)
 }
 
+#' Convert and clean year column names
+#' Removes Excel numeric suffixes from year headers, normalizes year-range
+#' formats, and coerces year column values to character.
+#' @param df `data.frame`/`data.table` with year columns.
+#' @param config Named configuration list.
+#' @return Modified `data.table` with cleaned year column names and types.
+#' @examples
+#' \dontrun{
+#' convert_year_columns(wide_dt, config)
+#' }
 convert_year_columns <- function(df, config) {
   clean_names <- gsub("\\.0$", "", colnames(df))
   clean_names <- sub("^(\\d{4})-\\d{2}$", "\\1", clean_names)

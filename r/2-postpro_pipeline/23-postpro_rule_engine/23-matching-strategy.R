@@ -1,3 +1,11 @@
+#' Encode target rule values with explicit NA placeholder
+#' Converts missing and empty-string values to an internal NA placeholder token
+#' to support deterministic rule matching.
+#' @param values Atomic vector of values to encode.
+#' @param na_placeholder Character scalar internal missing token.
+#' @return Character vector with placeholder-encoded values.
+#' @examples
+#' encode_target_rule_value(c("a", NA, ""))
 encode_target_rule_value <- function(
   values,
   na_placeholder = get_pipeline_constants()$na_placeholder
@@ -396,6 +404,13 @@ concatenate_existing_and_incoming_values <- function(
     is.na(incoming_values_norm) | trimws(incoming_values_norm) == ""
   ] <- NA_character_
 
+  #' Split and Deduplicate Semicolon-Delimited Tokens
+  #'
+  #' Splits semicolon-delimited strings into trimmed tokens, removes empties,
+  #' deduplicates them, and returns a list of character vectors.
+  #'
+  #' @param values_chr Character vector of semicolon-delimited strings.
+  #' @return List of character vectors with deduplicated tokens.
   split_deduplicate_tokens <- function(values_chr) {
     lapply(values_chr, function(single_value) {
       if (is.na(single_value)) {

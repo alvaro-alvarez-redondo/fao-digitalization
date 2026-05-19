@@ -1,3 +1,12 @@
+#' Resolve stage runtime cache settings
+#' Merges default runtime-cache settings with optional `config$postpro$runtime_cache`
+#' overrides and validates the result.
+#' @param config Named configuration list.
+#' @return Named list with `enabled`, `cache_file_name`, and `max_entries`.
+#' @examples
+#' \dontrun{
+#' resolve_stage_runtime_cache_settings(config)
+#' }
 resolve_stage_runtime_cache_settings <- function(config) {
   checkmate::assert_list(config, min.len = 1)
 

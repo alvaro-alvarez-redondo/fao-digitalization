@@ -1,3 +1,19 @@
+#' Apply unit standardization rules to a dataset
+#' Converts numeric values based on unit standardization rules, handling
+#' numeric-prefix multipliers in unit strings and falling back to an
+#' `"all commodity"` generic rule when no specific match exists.
+#' @param mapped_dt `data.frame`/`data.table` to standardize.
+#' @param prepared_rules_dt `data.frame`/`data.table` of prepared standardization
+#'   rules.
+#' @param unit_column Character scalar name of the unit column.
+#' @param value_column Character scalar name of the numeric value column.
+#' @param commodity_column Character scalar name of the commodity column.
+#' @return Named list with `data` (standardized `data.table`), `matched_count`,
+#'   `unmatched_count`, and `matched_rule_counts`.
+#' @examples
+#' \dontrun{
+#' apply_standardize_rules(dataset_dt, rules_dt, "unit", "value", "commodity")
+#' }
 apply_standardize_rules <- function(
   mapped_dt,
   prepared_rules_dt,
@@ -60,7 +76,7 @@ apply_standardize_rules <- function(
   multiplier_prefix_pattern <- "^(\\s*[0-9][0-9.,]*(?:[eE][+-]?[0-9]+)?)[ _-]+(.+)$"
 
   detected_prefixes <- rep(1, nrow(normalize_dt))
-  original_unit_strings <- raw_unit_strings
+  source_unit_raw_strings <- raw_unit_strings
 
   # Vectorized extraction of numeric-prefix and base unit using stringi
   if (any(!is.na(raw_unit_strings) & nzchar(raw_unit_strings))) {
@@ -81,14 +97,20 @@ apply_standardize_rules <- function(
       num_val_vec <- suppressWarnings(as.numeric(num_clean_vec))
 
       apply_mask <- valid_mask
-      apply_mask[apply_mask] <- !is.na(num_val_vec) & is.finite(num_val_vec) & (num_val_vec != 1)
+      apply_mask[apply_mask] <- !is.na(num_val_vec) &
+        is.finite(num_val_vec) &
+        (num_val_vec != 1)
 
       if (any(apply_mask)) {
         idxs <- which(apply_mask)
 
         # numeric multipliers aligned with idxs
         num_vals_aligned <- rep(NA_real_, length(idxs))
-        num_vals_aligned[] <- as.numeric(gsub(",", "", trimws(num_str_vec[apply_mask])))
+        num_vals_aligned[] <- as.numeric(gsub(
+          ",",
+          "",
+          trimws(num_str_vec[apply_mask])
+        ))
 
         numeric_values[idxs] <- numeric_values[idxs] * num_vals_aligned
         detected_prefixes[idxs] <- num_vals_aligned
@@ -217,20 +239,20 @@ apply_standardize_rules <- function(
       rule_commodity_match_key = join_result$commodity_match_key[is_matched],
       applied_commodity_match_key = commodity_keys[is_matched],
       unit_source_key = join_result$unit_source_key[is_matched],
-      original_unit = original_unit_strings[is_matched],
+      source_unit_raw = source_unit_raw_strings[is_matched],
       rule_multiplier = join_result$unit_factor_num[is_matched],
       detected_prefix = detected_prefixes[is_matched]
     )[,
       .(
         affected_rows = .N,
         # effective multiplier applied to the original input value
-        effective_multiplier = unique(rule_multiplier * detected_prefix)
+        unit_factor_effective = unique(rule_multiplier * detected_prefix)
       ),
       by = .(
         rule_commodity_match_key,
         applied_commodity_match_key,
         unit_source_key,
-        original_unit,
+        source_unit_raw,
         rule_multiplier,
         detected_prefix
       )

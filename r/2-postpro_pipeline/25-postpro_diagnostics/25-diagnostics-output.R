@@ -1,3 +1,15 @@
+#' Build post-processing diagnostics across all stages
+#' Summarizes clean, harmonize, and standardize audit tables into a single
+#' diagnostics object.
+#' @param clean_audit_dt `data.frame`/`data.table` clean-stage audit table.
+#' @param harmonize_audit_dt `data.frame`/`data.table` harmonize-stage audit table.
+#' @param standardize_audit_dt `data.frame`/`data.table` standardize-stage audit table.
+#' @return Named list with `clean_rule_summary`, `harmonize_rule_summary`, and
+#'   `standardize_rule_summary`.
+#' @examples
+#' \dontrun{
+#' build_postpro_diagnostics(clean_audit, harmonize_audit, standardize_audit)
+#' }
 build_postpro_diagnostics <- function(
   clean_audit_dt,
   harmonize_audit_dt,
@@ -73,6 +85,14 @@ build_last_rule_wins_overwrite_subset <- function(
     return(cbind(metadata_empty, final_dt[0L, ], fill = TRUE))
   }
 
+  #' Collapse Values into Sorted Unique String
+  #'
+  #' Collapses a character vector into a sorted, unique, semicolon-delimited
+  #' string. Returns `NA_character_` when the input contains only missing or
+  #' empty values.
+  #'
+  #' @param values Vector of values to collapse.
+  #' @return A semicolon-delimited character string or `NA_character_`.
   collapse_values <- function(values) {
     values_chr <- trimws(as.character(values))
     values_chr <- values_chr[!is.na(values_chr) & nzchar(values_chr)]
@@ -227,14 +247,44 @@ persist_postpro_audit <- function(
     path = output_paths[["harmonize_audit"]]
   )
 
-  writexl::write_xlsx(
-    list(
-      matched_rules = data.table::as.data.table(
-        diagnostics$standardize_rule_summary
-      ),
-      unmatched_rules = data.table::as.data.table(standardize_unmatched_summary)
-    ),
-    path = output_paths[["standardize_audit"]]
+  standardize_matched_dt <- data.table::as.data.table(
+    diagnostics$standardize_rule_summary
+  )
+  standardize_unmatched_dt <- data.table::as.data.table(
+    standardize_unmatched_summary
+  )
+
+  excel_columns <- c(
+    "affected_rows",
+    "rule_file_identifier",
+    "commodity_key",
+    "source_unit_raw",
+    "unit_target",
+    "unit_factor",
+    "unit_factor_effective",
+    "unit_offset"
+  )
+
+  wb <- openxlsx::createWorkbook()
+
+  openxlsx::addWorksheet(wb, "matched_rules")
+  openxlsx::writeData(
+    wb,
+    "matched_rules",
+    standardize_matched_dt[, ..excel_columns]
+  )
+
+  openxlsx::addWorksheet(wb, "unmatched_rules")
+  openxlsx::writeData(
+    wb,
+    "unmatched_rules",
+    standardize_unmatched_dt[, ..excel_columns]
+  )
+
+  openxlsx::saveWorkbook(
+    wb,
+    output_paths[["standardize_audit"]],
+    overwrite = TRUE
   )
 
   writexl::write_xlsx(

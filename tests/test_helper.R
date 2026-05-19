@@ -195,7 +195,7 @@ build_test_config <- function(root_dir = NULL) {
         )
       )
     ),
-    column_required = c("continent", "country"),
+    column_required = c("continent", "polity"),
     column_id = c(
       "hemisphere",
       "commodity",
@@ -203,13 +203,13 @@ build_test_config <- function(root_dir = NULL) {
       "unit",
       "hemisphere",
       "continent",
-      "country",
+      "polity",
       "footnotes"
     ),
     column_order = c(
       "hemisphere",
       "continent",
-      "country",
+      "polity",
       "commodity",
       "variable",
       "unit",
@@ -228,7 +228,7 @@ build_test_config <- function(root_dir = NULL) {
       lists_to_export = c(
         "hemisphere",
         "continent",
-        "country",
+        "polity",
         "commodity",
         "variable",
         "unit",
@@ -259,7 +259,7 @@ create_test_xlsx <- function(data, file_path, sheet_name = "Sheet1") {
 build_sample_long_dt <- function(n_rows = 4L) {
   data.table::data.table(
     continent = rep(c("Asia", "Europe"), length.out = n_rows),
-    country = rep(c("Japan", "France"), length.out = n_rows),
+    polity = rep(c("Japan", "France"), length.out = n_rows),
     commodity = rep("wheat", n_rows),
     variable = rep("commodityion", n_rows),
     unit = rep("tonnes", n_rows),

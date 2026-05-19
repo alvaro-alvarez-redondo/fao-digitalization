@@ -1,4 +1,14 @@
 # reshape and enrichment functions
+
+#' Reshape wide data to long format
+#' Melts year columns into `year`/`value` pairs using `data.table::melt`.
+#' @param df `data.frame`/`data.table` in wide format.
+#' @param config Named configuration list with `column_id`.
+#' @return `data.table` in long format with `year` and `value` columns.
+#' @examples
+#' \dontrun{
+#' reshape_to_long(wide_dt, config)
+#' }
 reshape_to_long <- function(df, config) {
   data_dt <- ensure_data_table(df)
   data_dt_names <- names(data_dt)
@@ -26,6 +36,17 @@ reshape_to_long <- function(df, config) {
   return(long_dt)
 }
 
+#' Add file metadata to long data
+#' Appends `document`, `notes`, and `yearbook` columns to a long-format table.
+#' @param whep_data_long_raw `data.table` in long format.
+#' @param file_name Character scalar file name.
+#' @param yearbook Character scalar yearbook identifier.
+#' @param config Named configuration list with `defaults$notes_value`.
+#' @return Modified `data.table` with metadata columns set by reference.
+#' @examples
+#' \dontrun{
+#' add_metadata(long_dt, "file.xlsx", "2020", config)
+#' }
 add_metadata <- function(whep_data_long_raw, file_name, yearbook, config) {
   notes_value <- config$defaults$notes_value
   data_dt <- ensure_data_table(whep_data_long_raw)
@@ -37,6 +58,19 @@ add_metadata <- function(whep_data_long_raw, file_name, yearbook, config) {
   return(data_dt)
 }
 
+#' Transform one file's data through the full pipeline
+#' Normalizes key fields, converts year columns, reshapes to long, adds
+#' metadata, and drops rows with missing values.
+#' @param df `data.frame`/`data.table` in wide format.
+#' @param file_name Character scalar file name.
+#' @param yearbook Character scalar yearbook identifier.
+#' @param commodity_name Character scalar commodity name.
+#' @param config Named configuration list.
+#' @return Named list with `wide_raw` and `long_raw` `data.table`s.
+#' @examples
+#' \dontrun{
+#' transform_file_dt(wide_dt, "file.xlsx", "2020", "wheat", config)
+#' }
 transform_file_dt <- function(df, file_name, yearbook, commodity_name, config) {
   assert_or_abort(checkmate::check_data_frame(df))
   assert_or_abort(checkmate::check_string(file_name, min.chars = 1))
@@ -59,6 +93,14 @@ transform_file_dt <- function(df, file_name, yearbook, commodity_name, config) {
   return(transform_result)
 }
 
+#' Resolve commodity name from file metadata
+#' Extracts and trims the commodity from `file_row`, falling back to `"unknown"`
+#' when missing or empty.
+#' @param file_row One-row `data.frame` with a `commodity` column.
+#' @param config Named configuration list.
+#' @return Character scalar commodity name.
+#' @examples
+#' resolve_commodity_name(data.frame(commodity = "wheat"), list())
 resolve_commodity_name <- function(file_row, config) {
   show_missing_commodity_metadata_warning <-
     !is.null(config$messages$show_missing_commodity_metadata_warning) &&
@@ -81,6 +123,12 @@ resolve_commodity_name <- function(file_row, config) {
   return(commodity_name)
 }
 
+#' Build an empty transform result
+#' Returns a transform result with two empty `data.table`s, satisfying the
+#' transform contract.
+#' @return Named list with `wide_raw` and `long_raw` (both empty `data.table`s).
+#' @examples
+#' build_empty_transform_result()
 build_empty_transform_result <- function() {
   transform_result <- list(
     wide_raw = data.table::data.table(),
@@ -92,6 +140,16 @@ build_empty_transform_result <- function() {
   return(transform_result)
 }
 
+#' Assert transform result contract
+#' Validates that `transform_result` contains `wide_raw` and `long_raw`
+#' `data.table` elements.
+#' @param transform_result Named list to validate.
+#' @return Invisibly returns `TRUE`.
+#' @examples
+#' assert_transform_result_contract(list(
+#'   wide_raw = data.table::data.table(),
+#'   long_raw = data.table::data.table()
+#' ))
 assert_transform_result_contract <- function(transform_result) {
   assert_or_abort(checkmate::check_list(transform_result, any.missing = FALSE))
   assert_or_abort(checkmate::check_names(

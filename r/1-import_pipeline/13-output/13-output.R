@@ -1,4 +1,12 @@
 # output consolidation for import pipeline
+
+#' Validate output column order from config
+#' Ensures `config$column_order` is defined, unique, and contains the full target
+#' schema of required columns.
+#' @param config Named configuration list with `column_order`.
+#' @return Character vector of validated column order.
+#' @examples
+#' validate_output_column_order(list(column_order = c("year", "value", "document")))
 validate_output_column_order <- function(config) {
   assert_or_abort(checkmate::check_list(config, any.missing = FALSE))
 
@@ -16,7 +24,7 @@ validate_output_column_order <- function(config) {
   target_schema <- c(
     "hemisphere",
     "continent",
-    "country",
+    "polity",
     "commodity",
     "variable",
     "unit",
@@ -36,6 +44,16 @@ validate_output_column_order <- function(config) {
   return(config$column_order)
 }
 
+#' Row-bind and order a list of audited data tables
+#' Combines multiple data tables into one, adds missing columns as `NA`, and
+#' enforces the configured column order.
+#' @param dt_list List of `data.table`s or `data.frame`s (may contain `NULL`s).
+#' @param config Named configuration list with `column_order`.
+#' @return Named list with `data` (combined `data.table`) and `warnings`.
+#' @examples
+#' \dontrun{
+#' consolidate_audited_dt(list(dt1, dt2), config)
+#' }
 consolidate_audited_dt <- function(dt_list, config) {
   assert_or_abort(checkmate::check_list(dt_list, any.missing = TRUE))
 

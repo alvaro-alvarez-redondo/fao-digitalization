@@ -1,3 +1,16 @@
+#' Run a rule-based stage layer batch with optional multi-pass convergence
+#' Loads canonical rule payloads, validates schema, applies rules iteratively
+#' until convergence or max passes, and attaches diagnostics and audit metadata.
+#' @param dataset_dt `data.frame`/`data.table` input dataset.
+#' @param config Named configuration list.
+#' @param stage_name Character scalar stage label (`clean` or `harmonize`).
+#' @param dataset_name Character scalar dataset identifier.
+#' @return `data.table` with attributes `layer_diagnostics`, `layer_audit`,
+#'   `layer_last_rule_wins_overwrites`, and `layer_multi_pass_diagnostics`.
+#' @examples
+#' \dontrun{
+#' run_rule_stage_layer_batch(dataset_dt, config, "clean")
+#' }
 run_rule_stage_layer_batch <- function(
   dataset_dt,
   config,

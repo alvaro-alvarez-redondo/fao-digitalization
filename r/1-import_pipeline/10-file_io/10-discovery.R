@@ -1,4 +1,15 @@
 # discovery helpers for import pipeline
+
+#' Discover Excel files in import folder
+#' Recursively searches an import folder for `.xlsx` files and returns metadata
+#' for each file found. Warns and returns empty metadata when no files are found.
+#' @param import_folder Character scalar path to the import directory.
+#' @return `data.table` with columns `file_path`, `file_name`, `commodity`,
+#'   `yearbook`, `is_ascii`, and `error_message`.
+#' @examples
+#' \dontrun{
+#' discover_files("data/1-import/10-raw_import")
+#' }
 discover_files <- function(import_folder) {
   assert_or_abort(checkmate::check_string(import_folder, min.chars = 1))
   assert_or_abort(checkmate::check_directory_exists(import_folder))
@@ -24,6 +35,15 @@ discover_files <- function(import_folder) {
   return(metadata)
 }
 
+#' Resolve import folder from config and discover files
+#' Extracts the raw import folder path from `config` and delegates to
+#' `discover_files()` to perform the actual file discovery.
+#' @param config Named configuration list containing `paths$data$import$raw`.
+#' @return `data.table` of file metadata as returned by `discover_files()`.
+#' @examples
+#' \dontrun{
+#' discover_pipeline_files(config)
+#' }
 discover_pipeline_files <- function(config) {
   assert_or_abort(checkmate::check_list(config, any.missing = FALSE))
 

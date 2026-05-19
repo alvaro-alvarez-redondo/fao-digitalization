@@ -1,3 +1,14 @@
+#' Summarize stage audit rules into a canonical table
+#' Normalizes a stage audit table into a row-level mirror of the rule
+#' dictionary, ensuring all canonical columns are present and ordered.
+#' @param audit_dt `data.frame`/`data.table` stage audit table.
+#' @param stage_name Character scalar stage label (e.g., `"clean"` or
+#'   `"harmonize"`).
+#' @return `data.table` with one row per audit record.
+#' @examples
+#' \dontrun{
+#' summarize_stage_rules(audit_dt, "clean")
+#' }
 summarize_stage_rules <- function(audit_dt, stage_name) {
   stage_audit_dt <- data.table::as.data.table(audit_dt)
 
@@ -196,7 +207,10 @@ build_standardize_rule_catalog <- function(layer_rules_dt) {
       unit_source = character(),
       unit_target = character(),
       unit_factor = numeric(),
-      unit_offset = numeric()
+      unit_offset = numeric(),
+      source_unit_raw = character(),
+      detected_prefix = numeric(),
+      unit_factor_effective = numeric()
     ))
   }
 
@@ -226,20 +240,36 @@ build_standardize_rule_catalog <- function(layer_rules_dt) {
     rules_dt[, unit_offset := NA_real_]
   }
 
+  if (!"source_unit_raw" %in% names(rules_dt)) {
+    rules_dt[, source_unit_raw := NA_character_]
+  }
+
+  if (!"detected_prefix" %in% names(rules_dt)) {
+    rules_dt[, detected_prefix := NA_real_]
+  }
+
+  if (!"unit_factor_effective" %in% names(rules_dt)) {
+    rules_dt[, unit_factor_effective := NA_real_]
+  }
+
   catalog_dt <- rules_dt[, .(
     rule_file_identifier = as.character(source_rule_file),
     commodity_key = as.character(commodity_key),
     unit_source = as.character(unit_source),
     unit_target = as.character(unit_target),
     unit_factor = as.numeric(unit_factor),
-    unit_offset = as.numeric(unit_offset)
+    unit_offset = as.numeric(unit_offset),
+    source_unit_raw = as.character(source_unit_raw),
+    detected_prefix = as.numeric(detected_prefix),
+    unit_factor_effective = as.numeric(unit_factor_effective)
   )]
 
   character_columns <- c(
     "rule_file_identifier",
     "commodity_key",
     "unit_source",
-    "unit_target"
+    "unit_target",
+    "source_unit_raw"
   )
   for (column_name in character_columns) {
     catalog_dt[, (column_name) := as.character(get(column_name))]
@@ -269,7 +299,10 @@ summarize_standardize_rules <- function(audit_dt) {
     "unit_source",
     "unit_target",
     "unit_factor",
-    "unit_offset"
+    "unit_offset",
+    "source_unit_raw",
+    "detected_prefix",
+    "unit_factor_effective"
   )
 
   missing_columns <- setdiff(required_columns, names(stage_audit_dt))
@@ -277,7 +310,15 @@ summarize_standardize_rules <- function(audit_dt) {
     for (column_name in missing_columns) {
       if (column_name %in% c("affected_rows")) {
         stage_audit_dt[, (column_name) := NA_integer_]
-      } else if (column_name %in% c("unit_factor", "unit_offset")) {
+      } else if (
+        column_name %in%
+          c(
+            "unit_factor",
+            "unit_offset",
+            "detected_prefix",
+            "unit_factor_effective"
+          )
+      ) {
         stage_audit_dt[, (column_name) := NA_real_]
       } else {
         stage_audit_dt[, (column_name) := NA_character_]
@@ -293,12 +334,19 @@ summarize_standardize_rules <- function(audit_dt) {
     unit_factor := suppressWarnings(as.numeric(unit_factor))
   ]
   stage_audit_dt[, unit_offset := suppressWarnings(as.numeric(unit_offset))]
+  stage_audit_dt[,
+    detected_prefix := suppressWarnings(as.numeric(detected_prefix))
+  ]
+  stage_audit_dt[,
+    unit_factor_effective := suppressWarnings(as.numeric(unit_factor_effective))
+  ]
 
   for (column_name in c(
     "rule_file_identifier",
     "commodity_key",
     "unit_source",
-    "unit_target"
+    "unit_target",
+    "source_unit_raw"
   )) {
     stage_audit_dt[, (column_name) := as.character(get(column_name))]
     stage_audit_dt[
@@ -315,7 +363,10 @@ summarize_standardize_rules <- function(audit_dt) {
       unit_source = character(),
       unit_target = character(),
       unit_factor = numeric(),
-      unit_offset = numeric()
+      unit_offset = numeric(),
+      source_unit_raw = character(),
+      detected_prefix = numeric(),
+      unit_factor_effective = numeric()
     ))
   }
 
@@ -326,7 +377,10 @@ summarize_standardize_rules <- function(audit_dt) {
     "unit_source",
     "unit_target",
     "unit_factor",
-    "unit_offset"
+    "unit_offset",
+    "source_unit_raw",
+    "detected_prefix",
+    "unit_factor_effective"
   )
 
   return(stage_audit_dt[order(
@@ -358,7 +412,10 @@ build_unmatched_standardize_rule_summary <- function(
       unit_source = character(),
       unit_target = character(),
       unit_factor = numeric(),
-      unit_offset = numeric()
+      unit_offset = numeric(),
+      source_unit_raw = character(),
+      detected_prefix = numeric(),
+      unit_factor_effective = numeric()
     ))
   }
 
@@ -378,7 +435,10 @@ build_unmatched_standardize_rule_summary <- function(
     "unit_source",
     "unit_target",
     "unit_factor",
-    "unit_offset"
+    "unit_offset",
+    "source_unit_raw",
+    "detected_prefix",
+    "unit_factor_effective"
   )
 
   for (column_name in c(
@@ -399,7 +459,12 @@ build_unmatched_standardize_rule_summary <- function(
     matched_rule_summary_dt[, (column_name) := as.character(get(column_name))]
   }
 
-  for (column_name in c("unit_factor", "unit_offset")) {
+  for (column_name in c(
+    "unit_factor",
+    "unit_offset",
+    "detected_prefix",
+    "unit_factor_effective"
+  )) {
     if (!column_name %in% names(rule_catalog_dt)) {
       rule_catalog_dt[, (column_name) := NA_real_]
     }
@@ -414,6 +479,19 @@ build_unmatched_standardize_rule_summary <- function(
     matched_rule_summary_dt[,
       (column_name) := suppressWarnings(as.numeric(get(column_name)))
     ]
+  }
+
+  for (column_name in c("source_unit_raw")) {
+    if (!column_name %in% names(rule_catalog_dt)) {
+      rule_catalog_dt[, (column_name) := NA_character_]
+    }
+
+    if (!column_name %in% names(matched_rule_summary_dt)) {
+      matched_rule_summary_dt[, (column_name) := NA_character_]
+    }
+
+    rule_catalog_dt[, (column_name) := as.character(get(column_name))]
+    matched_rule_summary_dt[, (column_name) := as.character(get(column_name))]
   }
 
   rule_catalog_dt[, rule_commodity_match_key := normalize_string(commodity_key)]
@@ -463,7 +541,10 @@ build_unmatched_standardize_rule_summary <- function(
       unit_source = character(),
       unit_target = character(),
       unit_factor = numeric(),
-      unit_offset = numeric()
+      unit_offset = numeric(),
+      source_unit_raw = character(),
+      detected_prefix = numeric(),
+      unit_factor_effective = numeric()
     ))
   }
 
@@ -476,7 +557,10 @@ build_unmatched_standardize_rule_summary <- function(
     "unit_source",
     "unit_target",
     "unit_factor",
-    "unit_offset"
+    "unit_offset",
+    "source_unit_raw",
+    "detected_prefix",
+    "unit_factor_effective"
   )
 
   return(unmatched_dt[order(

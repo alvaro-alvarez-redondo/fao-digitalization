@@ -83,7 +83,9 @@ options(
 .source_pipeline_script("0-general_pipeline/01-setup/01-directories.R")
 .source_pipeline_script("0-general_pipeline/02-helpers/02-assertions.R")
 .source_pipeline_script("0-general_pipeline/02-helpers/02-time-formatting.R")
-.source_pipeline_script("0-general_pipeline/02-helpers/02-string-normalization.R")
+.source_pipeline_script(
+  "0-general_pipeline/02-helpers/02-string-normalization.R"
+)
 .source_pipeline_script("0-general_pipeline/02-helpers/02-numeric-coercion.R")
 .source_pipeline_script("0-general_pipeline/02-helpers/02-token-extraction.R")
 .source_pipeline_script("0-general_pipeline/02-helpers/02-data-table.R")
@@ -105,11 +107,21 @@ options(
 .source_pipeline_script("1-import_pipeline/12-transform/12-processing.R")
 .source_pipeline_script("1-import_pipeline/13-output/13-validate.R")
 .source_pipeline_script("1-import_pipeline/13-output/13-output.R")
-.source_pipeline_script("2-postpro_pipeline/21-postpro_utilities/21-stage-definitions.R")
-.source_pipeline_script("2-postpro_pipeline/21-postpro_utilities/21-output-roots.R")
-.source_pipeline_script("2-postpro_pipeline/24-standardize_units/24-rules-setup.R")
-.source_pipeline_script("2-postpro_pipeline/24-standardize_units/24-standardize-engine.R")
-.source_pipeline_script("2-postpro_pipeline/24-standardize_units/24-standardize-orchestration.R")
+.source_pipeline_script(
+  "2-postpro_pipeline/21-postpro_utilities/21-stage-definitions.R"
+)
+.source_pipeline_script(
+  "2-postpro_pipeline/21-postpro_utilities/21-output-roots.R"
+)
+.source_pipeline_script(
+  "2-postpro_pipeline/24-standardize_units/24-rules-setup.R"
+)
+.source_pipeline_script(
+  "2-postpro_pipeline/24-standardize_units/24-standardize-engine.R"
+)
+.source_pipeline_script(
+  "2-postpro_pipeline/24-standardize_units/24-standardize-orchestration.R"
+)
 .source_pipeline_script("3-export_pipeline/31-export_lists.R")
 
 # ── load perf sub-modules (p0 ... p8) ────────────────────────────────────────
@@ -132,10 +144,8 @@ ensure_perf_dependencies()
 #' @description Execute the full performance workflow, including benchmark
 #'   execution, complexity fitting, diagnostics, reporting, Markdown export, and
 #'   persistence.
-#'
 #'   stage-level results are available under `result$by_stage[[stage_id]]` and
 #'   stage diagnostics under `result$stage_diagnostics[[stage_id]]`.
-#'
 #' @param cfg A named list of analysis configuration values.
 #' @param output_dir A character scalar output directory override.
 #' @param quiet A logical scalar verbosity flag.
@@ -254,7 +264,6 @@ run_big_o_analysis <- function(
 #' @title Run performance analysis
 #' @description Convenience wrapper around run_big_o_analysis() exposing common
 #'   run controls as direct arguments.
-#'
 #' @param input_sizes An integer vector of benchmark sizes.
 #' @param n_reps An integer scalar of repetitions per size.
 #' @param n_year_cols An integer scalar number of synthetic year columns.

@@ -25,6 +25,13 @@ collect_layer_tables_for_export <- function(
 
   layer_pattern <- paste0("_(", paste(layer_suffixes, collapse = "|"), ")$")
 
+  #' Validate Layer Object Name
+  #'
+  #' Tests whether an object name ends with a configured layer suffix while
+  #' explicitly excluding `_post_processed` and `_wide_raw` objects.
+  #'
+  #' @param object_name Character string representing the object name.
+  #' @return Logical scalar indicating validity.
   is_valid_layer_name <- function(object_name) {
     return(
       !is.na(object_name) &&

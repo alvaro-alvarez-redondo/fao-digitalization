@@ -382,10 +382,10 @@ testthat::test_that("clean stage normalizes matching once and avoids repeated pu
   config <- build_test_config()
 
   clean_rules <- data.frame(
-    column_source = "country",
+    column_source = "polity",
     value_source_raw = "france alsace",
     value_source = "france: alsace",
-    column_target = "country",
+    column_target = "polity",
     value_target_raw = "france alsace",
     value_target = "france: alsace",
     stringsAsFactors = FALSE
@@ -393,11 +393,11 @@ testthat::test_that("clean stage normalizes matching once and avoids repeated pu
   create_clean_rule_file(
     config = config,
     rules_df = clean_rules,
-    filename = "clean_country_punctuation_once.csv"
+    filename = "clean_polity_punctuation_once.csv"
   )
 
   input_dt <- data.frame(
-    country = c(rep("france alsace", 14), "other"),
+    polity = c(rep("france alsace", 14), "other"),
     stringsAsFactors = FALSE
   )
 
@@ -409,8 +409,8 @@ testthat::test_that("clean stage normalizes matching once and avoids repeated pu
 
   diagnostics <- attr(result, "layer_diagnostics")
 
-  testthat::expect_true(all(result$country[1:14] == "france: alsace"))
-  testthat::expect_equal(result$country[[15]], "other")
+  testthat::expect_true(all(result$polity[1:14] == "france: alsace"))
+  testthat::expect_equal(result$polity[[15]], "other")
   testthat::expect_true(diagnostics$multi_pass$converged)
   testthat::expect_identical(
     diagnostics$multi_pass$passes_executed,

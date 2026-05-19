@@ -1,4 +1,13 @@
 # batching and pipeline-level reading
+
+#' Split file paths into workbook batches
+#' Divides a character vector of file paths into a list of batches, each
+#' containing at most `batch_size` elements.
+#' @param file_paths Character vector of file paths (may be empty or `NULL`).
+#' @param batch_size Positive integer scalar batch size.
+#' @return Named list where each element is a character vector of file paths.
+#' @examples
+#' split_workbook_batches(c("a.xlsx", "b.xlsx", "c.xlsx"), batch_size = 2)
 split_workbook_batches <- function(file_paths, batch_size) {
   assert_or_abort(checkmate::check_character(
     file_paths,
@@ -16,6 +25,15 @@ split_workbook_batches <- function(file_paths, batch_size) {
   return(split(file_paths, batch_index))
 }
 
+#' Resolve import workbook batch size from config
+#' Reads `config$performance$import_workbook_batch_size`, falling back to the
+#' pipeline constant default when not present.
+#' @param config Named configuration list.
+#' @return Positive integer scalar batch size.
+#' @examples
+#' \dontrun{
+#' resolve_import_workbook_batch_size(config)
+#' }
 resolve_import_workbook_batch_size <- function(config) {
   assert_or_abort(checkmate::check_list(config, any.missing = FALSE))
 
@@ -35,6 +53,19 @@ resolve_import_workbook_batch_size <- function(config) {
   return(resolved_batch_size)
 }
 
+#' Read a batch of workbooks
+#' Reads one or more Excel workbooks, optionally restricting sheet names per
+#' file, and returns a combined list of data tables with any error messages.
+#' @param file_paths Character vector of file paths (may be empty or `NULL`).
+#' @param config Named configuration list with `column_required`.
+#' @param sheet_names_by_file Named list mapping file paths to character vectors
+#'   of sheet names (optional).
+#' @return Named list with `read_data_list` (list of `data.table`s) and
+#'   `errors` (character vector).
+#' @examples
+#' \dontrun{
+#' read_workbook_batch(c("a.xlsx", "b.xlsx"), config)
+#' }
 read_workbook_batch <- function(
   file_paths,
   config,
@@ -113,6 +144,19 @@ read_workbook_batch <- function(
   return(list(read_data_list = read_data_list, errors = errors))
 }
 
+#' Read all pipeline files with batching and optional parallelization
+#' Splits the file list into batches, reads each batch (in parallel when a
+#' non-sequential `future` plan is active), and returns combined results.
+#' @param file_list_dt `data.frame`/`data.table` with at least a `file_path`
+#'   column.
+#' @param config Named configuration list with `column_required`.
+#' @param progressor Optional progress-reporting function.
+#' @return Named list with `read_data_list` (list of `data.table`s) and
+#'   `errors` (character vector).
+#' @examples
+#' \dontrun{
+#' read_pipeline_files(file_list_dt, config)
+#' }
 read_pipeline_files <- function(file_list_dt, config, progressor = NULL) {
   assert_or_abort(checkmate::check_data_frame(file_list_dt, min.cols = 1))
   assert_or_abort(checkmate::check_names(

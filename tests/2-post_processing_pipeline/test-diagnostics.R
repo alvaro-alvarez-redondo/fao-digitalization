@@ -151,8 +151,8 @@ testthat::test_that("build_postpro_diagnostics creates stage summaries", {
     value_source = "united_states",
     value_target_raw = "usa",
     value_target = "united states",
-    column_source = "country",
-    column_target = "country",
+    column_source = "polity",
+    column_target = "polity",
     affected_rows = 2L
   )
 
@@ -264,7 +264,7 @@ testthat::test_that("persist_postpro_audit writes overwrite subset diagnostics e
   )
 
   final_stage_dt <- data.table::data.table(
-    country = c("CountryA", "CountryB"),
+    polity = c("polityA", "polityB"),
     notes = c("note a", "note b"),
     footnotes = c("f1", "f2")
   )
@@ -273,7 +273,7 @@ testthat::test_that("persist_postpro_audit writes overwrite subset diagnostics e
     dataset_name = "demo",
     execution_stage = "harmonize",
     rule_file_identifier = "harmonize_rules.xlsx",
-    column_source = "country",
+    column_source = "polity",
     column_target = "notes",
     row_id = 2L,
     candidate_count = 2L,

@@ -1,3 +1,14 @@
+#' Build standardize layer audit table
+#' Merges standardization rules with matched-rule counts to produce a
+#' deterministic audit table aligned with the standardization workbook schema.
+#' @param layer_rules_dt `data.frame`/`data.table` of prepared standardization rules.
+#' @param matched_rule_counts_dt `data.frame`/`data.table` of matched rule counts.
+#' @param source_paths Character vector of source rule file paths.
+#' @return `data.table` with standardize audit columns.
+#' @examples
+#' \dontrun{
+#' build_standardize_layer_audit(rules_dt, counts_dt, "rules.xlsx")
+#' }
 build_standardize_layer_audit <- function(
   layer_rules_dt,
   matched_rule_counts_dt,
@@ -14,7 +25,10 @@ build_standardize_layer_audit <- function(
     "unit_source",
     "unit_target",
     "unit_factor",
-    "unit_offset"
+    "unit_offset",
+    "source_unit_raw",
+    "detected_prefix",
+    "unit_factor_effective"
   )
 
   if (nrow(layer_rules_dt) == 0L) {
@@ -25,7 +39,10 @@ build_standardize_layer_audit <- function(
       unit_source = character(),
       unit_target = character(),
       unit_factor = numeric(),
-      unit_offset = numeric()
+      unit_offset = numeric(),
+      source_unit_raw = character(),
+      detected_prefix = numeric(),
+      unit_factor_effective = numeric()
     )
 
     return(empty_audit_dt[, ..audit_columns])
@@ -78,6 +95,18 @@ build_standardize_layer_audit <- function(
     matched_counts_dt[, affected_rows := integer(.N)]
   }
 
+  if (!"source_unit_raw" %in% names(matched_counts_dt)) {
+    matched_counts_dt[, source_unit_raw := NA_character_]
+  }
+
+  if (!"detected_prefix" %in% names(matched_counts_dt)) {
+    matched_counts_dt[, detected_prefix := NA_real_]
+  }
+
+  if (!"unit_factor_effective" %in% names(matched_counts_dt)) {
+    matched_counts_dt[, unit_factor_effective := NA_real_]
+  }
+
   audit_matched_dt <- merge(
     rules_dt,
     matched_counts_dt,
@@ -95,7 +124,10 @@ build_standardize_layer_audit <- function(
       unit_source = character(),
       unit_target = character(),
       unit_factor = numeric(),
-      unit_offset = numeric()
+      unit_offset = numeric(),
+      source_unit_raw = character(),
+      detected_prefix = numeric(),
+      unit_factor_effective = numeric()
     )
 
     return(empty_audit_dt[, ..audit_columns])
@@ -108,7 +140,10 @@ build_standardize_layer_audit <- function(
     unit_source = as.character(unit_source),
     unit_target = as.character(unit_target),
     unit_factor = as.numeric(unit_factor),
-    unit_offset = as.numeric(unit_offset)
+    unit_offset = as.numeric(unit_offset),
+    source_unit_raw = as.character(source_unit_raw),
+    detected_prefix = as.numeric(detected_prefix),
+    unit_factor_effective = as.numeric(unit_factor_effective)
   )]
 
   return(audit_dt[, ..audit_columns])

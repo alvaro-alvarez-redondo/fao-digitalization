@@ -1,3 +1,13 @@
+#' Run data audit and parse numeric values
+#' Executes master validation, exports findings when present, and coerces the
+#' `value` column to numeric.
+#' @param dataset_dt `data.frame`/`data.table` to audit.
+#' @param config Named configuration list.
+#' @return `data.table` with `value` parsed as numeric.
+#' @examples
+#' \dontrun{
+#' audit_data_output(dataset_dt, config)
+#' }
 audit_data_output <- function(dataset_dt, config) {
   assert_or_abort(checkmate::check_data_frame(dataset_dt, min.rows = 0))
   assert_or_abort(checkmate::check_list(config, min.len = 1))

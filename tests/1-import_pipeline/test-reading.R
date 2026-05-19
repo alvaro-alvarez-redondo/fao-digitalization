@@ -9,7 +9,9 @@ import_scripts <- c(
   "11-reading/11-sheet-read.R",
   "11-reading/11-batching.R"
 )
-purrr::walk(import_scripts, \(script_name) source(here::here("r", "1-import_pipeline", script_name), echo = FALSE))
+purrr::walk(import_scripts, \(script_name) {
+  source(here::here("r", "1-import_pipeline", script_name), echo = FALSE)
+})
 
 
 # --- build_read_error --------------------------------------------------------
@@ -57,7 +59,7 @@ testthat::test_that("read_excel_sheet reads a valid xlsx file", {
 
   test_data <- data.frame(
     continent = c("Asia", "Europe"),
-    country = c("Japan", "France"),
+    polity = c("Japan", "France"),
     value = c("100", "200"),
     stringsAsFactors = FALSE
   )
@@ -76,7 +78,7 @@ testthat::test_that("read_excel_sheet reads a valid xlsx file", {
   testthat::expect_true(data.table::is.data.table(result$data))
   testthat::expect_true(nrow(result$data) > 0)
   testthat::expect_true("continent" %in% names(result$data))
-  testthat::expect_true("country" %in% names(result$data))
+  testthat::expect_true("polity" %in% names(result$data))
   testthat::expect_true(is.character(result$errors))
 })
 
@@ -119,7 +121,7 @@ testthat::test_that("read_file_sheets reads all sheets from a file", {
     "Sheet1",
     data.frame(
       continent = "Asia",
-      country = "Japan",
+      polity = "Japan",
       value = "100",
       stringsAsFactors = FALSE
     )
@@ -130,7 +132,7 @@ testthat::test_that("read_file_sheets reads all sheets from a file", {
     "Sheet2",
     data.frame(
       continent = "Europe",
-      country = "France",
+      polity = "France",
       value = "200",
       stringsAsFactors = FALSE
     )
@@ -153,11 +155,11 @@ testthat::test_that("read_workbook_batch reads one result per workbook path", {
   file_b <- file.path(root_dir, "batch_b.xlsx")
 
   create_test_xlsx(
-    data.frame(continent = "Asia", country = "Japan", value = "100"),
+    data.frame(continent = "Asia", polity = "Japan", value = "100"),
     file_a
   )
   create_test_xlsx(
-    data.frame(continent = "Europe", country = "France", value = "200"),
+    data.frame(continent = "Europe", polity = "France", value = "200"),
     file_b
   )
 
@@ -179,7 +181,7 @@ testthat::test_that("read_workbook_batch preserves duplicated workbook inputs", 
   file_a <- file.path(root_dir, "batch_dup.xlsx")
 
   create_test_xlsx(
-    data.frame(continent = "Asia", country = "Japan", value = "100"),
+    data.frame(continent = "Asia", polity = "Japan", value = "100"),
     file_a
   )
 
@@ -198,13 +200,13 @@ testthat::test_that("read_workbook_batch honors provided workbook sheet map", {
   openxlsx::writeData(
     wb,
     "Sheet_A",
-    data.frame(continent = "Asia", country = "Japan", value = "100")
+    data.frame(continent = "Asia", polity = "Japan", value = "100")
   )
   openxlsx::addWorksheet(wb, "Sheet_B")
   openxlsx::writeData(
     wb,
     "Sheet_B",
-    data.frame(continent = "Europe", country = "France", value = "200")
+    data.frame(continent = "Europe", polity = "France", value = "200")
   )
   openxlsx::saveWorkbook(wb, file_a, overwrite = TRUE)
 
@@ -241,7 +243,7 @@ testthat::test_that("read_pipeline_files reads single xlsx file", {
 
   test_data <- data.frame(
     continent = c("Asia", "Europe"),
-    country = c("Japan", "France"),
+    polity = c("Japan", "France"),
     value = c("100", "200"),
     stringsAsFactors = FALSE
   )

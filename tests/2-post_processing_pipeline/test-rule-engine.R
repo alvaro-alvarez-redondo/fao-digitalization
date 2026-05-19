@@ -1086,7 +1086,7 @@ testthat::test_that("apply_footnote_rules concatenates mapped notes values", {
   dataset_dt <- data.table::data.table(
     commodity = "Wheat",
     notes = NA_character_,
-    footnotes = "fn_country; fn_continent; fn_note_01; fn_note_02"
+    footnotes = "fn_polity; fn_continent; fn_note_01; fn_note_02"
   )
 
   footnote_rules <- data.table::data.table(
@@ -1109,7 +1109,7 @@ testthat::test_that("apply_footnote_rules concatenates mapped notes values", {
 
   testthat::expect_equal(
     result$data$footnotes[[1]],
-    "fn_country; fn_continent"
+    "fn_polity; fn_continent"
   )
   testthat::expect_equal(result$data$notes[[1]], "note_01; note_02")
 })

@@ -95,8 +95,8 @@ NULL
     continent = continents[
       ((row_id + workbook_id - 1L) %% length(continents)) + 1L
     ],
-    country = sprintf(
-      "country_%02d",
+    polity = sprintf(
+      "polity_%02d",
       ((row_id + workbook_id + sheet_id - 1L) %% 25L) + 1L
     ),
     value = as.character((row_id * (sheet_id + 1L) + workbook_id) %% 10000L),
@@ -377,7 +377,7 @@ NULL
     list(
       name = "normalize_key_fields",
       stage = "1-import",
-      description = "normalize commodity/variable/continent/country in n-row wide table",
+      description = "normalize commodity/variable/continent/polity in n-row wide table",
       fn_factory = function(n) {
         df <- make_wide_dt(n, n_years = n_yrs)
         function() {
@@ -716,7 +716,7 @@ NULL
       description = "compute sorted unique values for one column of n-row table",
       fn_factory = function(n) {
         dt <- make_long_dt(n)
-        function() compute_unique_column_values(dt, "country")
+        function() compute_unique_column_values(dt, "polity")
       }
     ),
 

@@ -22,7 +22,7 @@ purrr::walk(import_scripts, \(script_name) {
 testthat::test_that("identify_year_columns detects yyyy columns", {
   df <- data.table::data.table(
     continent = "x",
-    country = "y",
+    polity = "y",
     `2020` = "1",
     `2021` = "2",
     value = "3"
@@ -36,7 +36,7 @@ testthat::test_that("identify_year_columns detects yyyy columns", {
 })
 
 testthat::test_that("identify_year_columns detects yyyy-yyyy range columns", {
-  df <- data.table::data.table(`2020-2021` = "1", country = "x")
+  df <- data.table::data.table(`2020-2021` = "1", polity = "x")
   config <- build_test_config()
   result <- identify_year_columns(df, config)
 
@@ -44,7 +44,7 @@ testthat::test_that("identify_year_columns detects yyyy-yyyy range columns", {
 })
 
 testthat::test_that("identify_year_columns returns empty for non-year columns", {
-  df <- data.table::data.table(continent = "x", country = "y", value = "1")
+  df <- data.table::data.table(continent = "x", polity = "y", value = "1")
   config <- build_test_config()
   result <- identify_year_columns(df, config)
 
@@ -65,7 +65,7 @@ testthat::test_that("normalize_key_fields adds missing base columns as NA", {
 
   testthat::expect_true(data.table::is.data.table(result))
   testthat::expect_true("continent" %in% names(result))
-  testthat::expect_true("country" %in% names(result))
+  testthat::expect_true("polity" %in% names(result))
 })
 
 testthat::test_that("normalize_key_fields normalizes hemisphere when present", {
@@ -73,7 +73,7 @@ testthat::test_that("normalize_key_fields normalizes hemisphere when present", {
     commodity = "wheat",
     variable = "commodityion",
     continent = "Asia",
-    country = "Japan",
+    polity = "Japan",
     hemisphere = "Northern Hemisphere"
   )
   config <- build_test_config()
@@ -89,7 +89,7 @@ testthat::test_that("normalize_key_fields succeeds when hemisphere column is abs
     commodity = "wheat",
     variable = "commodityion",
     continent = "Asia",
-    country = "Japan"
+    polity = "Japan"
   )
   config <- build_test_config()
 
@@ -125,7 +125,7 @@ testthat::test_that("convert_year_columns sanitizes column names", {
 testthat::test_that("reshape_to_long converts wide to long format", {
   dt <- data.table::data.table(
     continent = c("Asia", "Europe"),
-    country = c("Japan", "France"),
+    polity = c("Japan", "France"),
     commodity = c("wheat", "rice"),
     variable = c("commodityion", "trade"),
     unit = c("tonnes", "tonnes"),
@@ -147,7 +147,7 @@ testthat::test_that("reshape_to_long preserves hemisphere column when present", 
   dt <- data.table::data.table(
     hemisphere = c("northern", "southern"),
     continent = c("Asia", "Europe"),
-    country = c("Japan", "France"),
+    polity = c("Japan", "France"),
     commodity = c("wheat", "rice"),
     variable = c("commodityion", "trade"),
     unit = c("tonnes", "tonnes"),
@@ -171,7 +171,7 @@ testthat::test_that("reshape_to_long preserves hemisphere column when present", 
 testthat::test_that("reshape_to_long succeeds without hemisphere column", {
   dt <- data.table::data.table(
     continent = c("Asia", "Europe"),
-    country = c("Japan", "France"),
+    polity = c("Japan", "France"),
     commodity = c("wheat", "rice"),
     variable = c("commodityion", "trade"),
     unit = c("tonnes", "tonnes"),
@@ -191,7 +191,7 @@ testthat::test_that("reshape_to_long succeeds without hemisphere column", {
 testthat::test_that("add_metadata appends document, notes, yearbook columns", {
   dt <- data.table::data.table(
     continent = "Asia",
-    country = "Japan",
+    polity = "Japan",
     year = "2020",
     value = "100"
   )
@@ -266,7 +266,7 @@ testthat::test_that("transform_files_list drops NA value rows before binding", {
     variable = "commodityion",
     unit = "tonnes",
     continent = "Asia",
-    country = "Japan",
+    polity = "Japan",
     footnotes = NA_character_,
     `2020` = "100",
     `2021` = NA_character_
@@ -276,7 +276,7 @@ testthat::test_that("transform_files_list drops NA value rows before binding", {
     variable = "trade",
     unit = "tonnes",
     continent = "Europe",
-    country = "France",
+    polity = "France",
     footnotes = NA_character_,
     `2020` = NA_character_,
     `2021` = "200"
@@ -301,7 +301,7 @@ testthat::test_that("transform_file_dt filters NA value rows from long output", 
     variable = "commodityion",
     unit = "tonnes",
     continent = "Asia",
-    country = "Japan",
+    polity = "Japan",
     footnotes = NA_character_,
     `2020` = "100",
     `2021` = NA_character_
@@ -326,7 +326,7 @@ testthat::test_that("transform_file_dt filters NA value rows from long output", 
 testthat::test_that("reshape_to_long converts data.frame input to data.table", {
   df <- data.frame(
     continent = c("Asia", "Europe"),
-    country = c("Japan", "France"),
+    polity = c("Japan", "France"),
     commodity = c("wheat", "rice"),
     variable = c("commodityion", "trade"),
     unit = c("tonnes", "tonnes"),

@@ -1,3 +1,12 @@
+#' Get post-processing output directory paths
+#' Resolves audit, diagnostics, templates, and runtime-cache directories from
+#' `config`.
+#' @param config Named configuration list.
+#' @return Named list of directory paths.
+#' @examples
+#' \dontrun{
+#' get_postpro_output_paths(config)
+#' }
 get_postpro_output_paths <- function(config) {
   checkmate::assert_list(config, min.len = 1)
   checkmate::assert_string(

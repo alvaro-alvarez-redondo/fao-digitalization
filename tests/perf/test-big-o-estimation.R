@@ -115,7 +115,7 @@ testthat::test_that("make_benchmark_config column_order includes full target sch
   required_schema <- c(
     "hemisphere",
     "continent",
-    "country",
+    "polity",
     "commodity",
     "variable",
     "unit",
@@ -171,7 +171,7 @@ testthat::test_that("make_wide_dt contains required base columns", {
     "variable",
     "unit",
     "continent",
-    "country",
+    "polity",
     "footnotes"
   )
   testthat::expect_true(all(required %in% names(dt)))
@@ -193,7 +193,7 @@ testthat::test_that("make_long_dt contains full long-format schema columns", {
     "variable",
     "unit",
     "continent",
-    "country",
+    "polity",
     "year",
     "value",
     "notes",

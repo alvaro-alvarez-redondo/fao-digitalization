@@ -1,3 +1,14 @@
+#' Write a stage rule template workbook
+#' Creates an Excel template with canonical rule columns and guidance notes in
+#' the audit templates directory.
+#' @param audit_paths Named list with a `templates_dir` element.
+#' @param overwrite Logical scalar indicating whether to overwrite an existing
+#'   template.
+#' @return Character scalar path to the written template file.
+#' @examples
+#' \dontrun{
+#' write_stage_rule_template(audit_paths)
+#' }
 write_stage_rule_template <- function(
   audit_paths,
   overwrite = TRUE

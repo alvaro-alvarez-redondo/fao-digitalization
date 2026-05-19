@@ -291,7 +291,7 @@ testthat::test_that("sort_pipeline_stage_dt sorts by canonical stage columns", {
   dt <- data.table::data.table(
     hemisphere = c("north", "north", "south"),
     continent = c("asia", "asia", "africa"),
-    country = c("japan", "china", "kenya"),
+    polity = c("japan", "china", "kenya"),
     commodity = c("rice", "rice", "tea"),
     variable = c("yield", "yield", "yield"),
     unit = c("kg", "kg", "kg"),
@@ -301,20 +301,20 @@ testthat::test_that("sort_pipeline_stage_dt sorts by canonical stage columns", {
 
   result <- sort_pipeline_stage_dt(dt)
 
-  testthat::expect_identical(result$country, c("kenya", "china", "japan"))
+  testthat::expect_identical(result$polity, c("kenya", "china", "japan"))
   testthat::expect_identical(result$year, c("2022", "2020", "2021"))
   testthat::expect_identical(result$notes, c("a", "a", "b"))
 })
 
 testthat::test_that("sort_pipeline_stage_dt ignores missing sort columns", {
   dt <- data.table::data.table(
-    country = c("japan", "brazil", "canada"),
+    polity = c("japan", "brazil", "canada"),
     value = c("1", "2", "3")
   )
 
   result <- sort_pipeline_stage_dt(dt)
 
-  testthat::expect_identical(result$country, c("brazil", "canada", "japan"))
+  testthat::expect_identical(result$polity, c("brazil", "canada", "japan"))
   testthat::expect_identical(result$value, c("2", "3", "1"))
 })
 
@@ -587,7 +587,7 @@ testthat::test_that("format_elapsed_time rejects invalid input", {
 
 testthat::test_that("drop_na_value_rows removes rows where value is NA", {
   dt <- data.table::data.table(
-    country = c("Japan", "France", "Italy"),
+    polity = c("Japan", "France", "Italy"),
     value = c("100", NA_character_, "300")
   )
 
@@ -600,7 +600,7 @@ testthat::test_that("drop_na_value_rows removes rows where value is NA", {
 
 testthat::test_that("drop_na_value_rows skips filtering when option is FALSE", {
   dt <- data.table::data.table(
-    country = c("Japan", "France"),
+    polity = c("Japan", "France"),
     value = c("100", NA_character_)
   )
 
@@ -612,7 +612,7 @@ testthat::test_that("drop_na_value_rows skips filtering when option is FALSE", {
 
 testthat::test_that("drop_na_value_rows defaults to TRUE when option is unset", {
   dt <- data.table::data.table(
-    country = c("Japan", "France"),
+    polity = c("Japan", "France"),
     value = c("100", NA_character_)
   )
 
@@ -624,7 +624,7 @@ testthat::test_that("drop_na_value_rows defaults to TRUE when option is unset", 
 
 testthat::test_that("drop_na_value_rows returns unchanged dt when no NAs", {
   dt <- data.table::data.table(
-    country = c("Japan", "France"),
+    polity = c("Japan", "France"),
     value = c("100", "200")
   )
 
@@ -634,7 +634,7 @@ testthat::test_that("drop_na_value_rows returns unchanged dt when no NAs", {
 
 testthat::test_that("drop_na_value_rows preserves data.table class", {
   dt <- data.table::data.table(
-    country = c("Japan", "France", "Italy"),
+    polity = c("Japan", "France", "Italy"),
     value = c("100", NA_character_, "300")
   )
 
@@ -644,7 +644,7 @@ testthat::test_that("drop_na_value_rows preserves data.table class", {
 
 testthat::test_that("drop_na_value_rows works with custom column name", {
   dt <- data.table::data.table(
-    country = c("Japan", "France", "Italy"),
+    polity = c("Japan", "France", "Italy"),
     amount = c("100", NA_character_, "300")
   )
 
@@ -654,7 +654,7 @@ testthat::test_that("drop_na_value_rows works with custom column name", {
 
 testthat::test_that("drop_na_value_rows returns dt when column not found", {
   dt <- data.table::data.table(
-    country = c("Japan", "France"),
+    polity = c("Japan", "France"),
     value = c("100", "200")
   )
 
@@ -663,14 +663,14 @@ testthat::test_that("drop_na_value_rows returns dt when column not found", {
 })
 
 testthat::test_that("drop_na_value_rows handles empty data.table", {
-  dt <- data.table::data.table(country = character(0), value = character(0))
+  dt <- data.table::data.table(polity = character(0), value = character(0))
   result <- drop_na_value_rows(dt)
   testthat::expect_equal(nrow(result), 0L)
 })
 
 testthat::test_that("drop_na_value_rows is idempotent", {
   dt <- data.table::data.table(
-    country = c("Japan", "France", "Italy"),
+    polity = c("Japan", "France", "Italy"),
     value = c("100", NA_character_, "300")
   )
 
@@ -682,7 +682,7 @@ testthat::test_that("drop_na_value_rows is idempotent", {
 
 testthat::test_that("drop_na_value_rows uses explicit row subsetting for data.frame input", {
   df <- data.frame(
-    country = c("Japan", "France", "Italy"),
+    polity = c("Japan", "France", "Italy"),
     value = c("100", NA_character_, "300"),
     stringsAsFactors = FALSE
   )

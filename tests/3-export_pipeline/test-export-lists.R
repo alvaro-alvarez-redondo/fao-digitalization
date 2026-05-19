@@ -17,7 +17,10 @@ source(
 testthat::test_that("get_lists_sheet_order returns fixed order", {
   result <- get_lists_sheet_order()
 
-  testthat::expect_identical(result, c("raw", "clean", "normalize", "harmonize"))
+  testthat::expect_identical(
+    result,
+    c("raw", "clean", "normalize", "harmonize")
+  )
 })
 
 
@@ -25,13 +28,16 @@ testthat::test_that("get_lists_sheet_order returns fixed order", {
 
 testthat::test_that("build_layer_tables_by_sheet enforces fixed sheet keys", {
   layer_tables <- list(
-    whep_data_raw = data.frame(country = c("a", "b")),
-    whep_data_harmonize = data.frame(country = c("a", "c"))
+    whep_data_raw = data.frame(polity = c("a", "b")),
+    whep_data_harmonize = data.frame(polity = c("a", "c"))
   )
 
   result <- build_layer_tables_by_sheet(layer_tables)
 
-  testthat::expect_identical(names(result), c("raw", "clean", "normalize", "harmonize"))
+  testthat::expect_identical(
+    names(result),
+    c("raw", "clean", "normalize", "harmonize")
+  )
   testthat::expect_true(nrow(result$clean) == 0)
   testthat::expect_true(nrow(result$normalize) == 0)
 })
@@ -39,7 +45,10 @@ testthat::test_that("build_layer_tables_by_sheet enforces fixed sheet keys", {
 testthat::test_that("build_layer_tables_by_sheet handles empty layer list", {
   result <- build_layer_tables_by_sheet(list())
 
-  testthat::expect_identical(names(result), c("raw", "clean", "normalize", "harmonize"))
+  testthat::expect_identical(
+    names(result),
+    c("raw", "clean", "normalize", "harmonize")
+  )
   testthat::expect_true(all(vapply(result, nrow, integer(1)) == 0L))
 })
 
@@ -48,15 +57,15 @@ testthat::test_that("build_layer_tables_by_sheet handles empty layer list", {
 
 testthat::test_that("collect_union_columns returns sorted unique union", {
   layer_by_sheet <- list(
-    raw = data.table::data.table(country = c("a"), year = c("2020")),
-    clean = data.table::data.table(country = c("a")),
-    normalize = data.table::data.table(country = c("a")),
-    harmonize = data.table::data.table(country = c("a"), value = c("1"))
+    raw = data.table::data.table(polity = c("a"), year = c("2020")),
+    clean = data.table::data.table(polity = c("a")),
+    normalize = data.table::data.table(polity = c("a")),
+    harmonize = data.table::data.table(polity = c("a"), value = c("1"))
   )
 
   result <- collect_union_columns(layer_by_sheet)
 
-  testthat::expect_identical(result, sort(c("country", "year", "value")))
+  testthat::expect_identical(result, sort(c("polity", "year", "value")))
 })
 
 testthat::test_that("collect_union_columns handles empty tables", {
@@ -76,9 +85,11 @@ testthat::test_that("collect_union_columns handles empty tables", {
 # --- build_column_unique_cache -----------------------------------------------
 
 testthat::test_that("compute_unique_column_values prepends (blank) when NA exists", {
-  input_dt <- data.table::data.table(country = c("a", NA_character_, "b", NA_character_))
+  input_dt <- data.table::data.table(
+    polity = c("a", NA_character_, "b", NA_character_)
+  )
 
-  result <- compute_unique_column_values(input_dt, "country")
+  result <- compute_unique_column_values(input_dt, "polity")
 
   testthat::expect_identical(result, c("(blank)", "a", "b"))
 })
@@ -93,18 +104,18 @@ testthat::test_that("compute_unique_column_values keeps numeric sort with blank 
 
 testthat::test_that("build_column_unique_cache returns empty vectors for missing columns", {
   layer_by_sheet <- list(
-    raw = data.table::data.table(country = c("a", "b")),
+    raw = data.table::data.table(polity = c("a", "b")),
     clean = data.table::data.table(),
-    normalize = data.table::data.table(country = c("a", "b")),
-    harmonize = data.table::data.table(country = c("a", "c"))
+    normalize = data.table::data.table(polity = c("a", "b")),
+    harmonize = data.table::data.table(polity = c("a", "c"))
   )
 
   union_columns <- collect_union_columns(layer_by_sheet)
   cache <- build_column_unique_cache(layer_by_sheet, union_columns)
 
-  testthat::expect_true(length(cache$clean$country) == 0)
-  testthat::expect_setequal(cache$raw$country, c("a", "b"))
-  testthat::expect_setequal(cache$harmonize$country, c("a", "c"))
+  testthat::expect_true(length(cache$clean$polity) == 0)
+  testthat::expect_setequal(cache$raw$polity, c("a", "b"))
+  testthat::expect_setequal(cache$harmonize$polity, c("a", "c"))
 })
 
 
@@ -180,7 +191,10 @@ testthat::test_that("raw different, clean=normalize=harmonize produce raw + clea
 
   result <- resolve_list_sheet_payloads(raw, clean, normalize, harmonize)
 
-  testthat::expect_setequal(names(result), c("raw", "clean_normalize_harmonize"))
+  testthat::expect_setequal(
+    names(result),
+    c("raw", "clean_normalize_harmonize")
+  )
 })
 
 testthat::test_that("normalize=harmonize and others different produce merged normalize_harmonize", {
@@ -191,7 +205,10 @@ testthat::test_that("normalize=harmonize and others different produce merged nor
 
   result <- resolve_list_sheet_payloads(raw, clean, normalize, harmonize)
 
-  testthat::expect_setequal(names(result), c("raw", "clean", "normalize_harmonize"))
+  testthat::expect_setequal(
+    names(result),
+    c("raw", "clean", "normalize_harmonize")
+  )
 })
 
 testthat::test_that("all different produce raw + clean + normalize + harmonize", {
@@ -202,7 +219,10 @@ testthat::test_that("all different produce raw + clean + normalize + harmonize",
 
   result <- resolve_list_sheet_payloads(raw, clean, normalize, harmonize)
 
-  testthat::expect_setequal(names(result), c("raw", "clean", "normalize", "harmonize"))
+  testthat::expect_setequal(
+    names(result),
+    c("raw", "clean", "normalize", "harmonize")
+  )
 })
 
 
@@ -212,14 +232,14 @@ testthat::test_that("write_column_lists_workbook writes all-equal as raw_clean_n
   config <- build_test_config()
 
   unique_cache <- list(
-    raw = list(country = c("a", "b")),
-    clean = list(country = c("a", "b")),
-    normalize = list(country = c("a", "b")),
-    harmonize = list(country = c("a", "b"))
+    raw = list(polity = c("a", "b")),
+    clean = list(polity = c("a", "b")),
+    normalize = list(polity = c("a", "b")),
+    harmonize = list(polity = c("a", "b"))
   )
 
   path <- write_column_lists_workbook(
-    column_name = "country",
+    column_name = "polity",
     unique_cache = unique_cache,
     config = config,
     overwrite = TRUE
@@ -233,14 +253,14 @@ testthat::test_that("write_column_lists_workbook writes raw + clean_normalize_ha
   config <- build_test_config()
 
   unique_cache <- list(
-    raw = list(country = c("a", "b")),
-    clean = list(country = c("c", "d")),
-    normalize = list(country = c("c", "d")),
-    harmonize = list(country = c("c", "d"))
+    raw = list(polity = c("a", "b")),
+    clean = list(polity = c("c", "d")),
+    normalize = list(polity = c("c", "d")),
+    harmonize = list(polity = c("c", "d"))
   )
 
   path <- write_column_lists_workbook(
-    column_name = "country",
+    column_name = "polity",
     unique_cache = unique_cache,
     config = config,
     overwrite = TRUE
@@ -254,14 +274,14 @@ testthat::test_that("write_column_lists_workbook merges normalize_harmonize when
   config <- build_test_config()
 
   unique_cache <- list(
-    raw = list(country = c("a", "b")),
-    clean = list(country = c("c", "d")),
-    normalize = list(country = c("e", "f")),
-    harmonize = list(country = c("e", "f"))
+    raw = list(polity = c("a", "b")),
+    clean = list(polity = c("c", "d")),
+    normalize = list(polity = c("e", "f")),
+    harmonize = list(polity = c("e", "f"))
   )
 
   path <- write_column_lists_workbook(
-    column_name = "country",
+    column_name = "polity",
     unique_cache = unique_cache,
     config = config,
     overwrite = TRUE
@@ -275,14 +295,14 @@ testthat::test_that("write_column_lists_workbook writes raw + clean + normalize 
   config <- build_test_config()
 
   unique_cache <- list(
-    raw = list(country = c("a", "b")),
-    clean = list(country = c("c", "d")),
-    normalize = list(country = c("e", "f")),
-    harmonize = list(country = c("g", "h"))
+    raw = list(polity = c("a", "b")),
+    clean = list(polity = c("c", "d")),
+    normalize = list(polity = c("e", "f")),
+    harmonize = list(polity = c("g", "h"))
   )
 
   path <- write_column_lists_workbook(
-    column_name = "country",
+    column_name = "polity",
     unique_cache = unique_cache,
     config = config,
     overwrite = TRUE
@@ -300,25 +320,25 @@ testthat::test_that("export_lists honors configured lists_to_export columns", {
 
   data_objects <- list(
     demo_raw = data.table::data.table(
-      country = c("a", "b"),
+      polity = c("a", "b"),
       document = c("doc_a.xlsx", "doc_b.xlsx"),
       value = c("1", "2"),
       year = c("2020", "2021")
     ),
     demo_clean = data.table::data.table(
-      country = c("a", "b"),
+      polity = c("a", "b"),
       document = c("doc_a.xlsx", "doc_b.xlsx"),
       value = c("1", "2"),
       year = c("2020", "2021")
     ),
     demo_normalize = data.table::data.table(
-      country = c("a", "b"),
+      polity = c("a", "b"),
       document = c("doc_a.xlsx", "doc_b.xlsx"),
       value = c("1", "2"),
       year = c("2020", "2021")
     ),
     demo_harmonize = data.table::data.table(
-      country = c("a", "b"),
+      polity = c("a", "b"),
       document = c("doc_a.xlsx", "doc_b.xlsx"),
       value = c("1", "2"),
       year = c("2020", "2021")
@@ -332,7 +352,7 @@ testthat::test_that("export_lists honors configured lists_to_export columns", {
     env = new.env(parent = emptyenv())
   )
 
-  testthat::expect_true("country" %in% names(output_paths))
+  testthat::expect_true("polity" %in% names(output_paths))
   testthat::expect_false("document" %in% names(output_paths))
   testthat::expect_false("value" %in% names(output_paths))
   testthat::expect_false("year" %in% names(output_paths))
@@ -340,23 +360,23 @@ testthat::test_that("export_lists honors configured lists_to_export columns", {
 
 testthat::test_that("export_lists includes document only when explicitly configured", {
   config <- build_test_config()
-  config$export_config$lists_to_export <- c("country", "document")
+  config$export_config$lists_to_export <- c("polity", "document")
 
   data_objects <- list(
     demo_raw = data.table::data.table(
-      country = c("a", "b"),
+      polity = c("a", "b"),
       document = c("doc_a.xlsx", "doc_b.xlsx")
     ),
     demo_clean = data.table::data.table(
-      country = c("a", "b"),
+      polity = c("a", "b"),
       document = c("doc_a.xlsx", "doc_b.xlsx")
     ),
     demo_normalize = data.table::data.table(
-      country = c("a", "b"),
+      polity = c("a", "b"),
       document = c("doc_a.xlsx", "doc_b.xlsx")
     ),
     demo_harmonize = data.table::data.table(
-      country = c("a", "b"),
+      polity = c("a", "b"),
       document = c("doc_a.xlsx", "doc_b.xlsx")
     )
   )
@@ -368,6 +388,6 @@ testthat::test_that("export_lists includes document only when explicitly configu
     env = new.env(parent = emptyenv())
   )
 
-  testthat::expect_true("country" %in% names(output_paths))
+  testthat::expect_true("polity" %in% names(output_paths))
   testthat::expect_true("document" %in% names(output_paths))
 })

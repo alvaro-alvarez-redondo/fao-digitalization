@@ -45,16 +45,16 @@ testthat::test_that("validate_mandatory_fields_dt creates missing columns", {
 
   result <- validate_mandatory_fields_dt(dt, config)
 
-  # Missing columns (continent, country) should be created as NA
+  # Missing columns (continent, polity) should be created as NA
   testthat::expect_true("continent" %in% names(result$data))
-  testthat::expect_true("country" %in% names(result$data))
+  testthat::expect_true("polity" %in% names(result$data))
 })
 
 
 testthat::test_that("validate_mandatory_fields_dt detects missing values with correct error format", {
   dt <- data.table::data.table(
     continent = c("Asia", "", NA_character_),
-    country = c("Japan", "France", ""),
+    polity = c("Japan", "France", ""),
     commodity = c("wheat", "rice", "corn"),
     variable = c("commodityion", "trade", "yield"),
     document = c("doc.xlsx", "doc.xlsx", "doc.xlsx")
@@ -65,7 +65,7 @@ testthat::test_that("validate_mandatory_fields_dt detects missing values with co
 
   testthat::expect_true(length(result$errors) > 0)
   testthat::expect_true(any(grepl("continent", result$errors)))
-  testthat::expect_true(any(grepl("country", result$errors)))
+  testthat::expect_true(any(grepl("polity", result$errors)))
   testthat::expect_true(all(grepl(
     "^missing mandatory value in document",
     result$errors
@@ -75,7 +75,7 @@ testthat::test_that("validate_mandatory_fields_dt detects missing values with co
 testthat::test_that("validate_mandatory_fields_dt adds document column when absent", {
   dt <- data.table::data.table(
     continent = c("Asia"),
-    country = c("")
+    polity = c("")
   )
   config <- build_test_config()
 
@@ -106,7 +106,7 @@ testthat::test_that("detect_duplicates_dt finds duplicate rows", {
     value = c("100", "100"),
     document = c("file1.xlsx", "file1.xlsx"),
     continent = c("Asia", "Asia"),
-    country = c("Japan", "Japan"),
+    polity = c("Japan", "Japan"),
     unit = c("tonnes", "tonnes"),
     footnotes = c(NA_character_, NA_character_),
     yearbook = c("yb_2024", "yb_2024"),
@@ -258,7 +258,7 @@ testthat::test_that("validate_year_values returns unchanged data", {
 testthat::test_that("validate_long_dt handles empty data.table", {
   dt <- data.table::data.table(
     continent = character(0),
-    country = character(0),
+    polity = character(0),
     commodity = character(0),
     variable = character(0),
     unit = character(0),

@@ -2,20 +2,67 @@ options(
   whep.run_export_pipeline.auto = FALSE
 )
 
-source(here::here("r", "0-general_pipeline", "02-helpers", "02-assertions.R"), echo = FALSE)
-source(here::here("r", "0-general_pipeline", "02-helpers", "02-time-formatting.R"), echo = FALSE)
-source(here::here("r", "0-general_pipeline", "02-helpers", "02-string-normalization.R"), echo = FALSE)
-source(here::here("r", "0-general_pipeline", "02-helpers", "02-numeric-coercion.R"), echo = FALSE)
-source(here::here("r", "0-general_pipeline", "02-helpers", "02-token-extraction.R"), echo = FALSE)
-source(here::here("r", "0-general_pipeline", "02-helpers", "02-data-table.R"), echo = FALSE)
-source(here::here("r", "0-general_pipeline", "02-helpers", "02-export-validation.R"), echo = FALSE)
-source(here::here("r", "0-general_pipeline", "02-helpers", "02-config-accessors.R"), echo = FALSE)
-source(here::here("r", "0-general_pipeline", "02-helpers", "02-progress.R"), echo = FALSE)
-source(here::here("r", "0-general_pipeline", "02-helpers", "02-sorting.R"), echo = FALSE)
-source(here::here("r", "0-general_pipeline", "02-helpers", "02-environment.R"), echo = FALSE)
-source(here::here("r", "0-general_pipeline", "02-helpers", "02-checkpoints.R"), echo = FALSE)
-source(here::here("r", "0-general_pipeline", "02-helpers", "02-data-cleaning.R"), echo = FALSE)
-source(here::here("r", "0-general_pipeline", "02-helpers", "02-io-cache.R"), echo = FALSE)
+source(
+  here::here("r", "0-general_pipeline", "02-helpers", "02-assertions.R"),
+  echo = FALSE
+)
+source(
+  here::here("r", "0-general_pipeline", "02-helpers", "02-time-formatting.R"),
+  echo = FALSE
+)
+source(
+  here::here(
+    "r",
+    "0-general_pipeline",
+    "02-helpers",
+    "02-string-normalization.R"
+  ),
+  echo = FALSE
+)
+source(
+  here::here("r", "0-general_pipeline", "02-helpers", "02-numeric-coercion.R"),
+  echo = FALSE
+)
+source(
+  here::here("r", "0-general_pipeline", "02-helpers", "02-token-extraction.R"),
+  echo = FALSE
+)
+source(
+  here::here("r", "0-general_pipeline", "02-helpers", "02-data-table.R"),
+  echo = FALSE
+)
+source(
+  here::here("r", "0-general_pipeline", "02-helpers", "02-export-validation.R"),
+  echo = FALSE
+)
+source(
+  here::here("r", "0-general_pipeline", "02-helpers", "02-config-accessors.R"),
+  echo = FALSE
+)
+source(
+  here::here("r", "0-general_pipeline", "02-helpers", "02-progress.R"),
+  echo = FALSE
+)
+source(
+  here::here("r", "0-general_pipeline", "02-helpers", "02-sorting.R"),
+  echo = FALSE
+)
+source(
+  here::here("r", "0-general_pipeline", "02-helpers", "02-environment.R"),
+  echo = FALSE
+)
+source(
+  here::here("r", "0-general_pipeline", "02-helpers", "02-checkpoints.R"),
+  echo = FALSE
+)
+source(
+  here::here("r", "0-general_pipeline", "02-helpers", "02-data-cleaning.R"),
+  echo = FALSE
+)
+source(
+  here::here("r", "0-general_pipeline", "02-helpers", "02-io-cache.R"),
+  echo = FALSE
+)
 source(
   here::here("r", "3-export_pipeline", "30-export_data.R"),
   echo = FALSE
@@ -58,7 +105,7 @@ testthat::test_that("build export paths follow required naming conventions", {
   config <- build_export_test_config()
 
   processed_path <- build_processed_export_path(config, "dataset_harmonize")
-  column_lists_path <- build_column_lists_export_path(config, "country")
+  column_lists_path <- build_column_lists_export_path(config, "polity")
 
   testthat::expect_match(
     basename(processed_path),
@@ -66,7 +113,7 @@ testthat::test_that("build export paths follow required naming conventions", {
   )
   testthat::expect_match(
     basename(column_lists_path),
-    "^unique_country_list\\.xlsx$"
+    "^unique_polity_list\\.xlsx$"
   )
 })
 
@@ -97,8 +144,8 @@ testthat::test_that("collect_layer_tables_for_export rejects legacy names and dr
 
 testthat::test_that("build_layer_tables_by_sheet enforces fixed sheet keys", {
   layer_tables <- list(
-    whep_data_raw = data.frame(country = c("a", "b")),
-    whep_data_harmonize = data.frame(country = c("a", "c"))
+    whep_data_raw = data.frame(polity = c("a", "b")),
+    whep_data_harmonize = data.frame(polity = c("a", "c"))
   )
 
   by_sheet <- build_layer_tables_by_sheet(layer_tables)

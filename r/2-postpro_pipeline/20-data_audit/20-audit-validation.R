@@ -1,3 +1,10 @@
+#' Audit character column for non-empty values
+#' Checks that every value in `column_name` is a non-empty character string.
+#' @param dataset_dt `data.frame`/`data.table` to audit.
+#' @param column_name Character scalar column to check.
+#' @return `data.table` of audit findings or an empty findings table.
+#' @examples
+#' audit_character_non_empty(data.frame(a = c("x", "")), "a")
 audit_character_non_empty <- function(dataset_dt, column_name) {
   assert_or_abort(checkmate::check_data_frame(dataset_dt, min.rows = 0))
   assert_or_abort(checkmate::check_string(column_name, min.chars = 1))

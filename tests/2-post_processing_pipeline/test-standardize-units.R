@@ -543,7 +543,10 @@ testthat::test_that("build_standardize_layer_audit mirrors standardize workbook 
     rule_commodity_match_key = c("wheat", "all commodity", "all commodity"),
     applied_commodity_match_key = c("wheat", "corn", "rice"),
     unit_source_key = c("kg", "kg", "kg"),
-    affected_rows = c(1L, 1L, 1L)
+    affected_rows = c(1L, 1L, 1L),
+    source_unit_raw = c("kg", "kg", "kg"),
+    detected_prefix = c(1, 1, 1),
+    unit_factor_effective = c(1000, 1000, 1000)
   )
 
   result <- build_standardize_layer_audit(
@@ -559,7 +562,10 @@ testthat::test_that("build_standardize_layer_audit mirrors standardize workbook 
     "unit_source",
     "unit_target",
     "unit_factor",
-    "unit_offset"
+    "unit_offset",
+    "source_unit_raw",
+    "detected_prefix",
+    "unit_factor_effective"
   )
 
   testthat::expect_identical(names(result), expected_columns)
@@ -571,6 +577,9 @@ testthat::test_that("build_standardize_layer_audit mirrors standardize workbook 
   testthat::expect_true(all(all_commodity_rows$affected_rows == 1L))
   testthat::expect_true(all(all_commodity_rows$unit_factor == 1000))
   testthat::expect_true(all(all_commodity_rows$unit_offset == 0))
+  testthat::expect_true(all(all_commodity_rows$source_unit_raw == "kg"))
+  testthat::expect_true(all(all_commodity_rows$detected_prefix == 1))
+  testthat::expect_true(all(all_commodity_rows$unit_factor_effective == 1000))
 })
 
 

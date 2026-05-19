@@ -16,18 +16,15 @@ if (!exists("get_pipeline_constants", mode = "function", inherits = TRUE)) {
 #' @title Run full project pipeline
 #' @description Runs the general, import, post-processing, and export pipeline
 #'   scripts in deterministic sequence.
-#'
 #' @param show_view Logical scalar. If `TRUE`, display `whep_data_raw` in the
 #'   RStudio viewer when the object exists.
 #' @param pipeline_root Character scalar. Root folder containing pipeline
 #'   scripts.
-#'
 #' @return Invisibly returns `TRUE` when all pipeline scripts execute
 #'   successfully.
 #' @importFrom checkmate assert_flag assert_string assert_directory_exists assert_character
 #' @importFrom cli cli_abort cli_alert_info
 #' @importFrom purrr walk
-#'
 #' @examples
 #' \dontrun{
 #' run_pipeline(show_view = FALSE)
@@ -90,7 +87,7 @@ build_postpro_iteration_summary <- function(env = .GlobalEnv) {
   paste0(
     " | cleans: ",
     format_postpro_iteration_count(loop_counts$clean),
-    " | harmonizatios: ",
+    " | harmonizations: ",
     format_postpro_iteration_count(loop_counts$harmonize)
   )
 }

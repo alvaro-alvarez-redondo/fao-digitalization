@@ -51,11 +51,11 @@ NULL
 #' @noRd
 .ca_continents <- c("asia", "europe", "africa", "americas", "oceania")
 
-#' @title Synthetic country labels
-#' @description Internal pool of country labels used to generate synthetic rows.
+#' @title Synthetic polity labels
+#' @description Internal pool of polity labels used to generate synthetic rows.
 #' @keywords internal
 #' @noRd
-.ca_countries <- paste0("country_", formatC(1:80, width = 2L, flag = "0"))
+.ca_polity <- paste0("polity_", formatC(1:80, width = 2L, flag = "0"))
 
 #' @title Make synthetic wide data table
 #' @description Generate a wide-format data.table with n rows and n_years
@@ -70,7 +70,7 @@ make_wide_dt <- function(n, n_years = 10L) {
     variable = sample(.ca_variables, n, replace = TRUE),
     unit = sample(.ca_units, n, replace = TRUE),
     continent = sample(.ca_continents, n, replace = TRUE),
-    country = sample(.ca_countries, n, replace = TRUE),
+    polity = sample(.ca_polity, n, replace = TRUE),
     footnotes = sample(
       c(NA_character_, "e", "f", "p"),
       n,
@@ -110,7 +110,7 @@ make_long_dt <- function(n, na_fraction = 0.0, dup_fraction = 0.0) {
     variable = sample(.ca_variables, n_orig, replace = TRUE),
     unit = sample(.ca_units, n_orig, replace = TRUE),
     continent = sample(.ca_continents, n_orig, replace = TRUE),
-    country = sample(.ca_countries, n_orig, replace = TRUE),
+    polity = sample(.ca_polity, n_orig, replace = TRUE),
     year = sample(as.character(1990L:2020L), n_orig, replace = TRUE),
     value = ifelse(
       stats::runif(n_orig) < na_fraction,
@@ -166,7 +166,7 @@ make_benchmark_config <- function() {
   col_order <- c(
     "hemisphere",
     "continent",
-    "country",
+    "polity",
     "commodity",
     "variable",
     "unit",
@@ -183,7 +183,7 @@ make_benchmark_config <- function() {
       "variable",
       "unit",
       "continent",
-      "country"
+      "polity"
     ),
     column_id = c(
       "commodity",
@@ -191,21 +191,21 @@ make_benchmark_config <- function() {
       "unit",
       "hemisphere",
       "continent",
-      "country",
+      "polity",
       "footnotes"
     ),
     column_order = col_order,
     defaults = list(notes_value = NA_character_),
     columns = list(
       mandatory = c("commodity", "variable", "unit", "value"),
-      base = c("continent", "country", "unit", "footnotes"),
+      base = c("continent", "polity", "unit", "footnotes"),
       id = c(
         "commodity",
         "variable",
         "unit",
         "hemisphere",
         "continent",
-        "country",
+        "polity",
         "footnotes"
       ),
       value = c("year", "value")

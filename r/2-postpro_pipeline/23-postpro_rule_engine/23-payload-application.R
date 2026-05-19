@@ -1,3 +1,23 @@
+#' Apply footnote-specific rules with split-join-reconstruct semantics
+#' Splits semicolon-delimited footnotes into long format, matches individual
+#' footnotes against rules, applies replacements and removals, updates target
+#' columns from matched footnotes, and reconstructs the footnotes column
+#' preserving original order.
+#' @param dataset_dt `data.table` to mutate.
+#' @param footnote_rules `data.frame`/`data.table` of rules where
+#'   `column_source == "footnotes"`.
+#' @param stage_name Character scalar stage label.
+#' @param dataset_name Character scalar dataset identifier.
+#' @param rule_file_id Character scalar rule file identifier.
+#' @param execution_timestamp_utc Character scalar execution timestamp.
+#' @param apply_match_normalization Logical scalar enabling match-key
+#'   normalization.
+#' @return Named list with `data` (mutated `data.table`), `audit` (audit table),
+#'   `overwrite_events` (overwrite events table), and `changed_value_count`.
+#' @examples
+#' \dontrun{
+#' apply_footnote_rules(dataset_dt, footnote_rules, "clean", "whep", "rules.xlsx", "2024-01-01T00:00:00Z")
+#' }
 apply_footnote_rules <- function(
   dataset_dt,
   footnote_rules,

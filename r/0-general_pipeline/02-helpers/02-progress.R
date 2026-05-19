@@ -64,6 +64,15 @@ map_with_progress <- function(
     return(purrr::map(x, \(item) .f(item, ...)))
   }
 
+  #' Resolve Progress Message
+  #'
+  #' Formats a progress message by dispatching to a custom function or applying
+  #' a `sprintf()` template with the current index and total step count.
+  #'
+  #' @param item The current item being processed.
+  #' @param index Integer index of the current item.
+  #' @param total_steps Total number of items in the iteration.
+  #' @return A formatted character string or `NULL`.
   resolve_progress_message <- function(item, index, total_steps) {
     progress_message <- NULL
 

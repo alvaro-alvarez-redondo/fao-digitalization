@@ -1,4 +1,16 @@
 # sheet-level reading helpers
+
+#' Compute non-empty base rows
+#' Returns a logical vector indicating which rows have at least one non-missing,
+#' non-empty value across the specified base columns.
+#' @param read_dt `data.table` to evaluate.
+#' @param base_cols Character vector of column names to check.
+#' @return Logical vector with one element per row.
+#' @examples
+#' compute_non_empty_base_rows(
+#'   data.table::data.table(a = c("x", ""), b = c(NA, "y")),
+#'   c("a", "b")
+#' )
 compute_non_empty_base_rows <- function(read_dt, base_cols) {
   ensure_data_table(read_dt)
 
@@ -17,6 +29,17 @@ compute_non_empty_base_rows <- function(read_dt, base_cols) {
   return(keep_row)
 }
 
+#' Read a single Excel sheet
+#' Reads one worksheet from an Excel file as text, validates required columns,
+#' filters out empty rows, and tags rows with the sheet name as `variable`.
+#' @param file_path Character scalar path to the Excel file.
+#' @param sheet_name Character scalar worksheet name.
+#' @param config Named configuration list with `column_required`.
+#' @return Named list with `data` (`data.table`) and `errors` (character).
+#' @examples
+#' \dontrun{
+#' read_excel_sheet("data.xlsx", "Sheet1", config)
+#' }
 read_excel_sheet <- function(file_path, sheet_name, config) {
   assert_or_abort(checkmate::check_string(file_path, min.chars = 1))
   assert_or_abort(checkmate::check_string(sheet_name, min.chars = 1))
@@ -53,6 +76,17 @@ read_excel_sheet <- function(file_path, sheet_name, config) {
 
   read_dt <- data.table::setDT(safe_read_result$result)
 
+  # Map legacy/alternate header names to the canonical pipeline names.
+  # If the input sheet has a "country" column (any case) but not a
+  # `polity` column, rename it to `polity` so downstream code finds it.
+  read_names <- colnames(read_dt)
+  lower_names <- tolower(read_names)
+  if ("country" %in% lower_names && !("polity" %in% read_names)) {
+    country_idx <- which(lower_names == "country")[1]
+    data.table::setnames(read_dt, old = read_names[country_idx], new = "polity")
+    read_names <- colnames(read_dt)
+  }
+
   missing_base <- setdiff(base_cols, colnames(read_dt))
 
   missing_base_errors <- if (length(missing_base) > 0) {
@@ -79,6 +113,17 @@ read_excel_sheet <- function(file_path, sheet_name, config) {
   return(list(data = filtered_dt, errors = missing_base_errors))
 }
 
+#' Read all sheets from an Excel file
+#' Discovers worksheet names (or uses provided names), reads each sheet,
+#' and row-binds the results into a single `data.table`.
+#' @param file_path Character scalar path to the Excel file.
+#' @param config Named configuration list with `column_required`.
+#' @param sheet_names Optional character vector of sheet names to read.
+#' @return Named list with `data` (`data.table`) and `errors` (character).
+#' @examples
+#' \dontrun{
+#' read_file_sheets("data.xlsx", config)
+#' }
 read_file_sheets <- function(file_path, config, sheet_names = NULL) {
   assert_or_abort(checkmate::check_string(file_path, min.chars = 1))
   assert_or_abort(checkmate::check_list(config, any.missing = FALSE))

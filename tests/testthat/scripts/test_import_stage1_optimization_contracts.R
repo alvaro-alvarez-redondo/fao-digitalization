@@ -19,7 +19,7 @@ purrr::walk(import_scripts, \(script_name) {
 testthat::test_that("identify_year_columns detects single and range year columns", {
   dt <- data.table::data.table(
     continent = "asia",
-    country = "japan",
+    polity = "japan",
     `2020` = "1",
     `2020-2021` = "2",
     `x2020` = "3"
@@ -38,7 +38,7 @@ testthat::test_that("normalize_key_fields normalizes expected text columns", {
   dt <- data.table::data.table(
     variable = c("commodityion", "Trade"),
     continent = c("Asía", "Europé"),
-    country = c("Jápan", "Fránce"),
+    polity = c("Jápan", "Fránce"),
     footnotes = c("note 1/ Revised", "prel.; #2")
   )
   cfg <- build_test_config()
@@ -48,7 +48,7 @@ testthat::test_that("normalize_key_fields normalizes expected text columns", {
   testthat::expect_true(all(out$commodity == "cereals"))
   testthat::expect_identical(out$variable, c("commodityion", "trade"))
   testthat::expect_identical(out$continent, c("asia", "europe"))
-  testthat::expect_identical(out$country, c("japan", "france"))
+  testthat::expect_identical(out$polity, c("japan", "france"))
   testthat::expect_true(all(!is.na(out$footnotes)))
 })
 
@@ -75,7 +75,7 @@ testthat::test_that("reshape_to_long preserves configured id columns", {
   dt <- data.table::data.table(
     hemisphere = c("north", "south"),
     continent = c("asia", "africa"),
-    country = c("japan", "kenya"),
+    polity = c("japan", "kenya"),
     commodity = c("wheat", "rice"),
     variable = c("commodityion", "commodityion"),
     unit = c("tonnes", "tonnes"),
@@ -89,7 +89,7 @@ testthat::test_that("reshape_to_long preserves configured id columns", {
 
   testthat::expect_equal(nrow(out), 4L)
   testthat::expect_true(all(
-    c("hemisphere", "country", "year", "value") %in% names(out)
+    c("hemisphere", "polity", "year", "value") %in% names(out)
   ))
 })
 
@@ -98,7 +98,7 @@ testthat::test_that("reshape_to_long handles single-year inputs without changing
   dt <- data.table::data.table(
     hemisphere = c("north", "south"),
     continent = c("asia", "africa"),
-    country = c("japan", "kenya"),
+    polity = c("japan", "kenya"),
     commodity = c("wheat", "rice"),
     variable = c("commodityion", "commodityion"),
     unit = c("tonnes", "tonnes"),
@@ -113,7 +113,7 @@ testthat::test_that("reshape_to_long handles single-year inputs without changing
   testthat::expect_identical(unique(out$year), "2020")
   testthat::expect_identical(out$value, c("100", "200"))
   testthat::expect_true(all(
-    c("hemisphere", "country", "year", "value") %in% names(out)
+    c("hemisphere", "polity", "year", "value") %in% names(out)
   ))
 })
 
@@ -129,7 +129,7 @@ testthat::test_that("read_file_sheets combines sheet data and reports missing ba
     "Sheet_OK",
     data.frame(
       continent = "asia",
-      country = "japan",
+      polity = "japan",
       `2020` = "100",
       stringsAsFactors = FALSE
     )
@@ -159,11 +159,11 @@ testthat::test_that("read_workbook_batch returns deterministic workbook-aligned 
   file_b <- file.path(root_dir, "whep_yb_2020_2021_c_d_rice.xlsx")
 
   create_test_xlsx(
-    data.frame(continent = "asia", country = "japan", `2020` = "100"),
+    data.frame(continent = "asia", polity = "japan", `2020` = "100"),
     file_a
   )
   create_test_xlsx(
-    data.frame(continent = "europe", country = "france", `2020` = "200"),
+    data.frame(continent = "europe", polity = "france", `2020` = "200"),
     file_b
   )
 
@@ -190,13 +190,13 @@ testthat::test_that("read_workbook_batch reuses provided workbook sheet map dete
   openxlsx::writeData(
     workbook,
     "Sheet_A",
-    data.frame(continent = "asia", country = "japan", `2020` = "100")
+    data.frame(continent = "asia", polity = "japan", `2020` = "100")
   )
   openxlsx::addWorksheet(workbook, "Sheet_B")
   openxlsx::writeData(
     workbook,
     "Sheet_B",
-    data.frame(continent = "europe", country = "france", `2020` = "200")
+    data.frame(continent = "europe", polity = "france", `2020` = "200")
   )
   openxlsx::saveWorkbook(workbook, file_a, overwrite = TRUE)
 
@@ -218,7 +218,7 @@ testthat::test_that("read_workbook_batch reuses provided workbook sheet map dete
 testthat::test_that("convert_year_columns stores detected year-column cache", {
   dt <- data.table::data.table(
     continent = "asia",
-    country = "japan",
+    polity = "japan",
     `2020` = "100",
     `2021` = "110"
   )
@@ -236,7 +236,7 @@ testthat::test_that("convert_year_columns stores detected year-column cache", {
 testthat::test_that("validate_mandatory_fields_dt uses centralized unknown document default", {
   dt <- data.table::data.table(
     continent = c("asia"),
-    country = c(""),
+    polity = c(""),
     commodity = c("wheat"),
     variable = c("commodityion")
   )

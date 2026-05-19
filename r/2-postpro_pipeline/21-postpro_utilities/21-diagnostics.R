@@ -1,3 +1,13 @@
+#' Build diagnostics for one processing layer
+#' Computes row counts, match counts, and status messages for a single pipeline
+#' layer based on its audit table.
+#' @param layer_name Character scalar layer label.
+#' @param rows_in Integer scalar rows before processing.
+#' @param rows_out Integer scalar rows after processing.
+#' @param audit_dt `data.frame`/`data.table` with audit results.
+#' @return Named list with layer diagnostics.
+#' @examples
+#' build_layer_diagnostics("clean", 100, 98, data.table::data.table(affected_rows = 2))
 build_layer_diagnostics <- function(layer_name, rows_in, rows_out, audit_dt) {
   checkmate::assert_string(layer_name, min.chars = 1)
   checkmate::assert_int(rows_in, lower = 0)

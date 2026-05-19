@@ -1,3 +1,15 @@
+#' Resolve stage multi-pass control settings
+#' Merges default multi-pass settings with optional `config$postpro$multi_pass`
+#' overrides, validates stage-specific enable flags and max-pass limits, and
+#' returns the resolved controls.
+#' @param config Named configuration list.
+#' @param stage_name Character scalar stage label (`clean` or `harmonize`).
+#' @return Named list with `enabled`, `max_passes`, `cycle_policy`, and
+#'   `diagnostics_verbosity`.
+#' @examples
+#' \dontrun{
+#' resolve_stage_multi_pass_controls(config, "clean")
+#' }
 resolve_stage_multi_pass_controls <- function(config, stage_name) {
   checkmate::assert_list(config, min.len = 1)
   validated_stage_name <- validate_postpro_stage_name(stage_name)

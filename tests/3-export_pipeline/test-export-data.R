@@ -82,7 +82,7 @@ testthat::test_that("write_processed_table_fast writes valid xlsx with correct c
   file_path <- file.path(root_dir, "output.xlsx")
 
   dt <- data.table::data.table(
-    country = c("Japan", "France"),
+    polity = c("Japan", "France"),
     value = c("100", "200")
   )
 
@@ -97,8 +97,8 @@ testthat::test_that("write_processed_table_fast writes valid xlsx with correct c
   # verify the file can be read back with correct content
   read_back <- readxl::read_excel(file_path)
   testthat::expect_equal(nrow(read_back), 2L)
-  testthat::expect_equal(colnames(read_back), c("country", "value"))
-  testthat::expect_equal(read_back$country, c("Japan", "France"))
+  testthat::expect_equal(colnames(read_back), c("polity", "value"))
+  testthat::expect_equal(read_back$polity, c("Japan", "France"))
 })
 
 testthat::test_that("write_processed_table_fast respects overwrite flag", {
@@ -122,15 +122,15 @@ testthat::test_that("export_processed_data writes workbooks only for harmonize l
 
   data_objects <- list(
     test_raw = data.table::data.table(
-      country = c("a", "b"),
+      polity = c("a", "b"),
       value = c("1", "2")
     ),
     test_clean = data.table::data.table(
-      country = c("a", "b"),
+      polity = c("a", "b"),
       value = c("1", "2")
     ),
     test_harmonize = data.table::data.table(
-      country = c("a", "b"),
+      polity = c("a", "b"),
       value = c("1", "2")
     )
   )
@@ -154,15 +154,15 @@ testthat::test_that("export_processed_data export all layers when config overrid
 
   data_objects <- list(
     test_raw = data.table::data.table(
-      country = c("a", "b"),
+      polity = c("a", "b"),
       value = c("1", "2")
     ),
     test_clean = data.table::data.table(
-      country = c("a", "b"),
+      polity = c("a", "b"),
       value = c("1", "2")
     ),
     test_harmonize = data.table::data.table(
-      country = c("a", "b"),
+      polity = c("a", "b"),
       value = c("1", "2")
     )
   )
@@ -187,11 +187,11 @@ testthat::test_that("export_processed_data errors when no matching layers for ex
 
   data_objects <- list(
     test_raw = data.table::data.table(
-      country = c("a", "b"),
+      polity = c("a", "b"),
       value = c("1", "2")
     ),
     test_clean = data.table::data.table(
-      country = c("a", "b"),
+      polity = c("a", "b"),
       value = c("1", "2")
     )
   )

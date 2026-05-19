@@ -1,3 +1,16 @@
+#' Export validation audit report to Excel
+#' Writes an audit report workbook with highlighted findings. Skips creation
+#' when both `audit_dt` and `findings_dt` are empty.
+#' @param audit_dt `data.frame`/`data.table` containing audit rows.
+#' @param config Named configuration list with export styles and paths.
+#' @param findings_dt Optional `data.table` with `row_index` and `audit_column`
+#'   for cell highlighting.
+#' @param output_path Character scalar destination file path.
+#' @return Character scalar written path, or `NULL` if nothing was written.
+#' @examples
+#' \dontrun{
+#' export_validation_audit_report(audit_dt, config)
+#' }
 export_validation_audit_report <- function(
   audit_dt,
   config,

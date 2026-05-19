@@ -8,6 +8,14 @@ options(
 
 .pipeline_constants_cache <- NULL
 
+#' Retrieve pipeline constants
+#' Returns a cached named list of pipeline constants, including dataset names,
+#' timestamp formats, patterns, performance settings, defaults, column
+#' definitions, and export configuration.
+#' @return Named list of pipeline constants.
+#' @examples
+#' constants <- get_pipeline_constants()
+#' constants$dataset_default_name
 get_pipeline_constants <- function() {
   if (!is.null(.pipeline_constants_cache)) {
     return(.pipeline_constants_cache)
@@ -48,7 +56,7 @@ get_pipeline_constants <- function() {
       stage_row_order = c(
         "hemisphere",
         "continent",
-        "country",
+        "polity",
         "commodity",
         "variable",
         "unit",
@@ -268,14 +276,14 @@ get_pipeline_constants <- function() {
   )
 
   columns <- list(
-    base = c("continent", "country", "unit", "footnotes"),
+    base = c("continent", "polity", "unit", "footnotes"),
     id = c(
       "commodity",
       "variable",
       "unit",
       "hemisphere",
       "continent",
-      "country",
+      "polity",
       "footnotes"
     ),
     value = c("year", "value"),
@@ -285,7 +293,7 @@ get_pipeline_constants <- function() {
   fixed_export_columns <- c(
     "hemisphere",
     "continent",
-    "country",
+    "polity",
     "commodity",
     "variable",
     "unit",
@@ -297,7 +305,7 @@ get_pipeline_constants <- function() {
 
   audit_columns <- c(
     "continent",
-    "country",
+    "polity",
     "commodity",
     "variable",
     "unit",

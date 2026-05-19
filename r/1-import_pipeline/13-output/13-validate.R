@@ -1,4 +1,16 @@
 # validation helpers for import pipeline
+
+#' Validate mandatory fields in a data table
+#' Checks that all `config$column_required` columns are present and non-empty,
+#' filling missing columns with `NA_character_` and reporting errors per row.
+#' @param dt `data.frame`/`data.table` to validate.
+#' @param config Named configuration list with `column_required`.
+#' @return Named list with `errors` (character vector) and `data` (modified
+#'   `data.table`).
+#' @examples
+#' \dontrun{
+#' validate_mandatory_fields_dt(long_dt, config)
+#' }
 validate_mandatory_fields_dt <- function(dt, config) {
   dt_work <- copy_as_data_table(dt)
   mandatory_cols <- config$column_required
@@ -43,6 +55,16 @@ validate_mandatory_fields_dt <- function(dt, config) {
   return(list(errors = errors, data = dt_work))
 }
 
+#' Detect duplicate rows in a data table
+#' Identifies rows that are duplicated across `commodity`, `variable`, `year`,
+#' `value`, and `document`.
+#' @param dt `data.frame`/`data.table` to inspect.
+#' @return Named list with `errors` (character vector) and `data` (original
+#'   `data.table`).
+#' @examples
+#' \dontrun{
+#' detect_duplicates_dt(long_dt)
+#' }
 detect_duplicates_dt <- function(dt) {
   dt_work <- ensure_data_table(dt)
 
@@ -76,6 +98,16 @@ detect_duplicates_dt <- function(dt) {
   return(list(errors = errors, data = dt_work))
 }
 
+#' Validate year values in a data table
+#' Checks that year values are within the plausible range `[1900, current_year + 1]`
+#' and that year ranges have a start year less than or equal to the end year.
+#' @param dt `data.frame`/`data.table` with a `year` column.
+#' @return Named list with `errors` (character vector) and `data` (original
+#'   `data.table`).
+#' @examples
+#' \dontrun{
+#' validate_year_values(long_dt)
+#' }
 validate_year_values <- function(dt) {
   dt_work <- ensure_data_table(dt)
   checkmate::assert_names(colnames(dt_work), must.include = "year")
@@ -142,6 +174,16 @@ validate_year_values <- function(dt) {
   return(list(errors = errors, data = dt_work))
 }
 
+#' Run all long-format validations
+#' Sequentially applies mandatory-field, year-value, and duplicate validation to
+#' a long-format data table.
+#' @param long_dt `data.frame`/`data.table` in long format.
+#' @param config Named configuration list with `column_required`.
+#' @return Named list with `data` (validated `data.table`) and `errors`.
+#' @examples
+#' \dontrun{
+#' validate_long_dt(long_dt, config)
+#' }
 validate_long_dt <- function(long_dt, config) {
   checkmate::assert_data_frame(long_dt)
   checkmate::assert_list(config, any.missing = FALSE)

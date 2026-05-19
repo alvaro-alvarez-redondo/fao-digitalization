@@ -22,7 +22,7 @@ testthat::test_that("get_pipeline_constants returns a named list with required k
     c(
       "hemisphere",
       "continent",
-      "country",
+      "polity",
       "commodity",
       "variable",
       "unit",

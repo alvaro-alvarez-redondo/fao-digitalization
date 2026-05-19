@@ -1,4 +1,11 @@
 # file: metadata helpers for import pipeline
+
+#' Build empty file metadata table
+#' Returns a zero-row `data.table` with the standard file-metadata column schema.
+#' @return Empty `data.table` with columns `file_path`, `file_name`,
+#'   `commodity`, `yearbook`, `is_ascii`, and `error_message`.
+#' @examples
+#' build_empty_file_metadata()
 build_empty_file_metadata <- function() {
   return(data.table::data.table(
     file_path = character(),
@@ -10,6 +17,16 @@ build_empty_file_metadata <- function() {
   ))
 }
 
+#' Extract file metadata from file paths
+#' Parses file names to extract yearbook and commodity tokens, checks for
+#' ASCII encoding, and returns a structured metadata table.
+#' @param file_paths Character vector of file paths.
+#' @return `data.table` with columns `file_path`, `file_name`, `commodity`,
+#'   `yearbook`, `is_ascii`, and `error_message`.
+#' @examples
+#' \dontrun{
+#' extract_file_metadata(c("data/import/wheat_2020_001.xlsx"))
+#' }
 extract_file_metadata <- function(file_paths) {
   assert_or_abort(checkmate::check_character(
     file_paths,

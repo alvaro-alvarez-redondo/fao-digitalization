@@ -1,4 +1,18 @@
 # processing functions for transforming lists of files
+
+#' Transform a single imported file
+#' Applies normalization, reshaping, and metadata enrichment to one file's
+#' wide-format data using its associated metadata row.
+#' @param file_row One-row `data.frame` with `file_name`, `yearbook`, and
+#'   `commodity` columns.
+#' @param df_wide `data.frame` containing the raw wide-format sheet data.
+#' @param config Named configuration list.
+#' @return Named list with `wide_raw` and `long_raw` elements, or `NULL` if
+#'   `df_wide` has zero rows.
+#' @examples
+#' \dontrun{
+#' transform_single_file(file_list_dt[1], read_data_list[[1]], config)
+#' }
 transform_single_file <- function(file_row, df_wide, config) {
   assert_or_abort(checkmate::check_data_frame(
     file_row,
@@ -30,6 +44,19 @@ transform_single_file <- function(file_row, df_wide, config) {
   return(transformed)
 }
 
+#' Process a list of imported files
+#' Iterates over paired file metadata and read data, transforming each file
+#' individually. Supports parallel execution via `future.apply`.
+#' @param file_list_dt `data.frame`/`data.table` of file metadata.
+#' @param read_data_list List of `data.frame`s matching `file_list_dt` rows.
+#' @param config Named configuration list.
+#' @param progressor Optional progress-reporting function.
+#' @return List of transformation results (one per file), with `NULL` results
+#'   removed.
+#' @examples
+#' \dontrun{
+#' process_files(file_list_dt, read_data_list, config)
+#' }
 process_files <- function(
   file_list_dt,
   read_data_list,
@@ -113,6 +140,18 @@ process_files <- function(
   return(results)
 }
 
+#' Transform a list of files and combine results
+#' Processes all files, row-binds the wide and long outputs, and returns a
+#' combined transformation result satisfying the transform contract.
+#' @param file_list_dt `data.frame`/`data.table` of file metadata.
+#' @param read_data_list List of `data.frame`s matching `file_list_dt` rows.
+#' @param config Named configuration list.
+#' @param progressor Optional progress-reporting function.
+#' @return Named list with `wide_raw` and `long_raw` `data.table`s.
+#' @examples
+#' \dontrun{
+#' transform_files_list(file_list_dt, read_data_list, config)
+#' }
 transform_files_list <- function(
   file_list_dt,
   read_data_list,
