@@ -82,7 +82,7 @@ testthat::test_that("validate_mandatory_fields_dt adds document column when abse
   result <- validate_mandatory_fields_dt(dt, config)
 
   testthat::expect_true("document" %in% names(result$data))
-  testthat::expect_equal(result$data[["document"]][1], "unknown_document")
+  testthat::expect_equal(result$data[["document"]][1], "(unknown_document)")
   testthat::expect_true(length(result$errors) > 0)
 })
 

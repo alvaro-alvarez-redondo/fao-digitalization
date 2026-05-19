@@ -49,7 +49,8 @@ get_pipeline_constants <- function() {
       import_workbook_batch_size = 32L
     ),
     defaults = list(
-      unknown_document = "unknown_document",
+      unknown_document = "(unknown_document)",
+      unknown_commodity = "(unknown_commodity)",
       list_blank_label = "(blank)"
     ),
     sorting = list(
